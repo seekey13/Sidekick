@@ -1,4 +1,4 @@
--- Resting on: with your MP dropped under Rest under's line (rest.mp), out of combat and standing still, Sidekick3
+-- Resting on: with your MP dropped under Rest under's line (rest.mp), out of combat and standing still, Sidekick
 -- rests (/heal) within seconds (behaviors/rest.lua: 3 s after your last move or its last send), and you sit. Resting is turned on for the scenario if it's off, and the
 -- line raised over the 10% the scene drops you to if it's under; you stand again after.
 local RESTING = 33  -- entity status

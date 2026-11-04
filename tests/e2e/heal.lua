@@ -1,4 +1,4 @@
--- A party member under the danger line (50% by default): Sidekick3 heals them, the heal lands, their HP comes up.
+-- A party member under the danger line (50% by default): Sidekick heals them, the heal lands, their HP comes up.
 return {
     about = 'a party member at 40% HP gets a heal that lands',
     run = function (t)

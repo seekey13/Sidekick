@@ -137,7 +137,7 @@ test('no profile is blank or named Default; find takes any case, an exact match 
     eq({ profiles.find(cfg, 'TANK') ~= nil, profiles.find(cfg, 'heal'), profiles.find(cfg, 'default') }, { true, nil, nil })
     eq(profiles.names(cfg)[1]:lower(), 'tank')
     profiles.save_as(cfg, 'Sky  Two')
-    eq(profiles.find(cfg, 'sky two'), 'Sky  Two')  -- as /sk3 profile joins its words
+    eq(profiles.find(cfg, 'sky two'), 'Sky  Two')  -- as /sk profile joins its words
 end)
 
 test('new resets the working copy to the defaults on Default; delete of the loaded one goes back to Default', function ()

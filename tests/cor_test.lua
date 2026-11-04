@@ -384,7 +384,7 @@ test('max_at_11: the other roll, rolled before the 11, is rolled again to chase 
     eq(decide(g_with({ [CORSAIRS_ID] = 11, [NINJA_ID] = 5 }), cfg, {}), nil)
 end)
 
--- /sk3 "Bolter's Roll": that roll now, then Double-Up at lowest (jobs/cor.lua). Its own
+-- /sk "Bolter's Roll": that roll now, then Double-Up at lowest (jobs/cor.lua). Its own
 -- catalog, so the Rolls section's choices above stay the three rolls they name.
 local BOLTER, BOLTER_ID = 330, 630
 local shot_cat = fake.catalog(COR, 75, WHM, 37, { 'Bolter\'s Roll', 'Corsair\'s Roll', 'Ninja Roll', 'Chaos Roll',
@@ -411,7 +411,7 @@ test('a roll\'s name: the apostrophe and case aside, or its Japanese name; nothi
     eq(cor.roll_named(shot_cat, 'Cure'), nil)
 end)
 
-test('/sk3 "Bolter\'s Roll": the roll now, then Double-Up at lowest until lucky, with Rolls off', function ()
+test('/sk "Bolter\'s Roll": the roll now, then Double-Up at lowest until lucky, with Rolls off', function ()
     local cfg, mem = quiet(), {}
     order(mem)
     local cmd, intent = step(snap({}), cfg, mem, shot_cat)

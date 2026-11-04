@@ -1,6 +1,6 @@
 --[[
     Sessions on one PC (boxing), as v2's party_share: every Sidekick session
-    publishes a session file, config/addons/sidekick3/session_<Name>.txt, and
+    publishes a session file, config/addons/sidekick/session_<Name>.txt, and
     reads the others'. No network: the files are the whole channel.
 
     session = { name, heartbeat = os.time() of the last write, running, epoch (its load's),
@@ -62,7 +62,7 @@ local share = {
     PRUNE = 3600,   -- seconds after which a file no one wrote (a crashed session's) is deleted
 }
 
-local VERSION = 'sk3 session 6'
+local VERSION = 'sk session 6'
 
 -- Plain data (strings, numbers, booleans and tables of them) as one line of text,
 -- and back: `act` calls and views go through files. Read with a parser of its
@@ -330,7 +330,7 @@ end
 
 -- Remote control ----------------------------------------------------------------
 
--- Who `/sk3 start|stop <who>` reaches: whether it's you (no name, or `me`'s), and
+-- Who `/sk start|stop <who>` reaches: whether it's you (no name, or `me`'s), and
 -- the live sessions it's sent to, by name: the one named `who` (any case), or with
 -- 'all', every one (a session of a character named All is taken by name first).
 -- nil, nil when no session has that name.
@@ -421,7 +421,7 @@ local published = true         -- your view's file may exist (one left by a cras
 local view_text                -- what it holds
 local views_read = {}          -- [owner name] = the text of their view last read
 
-local function dir() return ('%s\\config\\addons\\sidekick3\\'):format(AshitaCore:GetInstallPath()) end
+local function dir() return ('%s\\config\\addons\\sidekick\\'):format(AshitaCore:GetInstallPath()) end
 local function path(name) return ('%ssession_%s.txt'):format(dir(), name) end
 local function view_path(name) return ('%sview_%s.txt'):format(dir(), name) end
 

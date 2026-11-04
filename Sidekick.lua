@@ -1,7 +1,7 @@
 --[[
-Sidekick3 - Support Job Automation Framework (v3 rewrite)
+Sidekick - Support Job Automation Framework (v3)
 Copyright (c) 2026 Seekey
-https://github.com/seekey13/Sidekick3
+https://github.com/seekey13/Sidekick
 
 This addon is designed for Ashita v4 and the CatsEyeXI private server.
 
@@ -12,11 +12,11 @@ distributed WITHOUT ANY WARRANTY; see LICENSE for the details.
 SPDX-License-Identifier: GPL-3.0-or-later
 ]]--
 
-addon.name    = 'Sidekick3'
+addon.name    = 'Sidekick'
 addon.author  = 'Seekey'
 addon.version = '3.0.0'
 addon.desc    = 'Support Job Automation Framework'
-addon.link    = 'https://github.com/seekey13/Sidekick3'
+addon.link    = 'https://github.com/seekey13/Sidekick'
 
 require('common')
 local chat = require('chat')
@@ -106,11 +106,11 @@ local mem = {}         -- the engine's memory between ticks
 
 -- What the window shows and toggles besides the settings.
 local status = {
-    running = false,  -- automation on (/sk3 start); never resumed on load
+    running = false,  -- automation on (/sk start); never resumed on load
     open = nil,       -- window shown; from cfg.ui.open at the first settings load
-    failed = nil,     -- the UI raised an error: not drawn, the widget either, until /sk3 or /sk3 widget
+    failed = nil,     -- the UI raised an error: not drawn, the widget either, until /sk or /sk widget
     widget = nil,     -- the widget is up (cfg.ui.widget, not failed): other sessions' Settings show from it too
-    log = false,      -- /sk3 log prints each action to chat; off unless debugging
+    log = false,      -- /sk log prints each action to chat; off unless debugging
     intent = nil,     -- the latest decision as a sent-style entry, or nil and...
     why = nil,        -- ...why nothing (a gate, 'nothing to do', 'waiting for a cure')
     sent = {},        -- the last 10 sends, newest first: { at, command, english, action, kind, target, behavior, why }
@@ -151,7 +151,7 @@ local function refresh(now)
         local pair = abbr(snap.main) .. '_' .. abbr(snap.sub)
         if pair ~= cfg_pair then brd.clear() end  -- your songs go with the job
         if pair ~= cfg_pair or settings.switched() then cfg, cfg_pair, mem = settings.load(pair), pair, {} end
-        -- The window stays as it is across a job change; only /sk3 and its close button move it.
+        -- The window stays as it is across a job change; only /sk and its close button move it.
         if status.open == nil then status.open = cfg.ui.open end
         -- AFK sleep counts only while running, and starts over on a start or a job change.
         if status.restart then mem.afk, status.restart = nil, nil end
@@ -197,7 +197,7 @@ end
 
 -- Decide on each fresh snapshot: to act when running and the server will take a
 -- command, and while the window is open, to show what it would do. A commanded
--- roll (/sk3 "Bolter's Roll") is sent while automation is stopped too; nothing
+-- roll (/sk "Bolter's Roll") is sent while automation is stopped too; nothing
 -- else is. A decision that isn't sent changes nothing (revive marks a raise only
 -- through intent.sent).
 local function tick(g)
@@ -239,7 +239,7 @@ local function print_names(title, names)
     printf('%s', (line:gsub(',$', '')))
 end
 
--- /sk3 catalog [unknown]: what Sidekick can automate for this job, by role;
+-- /sk catalog [unknown]: what Sidekick can automate for this job, by role;
 -- 'unknown' lists the actions no knowledge row covers.
 local function show_catalog(which)
     local by_role, order = {}, {}
@@ -257,11 +257,11 @@ local function show_catalog(which)
         end
     end
     if which ~= 'unknown' and by_role.unknown then
-        printf('%d more with no automation; /sk3 catalog unknown lists them.', #by_role.unknown)
+        printf('%d more with no automation; /sk catalog unknown lists them.', #by_role.unknown)
     end
 end
 
--- /sk3 state: the snapshot automation decides from, to check it reads the game right.
+-- /sk state: the snapshot automation decides from, to check it reads the game right.
 local function show_state(g)
     local statuses = resources.load().statuses
     local flags = {}
@@ -287,7 +287,7 @@ local function show_state(g)
     if g.ready then printf('  Ready charges %d', g.ready) end
 end
 
--- /sk3 plan: what automation would do this moment, without doing it.
+-- /sk plan: what automation would do this moment, without doing it.
 local function show_plan(g)
     local intent, why = engine.decide(g, cat.list, cfg, mem)
     if intent then
@@ -301,7 +301,7 @@ end
 -- The tracked player named `name` (any case), else nil.
 local function tracked_named(name) return util.named(tracked.list, name) end
 
--- /sk3 buff [name] [me p1..p5 b0..c5 <tracked name> | off]: turn a buff row on for
+-- /sk buff [name] [me p1..p5 b0..c5 <tracked name> | off]: turn a buff row on for
 -- those targets, or off; with no name, list the rows that are on. The buff's name
 -- is the longest run of leading words naming one; the words after it are tracked players.
 local SLOTS = { p0 = 0 }  -- me, p1-p5, and the alliance's b0-b5, c0-c5
@@ -331,13 +331,13 @@ local function buff_command(args)
                 shown = shown + 1
             end
         end
-        if shown == 0 then printf('No buffs on. /sk3 buff Haste p1 p2 turns one on; /sk3 catalog lists them.') end
+        if shown == 0 then printf('No buffs on. /sk buff Haste p1 p2 turns one on; /sk catalog lists them.') end
         return
     end
-    if not a then printf('No buff "%s" for this job. /sk3 catalog lists them.', name); return end
+    if not a then printf('No buff "%s" for this job. /sk catalog lists them.', name); return end
     for k = n + 1, #words do
         local t = tracked_named(words[k])
-        if not t then printf('Not tracking "%s": /sk3 track %s first.', words[k], words[k]); return end
+        if not t then printf('Not tracking "%s": /sk track %s first.', words[k], words[k]); return end
         slots[t.name] = true
     end
     local key = settings.key(a)
@@ -348,7 +348,7 @@ local function buff_command(args)
     cfg.rows[key] = row
     settings.save()
     if not row.on then printf('%s off.', named(key))
-    elseif a.pick_one and not row.pick then printf('%s on, but pick one: /sk3 buff <spell name>.', named(key))
+    elseif a.pick_one and not row.pick then printf('%s on, but pick one: /sk buff <spell name>.', named(key))
     else printf('%s on%s.', named(key), row.pick and word(' (%s)'):format(named(row.pick)) or '') end
     for slot in pairs(row.on and slots or {}) do
         local outside = type(slot) == 'string' or slot > 5  -- a tracked name, or the alliance's B0-C5
@@ -358,7 +358,7 @@ local function buff_command(args)
     end
 end
 
--- /sk3 afk [on | off | minutes]: AFK sleep on, off, or after that many minutes;
+-- /sk afk [on | off | minutes]: AFK sleep on, off, or after that many minutes;
 -- with nothing, how it stands.
 local function afk_command(w, g)
     local n = tonumber(w)
@@ -367,7 +367,7 @@ local function afk_command(w, g)
     elseif n then
         cfg.afk.on, cfg.afk.minutes = true, util.clamp(math.floor(n), afk.MIN, afk.MAX)
     elseif w ~= '' then
-        printf('/sk3 afk [on | off | minutes (%d to %d)]', afk.MIN, afk.MAX)
+        printf('/sk afk [on | off | minutes (%d to %d)]', afk.MIN, afk.MAX)
         return
     end
     if w ~= '' then settings.save() end
@@ -379,7 +379,7 @@ local function afk_command(w, g)
     printf('AFK sleep after %d min with no party movement or combat (%s).', cfg.afk.minutes, now)
 end
 
--- /sk3 profile [name | default]: load a profile of this job pair's (Sidekick Settings
+-- /sk profile [name | default]: load a profile of this job pair's (Sidekick Settings
 -- saves them), or Default; with no name, list them. Names may have spaces.
 local function profile_command(args)
     local name = table.concat(args, ' ', 3)
@@ -396,13 +396,13 @@ local function profile_command(args)
         return
     end
     local stored = profiles.find(cfg, name)
-    if not stored then printf('No profile "%s" for %s. /sk3 profile lists them.', name, cfg_pair); return end
+    if not stored then printf('No profile "%s" for %s. /sk profile lists them.', name, cfg_pair); return end
     profiles.load(cfg, stored)
     settings.save()
     printf('Profile loaded: %s.', stored)
 end
 
--- /sk3 track [name] and the UI's Track button: a player outside your alliance, by
+-- /sk track [name] and the UI's Track button: a player outside your alliance, by
 -- name or your current target. A /check asks their level, so heals are sized
 -- (they're told you examined them, as v2 did); tracking them again asks again.
 local function track(name)
@@ -410,7 +410,7 @@ local function track(name)
     if g.loading then return end
     local p = name and (game.find_player(name) or share.named(share.sessions, name)) or not name and g.target
     if not p then
-        if name then printf('No player "%s" near you.', name) else printf('Target a player first, or /sk3 track <name>.') end
+        if name then printf('No player "%s" near you.', name) else printf('Target a player first, or /sk track <name>.') end
         return
     end
     for _, u in ipairs(g.units) do
@@ -433,7 +433,7 @@ local function track(name)
     if not shared then AshitaCore:GetChatManager():QueueCommand(1, '/check ' .. p.name) end
 end
 
--- /sk3 start|stop [name|all]: automation on or off here, in another Sidekick3
+-- /sk start|stop [name|all]: automation on or off here, in another Sidekick
 -- session on this PC by its character's name (sent as its run icon would be), or
 -- here and in every one. `me`: your name, nil while loading with no session
 -- file of yours up (other sessions can't be reached then).
@@ -443,7 +443,7 @@ local function run_command(me, on, who)
         local live = {}
         for name in pairs(share.sessions) do live[#live + 1] = name end
         table.sort(live)
-        printf('No Sidekick3 session "%s" on this PC (%s).', who,
+        printf('No Sidekick session "%s" on this PC (%s).', who,
             live[1] and word('sessions: %s'):format(table.concat(live, ', ')) or word('no other sessions'))
         return
     end
@@ -457,15 +457,15 @@ local function run_command(me, on, who)
     if others[1] then  -- each prints it in its own chat once applied
         printf('Sent %s to %s.', word(on and 'start' or 'stop'), table.concat(others, ', '))
     elseif here and who and who:lower() == 'all' and not next(share.sessions) then
-        printf('No other Sidekick3 sessions on this PC.')
+        printf('No other Sidekick sessions on this PC.')
     end
 end
 
--- The UI's Untrack buttons, and /sk3 untrack <name>.
+-- The UI's Untrack buttons, and /sk untrack <name>.
 local function untrack(name)
     local t = tracked.remove(name)
     if not t then printf('Not tracking "%s".', name)
-    elseif t.auto then printf('Stopped tracking %s (from %s\'s session) until /sk3 track %s.', t.name, t.auto, t.name)
+    elseif t.auto then printf('Stopped tracking %s (from %s\'s session) until /sk track %s.', t.name, t.auto, t.name)
     else printf('Stopped tracking %s.', t.name) end
 end
 local tracking = { add = track, remove = untrack }
@@ -573,7 +573,7 @@ local shared = {
     halted = function () return status.running and model.halted(snap) or nil end,
 }
 
-ashita.events.register('d3d_present', 'sidekick3_present', function ()
+ashita.events.register('d3d_present', 'sidekick_present', function ()
     local g, fresh = refresh(os.clock())
     if fresh then
         stale()
@@ -598,19 +598,19 @@ ashita.events.register('d3d_present', 'sidekick3_present', function ()
 end)
 
 -- The UI's fonts, outside any frame (ImGui 1.81 takes none mid-frame). An error is reported, and the UI still drawn.
-ashita.events.register('load', 'sidekick3_load', function ()
+ashita.events.register('load', 'sidekick_load', function ()
     if not ui.load then return end
     local ok, err = pcall(ui.load)
     if not ok then say(chat.error, 'The UI failed at load: %s', tostring(err)) end
 end)
 
-ashita.events.register('unload', 'sidekick3_unload', share.close)
+ashita.events.register('unload', 'sidekick_unload', share.close)
 
-ashita.events.register('packet_in', 'sidekick3_packet_in', function (e)
+ashita.events.register('packet_in', 'sidekick_packet_in', function (e)
     packets.handle(e, packet_ctx, os.clock())
 end)
 
-local HELP = '/sk3 opens or closes the window. Commands: widget, start [name|all], stop [name|all], plan, state, '
+local HELP = '/sk opens or closes the window. Commands: widget, start [name|all], stop [name|all], plan, state, '
     .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow <name|off>, rest [on|off], '
     .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], catalog [unknown], log, help. '
     .. 'A Phantom Roll\'s name (Bolter\'s Roll) rolls it now, then Double-Ups at Lowest'
@@ -618,7 +618,7 @@ local HELP = '/sk3 opens or closes the window. Commands: widget, start [name|all
 -- A command's name argument, or '' for none or `off`.
 local function name_or_off(args) return args[3] and args[3]:lower() ~= 'off' and args[3] or '' end
 
--- /sk3 commands that need nothing loaded: (args).
+-- /sk commands that need nothing loaded: (args).
 local ANYTIME = {
     catalog = function (args) show_catalog((args[3] or ''):lower()) end,
     log = function ()
@@ -667,7 +667,7 @@ local COMMANDS = {
             if new and u.sid == new.sid then new = nil end
         end
         if args[3] or new then track(args[3]); return end
-        if not tracked.list[1] then printf('Tracking no one. Target a player, then /sk3 track (or /sk3 track <name>).'); return end
+        if not tracked.list[1] then printf('Tracking no one. Target a player, then /sk track (or /sk track <name>).'); return end
         local list = {}
         for i, t in ipairs(tracked.list) do
             list[i] = t.name .. (t.main_lv and (' (%s%d)'):format(abbr(t.main), t.main_lv) or '')
@@ -676,7 +676,7 @@ local COMMANDS = {
         printf('Tracking: %s. Target another player to add them.', table.concat(list, ', '))
     end,
     untrack = function (args)
-        if not args[3] then printf('/sk3 untrack <name|all>'); return end
+        if not args[3] then printf('/sk untrack <name|all>'); return end
         if args[3]:lower() ~= 'all' or tracked_named('all') then untrack(args[3]); return end
         local declined = {}
         while tracked.list[1] do
@@ -685,7 +685,7 @@ local COMMANDS = {
         end
         printf('Tracking no one.')
         if declined[1] then
-            printf('Other sessions\' players kept off until tracked by hand (/sk3 track <name>): %s.', table.concat(declined, ', '))
+            printf('Other sessions\' players kept off until tracked by hand (/sk track <name>): %s.', table.concat(declined, ', '))
         end
     end,
     afk = function (args, g) afk_command((args[3] or ''):lower(), g) end,
@@ -697,7 +697,7 @@ local COMMANDS = {
     end,
 }
 
--- The words after /sk3, quotes around a roll's name stripped ("Bolter's Roll").
+-- The words after /sk, quotes around a roll's name stripped ("Bolter's Roll").
 local function roll_text(args)
     local parts = {}
     for i = 2, #args do
@@ -707,7 +707,7 @@ local function roll_text(args)
     return table.concat(parts, ' ')
 end
 
--- /sk3 "Bolter's Roll": that roll now, then Double-Up at lowest (jobs/cor.lua).
+-- /sk "Bolter's Roll": that roll now, then Double-Up at lowest (jobs/cor.lua).
 local function roll_command(roll, g)
     cor.order(mem, roll)
     local ok, why = can.use(roll, g)
@@ -722,10 +722,9 @@ local function roll_command(roll, g)
     end
 end
 
--- ponytail: /sk3 while v2 is still installed and owns /sk; switch to /sk at cutover.
-ashita.events.register('command', 'sidekick3_command', function (e)
+ashita.events.register('command', 'sidekick_command', function (e)
     local args = e.command:args()
-    if #args == 0 or args[1]:lower() ~= '/sk3' then return end
+    if #args == 0 or args[1]:lower() ~= '/sk' then return end
     e.blocked = true
     stale()
     local sub = (args[2] or ''):lower()
@@ -740,7 +739,7 @@ ashita.events.register('command', 'sidekick3_command', function (e)
     if roll then return roll_command(roll, g) end
     if name:lower():find('roll', 1, true) then
         for _, a in ipairs(cat.list) do
-            if a.lucky then printf('No roll "%s". /sk3 help lists the commands.', name); return end
+            if a.lucky then printf('No roll "%s". /sk help lists the commands.', name); return end
         end
     end
     ANYTIME.help()

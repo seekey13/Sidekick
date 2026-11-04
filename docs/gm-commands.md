@@ -1,6 +1,6 @@
 # GM commands for in-game tests
 
-Researched on 2026-11-02 for [issue #56](https://github.com/seekey13/Sidekick3/issues/56): the commands a session needs to drive the dev server through the VanaCore MCP, setting up each scene a Sidekick3 test needs. On the dev server `Test` and `Dev` are GMs. [tools/gm.lua](../tools/gm.lua) sends these commands for you.
+Researched on 2026-11-02 for [issue #56](https://github.com/seekey13/Sidekick/issues/56): the commands a session needs to drive the dev server through the VanaCore MCP, setting up each scene a Sidekick test needs. On the dev server `Test` and `Dev` are GMs. [tools/gm.lua](../tools/gm.lua) sends these commands for you.
 
 **The source is the server's own `scripts/commands/*.lua`** (the CatsEyeXI server, a LandSandBoat fork). The DSPT wiki's GM Commands page (archived 2026-03-26) dates from DSP and has drifted. Its `!addeffect` doesn't take a player's name. `!reset`, `!raise`, `!immortal`, `!geteffects` and `!deleffect` aren't there at all. Each command's file says its GM level (`cmdprops.permission`), its arguments and whom it acts on, and the notes below come from reading them.
 
@@ -35,7 +35,7 @@ Names match in any case (`strcmpi`), and the player can be in any zone.
 - A mob has no name the server looks up. `gm.mob_hp` and `gm.mob_level` read the target index in your last 0x015, and go only once the server has the mob as your target (`gm.cursor().ready`).
 - `!hp 0 <t>` also works for a player: the client writes the target's name into the line as it sends it.
 
-## The commands a Sidekick3 test needs
+## The commands a Sidekick test needs
 
 Columns: the line, its GM level, then notes, with the `tools/gm.lua` call in bold.
 
@@ -55,9 +55,9 @@ Columns: the line, its GM level, then notes, with the `tools/gm.lua` call in bol
 |---|---|---|
 | `!addeffect [name] <status> [power] [seconds]` | 1 | Given straight: no resist, no immunity. The status is its id or its `xi.effect` name (`POISON`, `SLEEP_I`). Power defaults to 1 and the time to 60 s. The area sees "gains the effect of". Trusts and mobs can't be named here; use `!exec` on your cursor's `target`. **`gm.effect`** |
 | `!deleffect [name] <status>` | 1 | **With a name, the status must be its id.** It's read with `atoi`, so a status name becomes 0, which the server takes as 1 (Weakness). **`gm.uneffect`**, which always sends ids |
-| `!geteffects [name or id]` | 0 | The server's own list of statuses, with each one's power, time left and flags (Song, Roll, Dispelable). Check what Sidekick3 reads against this. Refused for the dead. **`gm.effects`** |
+| `!geteffects [name or id]` | 0 | The server's own list of statuses, with each one's power, time left and flags (Song, Roll, Dispelable). Check what Sidekick reads against this. Refused for the dead. **`gm.effects`** |
 
-`gm.EFFECTS` holds the status ids by their server names, lower case: what Sidekick3 removes, wakes from and keeps up.
+`gm.EFFECTS` holds the status ids by their server names, lower case: what Sidekick removes, wakes from and keeps up.
 
 **Recasts**
 
@@ -69,9 +69,9 @@ Columns: the line, its GM level, then notes, with the `tools/gm.lua` call in bol
 
 | Line | GM | Notes |
 |---|---|---|
-| `!changejob <job> [level]`, `!changesjob <job> [level]` | 1 | You only. The job by abbreviation or id. The server holds the sub job to its level cap. Sidekick3 rebuilds its catalog on the change. **`gm.job`**. For another player's job, run it on their own game, or use **`gm.job_of`** (`!exec`, GM 4). |
+| `!changejob <job> [level]`, `!changesjob <job> [level]` | 1 | You only. The job by abbreviation or id. The server holds the sub job to its level cap. Sidekick rebuilds its catalog on the change. **`gm.job`**. For another player's job, run it on their own game, or use **`gm.job_of`** (`!exec`, GM 4). |
 | `!setplayerlevel [name] <level>` | 1 | Their main job's level. **`gm.level`** |
-| `!addallspells [name]`, `!addalltrusts [name]`, `!addspell <id> [name]` | 1 | Sidekick3 only offers the spells the client says are known (`HasSpell`). **`gm.spells`, `trusts`, `spell`** |
+| `!addallspells [name]`, `!addalltrusts [name]`, `!addspell <id> [name]` | 1 | Sidekick only offers the spells the client says are known (`HasSpell`). **`gm.spells`, `trusts`, `spell`** |
 | `!capallskills` | 1 | You only. Caps every skill. |
 
 **Moving people**
@@ -80,7 +80,7 @@ Columns: the line, its GM level, then notes, with the `tools/gm.lua` call in bol
 |---|---|---|
 | `!bring <name>`, `!goto <name>` | 1 | Them to you, or you to them: same zone and spot. For follow, distance and range tests. **`gm.bring`, `go`** |
 | `!pos [x y z [zone]] [name]` | 1 | With no coordinates, it prints their position. **`gm.pos`** |
-| `!zone <id>` | 1 | You only. Ids are in `xi.zone` (`scripts/enum/zone.lua`). Zoning exercises Sidekick3's zoning hold. **`gm.zone`** |
+| `!zone <id>` | 1 | You only. Ids are in `xi.zone` (`scripts/enum/zone.lua`). Zoning exercises Sidekick's zoning hold. **`gm.zone`** |
 | `!where` | 1 | Prints your position. |
 
 **Items**
@@ -126,10 +126,10 @@ These are level 5 or disruptive, and `tools/gm.lua` sends none of them:
 ## tools/gm.lua
 
 ```
-lua  addon = "Sidekick3"  code = "return require('tools.gm').hp_pct('Test', 40)"
+lua  addon = "Sidekick"  code = "return require('tools.gm').hp_pct('Test', 40)"
 ```
 
-It runs in Sidekick3's own state, which the MCP's `lua` tool reaches by the addon's name. Nothing in Sidekick3 loads it. Each call:
+It runs in Sidekick's own state, which the MCP's `lua` tool reaches by the addon's name. Nothing in Sidekick loads it. Each call:
 - returns the line or lines it sent;
 - on a bad argument, raises an error before anything goes out;
 - names the player in every line, with `'me'` meaning you.
@@ -150,7 +150,7 @@ These parts of a test aren't GM commands:
 
 - **Which game is which.** Each game runs its own MCP server, on port 47800 or the next free port, and `game_state` names its character. A GM command from either GM's game reaches any player by name. `gm.job` and `gm.item` act only on the game that sends them.
 - **The party.** Run `/pcmd add <name>` on the leader's game and `/join` on theirs; `/pcmd leave` to go. Use `run_command` for both. For trusts, run `/ma "Trust: <name>" <me>` after `gm.trusts`.
-- **Sidekick3.** `/sk3 start` and `stop`, `/sk3 buff ...`, `/sk3 track <name>` and `/sk3 rest on` set it up. `/sk3 plan` says what it would do now, `/sk3 state` says what it reads, and `/sk3 log` prints each send. Their answers come back in `run_command`'s result.
+- **Sidekick.** `/sk start` and `stop`, `/sk buff ...`, `/sk track <name>` and `/sk rest on` set it up. `/sk plan` says what it would do now, `/sk state` says what it reads, and `/sk log` prints each send. Their answers come back in `run_command`'s result.
 - **Results.** Read them from:
   - `game_state` (HP, MP and statuses), `gm.who`, and `gm.effects` (the server's list);
   - `packets` (0x028: a cast's begin and finish);
@@ -167,10 +167,10 @@ These parts of a test aren't GM commands:
 | A -na spell | `gm.effect('Test', 'poison', 10, 120)` | Poisona, then `gm.effects('Test')` without Poison |
 | Doom | `gm.effect('Test', 'doom', 1, 30)` | Cursna, while Doom's chip is on and Test is ticked under Remove |
 | Wake | `gm.effect('Test', 'sleep', 1, 60)` | A heal that wakes (Cure, Curaga) on Test |
-| Buff upkeep | `/sk3 buff Protect p1` until it lands, then `gm.uneffect('Test', 'protect')` | Protect on Test again |
-| Rest | `/sk3 rest on`, then `gm.mp_pct('me', 10)` out of combat, standing still | `/heal on` within seconds (10% is under Rest under's line; it waits 3 s after your last move or its last send) |
+| Buff upkeep | `/sk buff Protect p1` until it lands, then `gm.uneffect('Test', 'protect')` | Protect on Test again |
+| Rest | `/sk rest on`, then `gm.mp_pct('me', 10)` out of combat, standing still | `/heal on` within seconds (10% is under Rest under's line; it waits 3 s after your last move or its last send) |
 | Item removal | `gm.item(4151, 3)`, then `gm.effect('me', 'silence', 1, 120)` | Echo Drops on you |
-| A tracked player | Test out of the party, `/sk3 track Test`, `gm.hp('Test', <points>)` | A Cure on Test |
+| A tracked player | Test out of the party, `/sk track Test`, `gm.hp('Test', <points>)` | A Cure on Test |
 | Combat | `gm.mobhere(id)`, `gm.target('<mob>')`, `gm.mob_level(1)`, then engage | The combat-gated actions |
 | Zoning | `gm.zone(id)` | The zoning hold, then everything resumes |
 
@@ -179,14 +179,14 @@ These parts of a test aren't GM commands:
 - `gm.uneffect` what was added;
 - turn `gm.immortal` off (`!checkvar <name> Immortal` says whether it's on);
 - `gm.despawn` the mobs;
-- `/sk3 stop`.
+- `/sk stop`.
 
 ## Checked in game
 
 On 2026-11-02, through the MCP on `Dev`:
 
 - `Dev` is GM level 4 or more: `gm.probe()` got both answers.
-- `vana.game.set_target` works from Sidekick3's state. After `gm.target('Tracked')`, `gm.cursor().ready` turned true within a second: VanaCore raises Ashita's `packet_out` for 0x015, and the target index is at 0x16.
+- `vana.game.set_target` works from Sidekick's state. After `gm.target('Tracked')`, `gm.cursor().ready` turned true within a second: VanaCore raises Ashita's `packet_out` for 0x015, and the target index is at 0x16.
 - Typed `/say !...` lines fail within about 1.5 s of each other; injected 0x0B5 packets don't, three in one frame.
 - The exact `!exec` fallback set Tracked's HP from their server max.
 - `!hp 0 Test` killed Test. `!homepoint Test` then revived Test at their home point, at full HP and MP (`charutils::HomePoint(PChar, PChar->isDead())`), and `!bring Test` brought them back. That's how a scenario's cleanup revives a character whose game has no MCP of its own to take the raise menu (0x01A, action 0x0D).

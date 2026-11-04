@@ -4,7 +4,7 @@
     on ImGui's draw lists over an invisible button, its states eased.
 
     Based on VanaCore's addons/vanacore/vana/draw.lua, Copyright (C) 2026 Vekien
-    (GPL-3.0-or-later), adapted for Sidekick3 from 2026-10-19. Sidekick3 is
+    (GPL-3.0-or-later), adapted for Sidekick from 2026-10-19. Sidekick is
     GPL-3.0-or-later too (LICENSE); VanaCore's name and logo aren't licensed with it.
 
     A control takes its value and returns the new one and whether it changed; it

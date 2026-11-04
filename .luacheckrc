@@ -30,7 +30,7 @@ globals = { 'addon' }
 exclude_files = { 'tests/data/**', '.claude/**' }
 
 -- VanaCore puts `vana` in every addon's state; only the dev tools reach for it (13-ashita-and-windower.md: the word in
--- Sidekick3.lua would make VanaCore load it as one of its own addons).
+-- Sidekick.lua would make VanaCore load it as one of its own addons).
 files['tools/gm.lua'] = { read_globals = { 'vana' } }
 files['tools/e2e.lua'] = { read_globals = { 'vana' } }
 

@@ -1,7 +1,7 @@
 # The vana UI style
 
-How VanaCore's `/vana` settings window gets its look, and how Sidekick3's `ui/kit.lua` builds its windows the same
-way ([In Sidekick3](#in-sidekick3)).
+How VanaCore's `/vana` settings window gets its look, and how Sidekick's `ui/kit.lua` builds its windows the same
+way ([In Sidekick](#in-sidekick)).
 
 It is still Dear ImGui (1.92.3). The window turns off nearly everything ImGui draws and paints every control itself on
 ImGui's draw lists. ImGui is left with three jobs: taking mouse input, scrolling, and the few widgets that are hard to
@@ -11,16 +11,16 @@ redo by hand (the text box, popups, the colour picker).
 `vana.lua` holds the window, the sidebar, and the section and row layout. Line references below are to those files.
 
 **Licence:** VanaCore is GPL-3.0-or-later, and its `LICENSING.md` says an addon that copies VanaCore's code, or is
-otherwise based on it, is not an independent module. Sidekick3 is GPL-3.0-or-later too (`LICENSE`), so `ui/kit.lua`
+otherwise based on it, is not an independent module. Sidekick is GPL-3.0-or-later too (`LICENSE`), so `ui/kit.lua`
 is based on `draw.lua` in the open, with a notice in its header and in the README. The vana logo is all rights reserved
-and outside the GPL: don't copy it. VanaCore's name may say what Sidekick3 is based on, never that it is VanaCore or
+and outside the GPL: don't copy it. VanaCore's name may say what Sidekick is based on, never that it is VanaCore or
 made or endorsed by Vekien.
 
-**Why it works in Sidekick3:** under VanaCore, an Ashita addon's `require('imgui')` loads Ashita 4.30's `imgui.lua`.
+**Why it works in Sidekick:** under VanaCore, an Ashita addon's `require('imgui')` loads Ashita 4.30's `imgui.lua`.
 That file forwards every call to `AshitaCore:GetGuiManager()`, and VanaCore's `compat\ashita.lua` sets that to
-`vana.imgui`. So Sidekick3 has the same ImGui as vana, with `PushFont(font, size)`, `AddFontFromFileTTF`, draw lists
+`vana.imgui`. So Sidekick has the same ImGui as vana, with `PushFont(font, size)`, `AddFontFromFileTTF`, draw lists
 and `InvisibleButton`. On the stock CatsEyeXI Ashita 4.16 client (ImGui 1.81) fonts work differently: they can only
-be added outside a frame and are drawn from one baked size; see [In Sidekick3](#in-sidekick3).
+be added outside a frame and are drawn from one baked size; see [In Sidekick](#in-sidekick).
 
 ---
 
@@ -325,7 +325,7 @@ local function draw_window(state)
     imgui.PushStyleVar(ImGuiStyleVar_ScrollbarRounding, S(3))
 
     local open = { true }
-    if imgui.Begin('Sidekick Settings###sk3settings', open, FLAGS) then
+    if imgui.Begin('Sidekick Settings###sk_settings', open, FLAGS) then
         local wx, wy = imgui.GetWindowPos()
         local x, y = wx + m, wy + m
         local dl = imgui.GetWindowDrawList()
@@ -709,7 +709,7 @@ done in a sixth of a second.
 
 ---
 
-## In Sidekick3
+## In Sidekick
 
 `ui/kit.lua` is this doc in code: the palette (§2, plus `hp`, `mp`, `tp` and `track` for the HUD's bars: the rose and amber
 nearest the old mockup's red and yellow, the teal, and a gray background behind each bar; and `yellow`, `orange` and
@@ -748,7 +748,7 @@ everything with it:
 
 What differs from vana:
 
-| vana | Sidekick3 |
+| vana | Sidekick |
 |---|---|
 | Font Awesome icons | Icons drawn in shapes (`kit.icon`: close, play, stop, cog, the chevrons, and Material Design Icons' plus-circle), so no font has to carry them |
 | A typed number in a window beside the main one | A popup by the value (`kit.slider`) |
@@ -756,11 +756,11 @@ What differs from vana:
 | ImGui 1.92 only | 1.81 too (Ashita 4.16): Segoe UI added in Ashita's `load` event (`window.load` → `kit.bake`), as 1.81 locks its atlas during a frame; draw-list text drawn from the 18px bake at the size asked, measured by scaling `CalcTextSize`; ImGui's own items (tooltips, popups, the text field) sized with `SetWindowFontScale` inside their window (`kit.push_font`); `...` for the ellipsis, as the bake holds Latin-1 alone; Japanese in the font Ashita added at its start from its boot config (`[ashita.imgui.fonts]` with `is_jp`), found in `GetIO().Fonts.Fonts` by its kana and scaled from its size, `->` and `...` written where it lacks `→` and `…` (1.81's Japanese set does); `BeginChild`'s border bool; 1.81's corner flags. `IMGUI_VERSION_NUM` decides |
 | A drop-down's list at most 420 px tall | At most `kit.list_rows` choices tall (8; Drop-down rows under UI / Log), scrolled to the ticked one as it opens, ending half a spacing under its last row so no part of the next one shows; the widget's profile menu too |
 | Sizes of §5 | `ui/window.lua`'s constants: a 390-wide page, fixed for every job, rows of 30 |
-| Search, sub-tabs, presets, section resets | Not drawn: Sidekick3's pages are short, and its view has no defaults to reset to |
+| Search, sub-tabs, presets, section resets | Not drawn: Sidekick's pages are short, and its view has no defaults to reset to |
 
 **Tests:** the fake ImGui in `tests/ui_window_test.lua` reports every popup open (so drop-down lists draw and their
 choices can be clicked), steps `kit.clock` a second a frame (every eased value lands at once) and drags a slider
 through `kit.dragged`.
 
 **Fonts and reloads:** the Segoe UI faces are added once per addon load, and the binding has no call to take a font
-back out of ImGui's atlas, so each `/addon reload sidekick3` adds them again: memory only, until the game restarts.
+back out of ImGui's atlas, so each `/addon reload sidekick` adds them again: memory only, until the game restarts.

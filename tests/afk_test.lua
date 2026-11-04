@@ -122,7 +122,7 @@ test('changing the minutes starts the wait over, so a slider dragged down never 
     eq(afk.update(at(781), cfg, st), true)
 end)
 
-test('a start (the run icon, a remote one, /sk3 start) asks for the wait to start over, even while running', function ()
+test('a start (the run icon, a remote one, /sk start) asks for the wait to start over, even while running', function ()
     local st = { running = true }
     local act = model.actions(settings.defaults(), st, function () end, {}, nil)
     act.run(false)

@@ -1,4 +1,4 @@
--- tools/e2e.lua against a fake client and a fake Sidekick3: what it records (Sidekick3's sends, your actions out,
+-- tools/e2e.lua against a fake client and a fake Sidekick: what it records (Sidekick's sends, your actions out,
 -- your actions' results in), and scenarios run a frame at a time: passed, failed, skipped, refused, each cleaned up.
 local engine = require('core.engine')
 local share = require('core.share')
@@ -9,7 +9,7 @@ local real = { tick = share.tick, decide = engine.decide }
 
 local now = 100
 local handlers, queued, packets = {}, {}, {}
-local status = { running = false, sent = {} }  -- Sidekick3's own, as share.tick is handed it
+local status = { running = false, sent = {} }  -- Sidekick's own, as share.tick is handed it
 local world = {
     party = { { name = 'Dev', sid = 1, tidx = 0x400, hp = 900, hpp = 100, mp = 400, mpp = 100 },
               { name = 'Test', sid = 2, tidx = 0x401, hp = 1200, hpp = 100, mp = 300, mpp = 100 } },
@@ -37,10 +37,10 @@ local em = {
 local mm = { GetParty = const(party), GetEntity = const(em),
              GetPlayer = const({ GetHPMax = const(900), GetMPMax = const(400) }),
              GetInventory = const({ GetContainerItem = function (_, bag, slot) return { Id = bag * 1000 + slot } end }) }
--- A /sk3 command reaches the fake Sidekick3: start and stop set it running.
+-- A /sk command reaches the fake Sidekick: start and stop set it running.
 local chat = { QueueCommand = function (_, _, line)
     queued[#queued + 1] = line
-    if line == '/sk3 start' then status.running = true elseif line == '/sk3 stop' then status.running = false end
+    if line == '/sk start' then status.running = true elseif line == '/sk stop' then status.running = false end
 end }
 -- GM lines: the text of each chat packet.
 local pm = { AddOutgoingPacket = function (_, _, b)
@@ -66,7 +66,7 @@ package.loaded['tools.e2e'] = nil
 local e2e = require('tools.e2e')
 e2e.say = function () end
 
--- One frame of the game: the clock on, Sidekick3 handing on its status, the runner's step.
+-- One frame of the game: the clock on, Sidekick handing on its status, the runner's step.
 local function frame(dt)
     now = now + (dt or 0.1)
     share.tick({}, now, status, {})
@@ -75,7 +75,7 @@ local function frame(dt)
 end
 local function frames(seconds) for _ = 1, math.ceil(seconds / 0.1) do frame() end end
 
--- Sidekick3 sending: an entry at the head of status.sent, as Sidekick3.lua puts it there.
+-- Sidekick sending: an entry at the head of status.sent, as Sidekick.lua puts it there.
 local function sidekick_sends(action, target, behavior)
     table.insert(status.sent, 1, { action = action, kind = 'ma', target = target, behavior = behavior or 'heal',
                                    why = 'test', command = ('/ma "%s" %s'):format(action, target) })
@@ -118,7 +118,7 @@ local function run_to_end(...)
     return e2e.report()
 end
 
-test('Sidekick3\'s sends are recorded from its status as they appear, never the ones before it was watched', function ()
+test('Sidekick\'s sends are recorded from its status as they appear, never the ones before it was watched', function ()
     sidekick_sends('Cure', 'Test')        -- before: history
     frame()
     local first = #e2e.events(0, 'sent')
@@ -165,7 +165,7 @@ test('a scenario that passes: the scene, the send timed from it, the landing, th
     eq({ r.result, r.why, r.timings.heal >= 0.5 and r.timings.heal < 0.8, r.timings.landed >= 2 },
        { 'pass', nil, true, true })
     eq(packets, { '!hp 480 Test', '!hp 99999 Test', '!mp 99999 Test' })  -- the scene, then its undo
-    eq({ queued, status.running }, { { '/sk3 start', '/sk3 stop' }, false })  -- running again only while it ran
+    eq({ queued, status.running }, { { '/sk start', '/sk stop' }, false })  -- running again only while it ran
 end)
 
 test('a send that never comes fails, with what led up to it; the cleanup still runs', function ()
@@ -286,7 +286,7 @@ test('unwatch waits for a scenario running: aborted, cleaned up, then unhooked',
        { 'aborted', nil, { '!hp 100 Test', '!hp 99999 Test', '!mp 99999 Test' } })
 end)
 
-test('unwatch hands Sidekick3 its own functions back', function ()
+test('unwatch hands Sidekick its own functions back', function ()
     local tick, decide = share.e2e_tick, engine.e2e_decide
     eq(e2e.unwatch(), true)
     eq({ share.tick == tick, engine.decide == decide, share.e2e_tick, engine.e2e_decide, handlers.d3d_present },
