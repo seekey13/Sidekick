@@ -62,7 +62,7 @@
     kind       'ma' | 'ja' | 'pet': this use only for that command kind
     label      UI name when one action has several uses
     note       short UI hint
-    travel     travel buff (Sneak, Invisible): still cast while you're Invisible, when
+    travel     travel buff (Sneak, Deodorize, Invisible): still cast while you're Invisible, when
                nothing else but danger healing goes (core/engine.lua)
     duration   seconds a buff lasts (or per tier), for statuses read off packets (trusts)
     mob_skill  the id a jug pet's move carries in its action packet (the server's mob skill)
@@ -227,7 +227,7 @@ local K = {
     ['Afflatus Misery'] = { role = 'buff', pick_one = 'afflatus' },
     ['Sneak']     = { role = 'buff', gate = 'idle', travel = true, priority = -10 },
     ['Invisible'] = { role = 'buff', gate = 'idle', travel = true, priority = -20 },
-    ['Deodorize'] = { role = 'buff', gate = 'idle' },
+    ['Deodorize'] = { role = 'buff', gate = 'idle', travel = true, priority = -15 },
     -- Bar-spells, enspells, spikes: below. Enspell II shows its own status ("Enfire II"), found by the full name.
     ['Dread Spikes'] = { role = 'buff' },
 
