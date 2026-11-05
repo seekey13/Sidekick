@@ -312,7 +312,7 @@ end
 -- Sidekick Settings, opened through the HUD's cog (or closed with its X) unless it already is.
 local function open_settings()
     if not settings_shown then render(settings.defaults(), status(), { ['##sk_cog'] = true }) end
-    assert(settings_shown, 'Sidekick Settings open')
+    assert(settings_shown and begun('Sidekick Settings'), 'Sidekick Settings open')
 end
 
 local function close_settings()
@@ -1082,6 +1082,21 @@ test('UI / Log turns the widget on and off; Lock position keeps it still too', f
     eq(frame.flags['SK Widget'] - free, ImGuiWindowFlags_NoMove)
     eq(render(cfg, st, on('UI / Log', { ['Widget##sk_ui_widget'] = true })), 1)
     eq(cfg.ui.widget, false)
+    close_settings()
+end)
+
+test('UI / Log shows and hides the HUD, as /sk hud, and remembers it; Sidekick Settings stay', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    cfg.ui.open = true
+    eq(render(cfg, st, on('UI / Log', { ['Show the HUD##sk_ui_open'] = true })), 1)
+    eq({ st.open, cfg.ui.open }, { false, false })
+    render(cfg, st)
+    eq({ begun('Sidekick'), begun('Sidekick Settings') }, { false, true })
+    eq(render(cfg, st, on('UI / Log', { ['Show the HUD##sk_ui_open'] = true })), 1)
+    eq({ st.open, cfg.ui.open }, { true, true })
+    render(cfg, st)
+    eq(begun('Sidekick'), true)
     close_settings()
 end)
 

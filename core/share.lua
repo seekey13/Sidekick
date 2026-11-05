@@ -345,13 +345,14 @@ function share.reach(live, me, who)
 end
 
 -- Your alts /sk alt reaches, by name: of the `live` sessions (the others on this PC), the one named `who` (any case),
--- or with none named, every one, in order. nil when there's none.
+-- or with none named or 'all', every one, in order (a session of a character named All is taken by name first, as
+-- share.reach's). nil when there's none.
 function share.alts(live, who)
-    if not who then return next(live) and sorted_keys(live) or nil end
-    who = who:lower()
-    for name in pairs(live) do
-        if name:lower() == who then return { name } end
+    local lower = who and who:lower()
+    for name in pairs(who and live or {}) do
+        if name:lower() == lower then return { name } end
     end
+    if not who or lower == 'all' then return next(live) and sorted_keys(live) or nil end
 end
 
 -- Queue `call` ({ fn, n = #args, args... }), numbered `n`, for the session `to` at its

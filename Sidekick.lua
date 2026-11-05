@@ -196,7 +196,7 @@ local function say_roll(g)
 end
 
 -- Decide on each fresh snapshot: to act when running and the server will take a
--- command, and while the window is open, to show what it would do. A commanded
+-- command, and while the HUD, Sidekick Settings or the widget is up, to show what it would do. A commanded
 -- roll (/sk "Bolter's Roll") is sent while automation is stopped too; nothing
 -- else is. A decision that isn't sent changes nothing (revive marks a raise only
 -- through intent.sent).
@@ -467,19 +467,31 @@ local function run_command(me, on, who)
     end
 end
 
--- /sk alt [name]: your alts' Sidekick Settings (the other Sidekick sessions on this PC) shown here, or hidden: the one
--- named, else every one, hidden while any is shown. /sk alt start|stop [name]: their automation on or off, the one
--- named, else every one's. `me`: as send_run's.
-local function alt_command(args, me)
+-- What /sk alt's words ask: automation on or off (`on`; nil to show or hide their Sidekick Settings), and for whom. A
+-- lone start or stop that's an alt's name is that alt, as share.reach takes a session named All by name: `all` then
+-- reaches every alt.
+local function alt_args(args)
     local w = (args[3] or ''):lower()
-    local run = w == 'start' or w == 'stop'
-    local who = args[run and 4 or 3]
+    if (w == 'start' or w == 'stop') and (args[4] or not share.alts(share.sessions, w)) then
+        return w == 'start', args[4]
+    end
+    return nil, args[3]
+end
+
+-- /sk alt [name|all]: your alts' Sidekick Settings (the other Sidekick sessions on this PC) shown here, or hidden: the
+-- one named, else every one, hidden while any is shown. /sk alt start|stop [name|all]: their automation on or off, the
+-- one named, else every one's. `me`: as send_run's.
+local function alt_command(args, me)
+    local on, who = alt_args(args)
     local alts = share.alts(share.sessions, who)
     if not alts then
-        if who then no_session(who) else printf('No other Sidekick sessions on this PC.') end
+        if who and me and who:lower() == me:lower() then
+            printf('That\'s you: /sk opens your Sidekick Settings, /sk start|stop your automation.')
+        elseif who and who:lower() ~= 'all' then no_session(who)
+        else printf('No other Sidekick sessions on this PC.') end
         return
     end
-    if run then send_run(me, w == 'start', alts); return end
+    if on ~= nil then send_run(me, on, alts); return end
     local shown = false
     for _, name in ipairs(alts) do shown = shown or status.watching[name] == true end
     for _, name in ipairs(alts) do status.watching[name] = not shown or nil end
@@ -498,9 +510,10 @@ local tracking = { add = track, remove = untrack }
 -- The UI: ui/custom.lua when there is one, else the standard window (ui/README.md).
 -- A custom UI that fails to load is reported and the standard one used instead.
 local ui = require('ui.window')
+local custom_hint = false  -- a custom UI is drawing: the first /sk says what 3.0.1 changed (one for 3.0.0 shows nothing)
 if package.searchpath('ui.custom', package.path) then
     local ok, custom = pcall(require, 'ui.custom')
-    if ok then ui = custom
+    if ok then ui, custom_hint = custom, true
     else say(chat.error, 'ui/custom.lua failed to load, using the standard window: %s', tostring(custom)) end
 end
 
@@ -534,21 +547,23 @@ local function acts()
     return act_proxy
 end
 
--- The last view built from a snapshot that wasn't loading: while zoning, the widget is drawn from it (never from the
--- loading snapshot, which holds none of the party), the HUD not at all.
+-- The last view built from a snapshot that wasn't loading: while zoning, the widget and Sidekick Settings are drawn
+-- from it (never from the loading snapshot, which holds none of the party), the HUD not at all.
 local good
 
--- That view while zoning: the HUD closed, your automation as it is now, held by the zone, and the other sessions
--- as their files say. No target to track: the widget's Add Tracked would do nothing till the zone is in.
+-- That view while zoning: the HUD closed, your automation as it is now, held by the zone, the other sessions as
+-- their files say, and the Sidekick Settings shown as they are now (the widget's cogs open and close them mid-zone). No
+-- target to track: the widget's Add Tracked would do nothing till the zone is in.
 local function zoning_view()
     local v = util.shallow_copy(good)
     v.ui, v.status = util.shallow_copy(good.ui), util.shallow_copy(good.status)
     v.ui.open = false
-    v.ui.settings = status.settings  -- as the widget's cog left them, not as they were before the zone
+    v.ui.settings = status.settings
     v.track = {}
     v.status.running = status.running
     v.status.halted = status.running and 'zoning' or nil
     v.sessions = model.sessions(status)
+    v.remote = model.remote(status)
     return v
 end
 
@@ -562,10 +577,10 @@ local function draw(g)
     end)
     if ok then return end
     status.open, status.settings, status.watching, status.failed = false, false, {}, true
-    say(chat.error, 'Window closed on an error: %s', tostring(err))
+    say(chat.error, 'Window closed on an error (/sk hud or /sk opens it again): %s', tostring(err))
 end
 
--- Some window is up while the game is in: the HUD, Sidekick Settings (yours or an alt's) or the widget.
+-- Some window is up: the HUD, Sidekick Settings (yours or an alt's) or the widget.
 local function any_window()
     return not status.failed
         and (status.open or status.settings or next(status.watching) ~= nil or cfg ~= nil and cfg.ui.widget)
@@ -616,12 +631,8 @@ ashita.events.register('d3d_present', 'sidekick_present', function ()
             if not status.sessions[name] then status.watching[name] = nil end  -- gone: its window closes
         end
     end
-    -- Each window apart from the others; while zoning, the widget alone (and what its cogs opened).
-    if not g.loading then
-        if any_window() then draw(g) end
-    elseif good and cfg and cfg.ui.widget and not status.failed then
-        draw(g)  -- the widget alone, from the last view of the party
-    end
+    -- Each window apart from the others; while zoning, all but the HUD, from the last view of the party.
+    if any_window() and (good or not g.loading) then draw(g) end
     if unsaved and not imgui.IsAnyItemActive() then
         settings.save()
         unsaved = false
@@ -641,7 +652,7 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function (e)
     packets.handle(e, packet_ctx, os.clock())
 end)
 
-local HELP = '/sk opens or closes Sidekick Settings. Commands: hud, alt [name], alt start|stop [name], widget, '
+local HELP = '/sk opens or closes Sidekick Settings. Commands: hud, alt [name|all], alt start|stop [name|all], widget, '
     .. 'start [name|all], stop [name|all], plan, state, '
     .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow <name|off>, rest [on|off], '
     .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], catalog [unknown], log, help. '
@@ -662,7 +673,13 @@ local ANYTIME = {
 
 -- The rest, once the game has loaded your job: (args, g).
 local COMMANDS = {
-    [''] = function () status.settings, status.failed = not status.settings, nil end,
+    [''] = function ()
+        status.settings, status.failed = not status.settings, nil
+        if not custom_hint then return end
+        custom_hint = false
+        printf('/sk shows Sidekick Settings now, /sk hud the HUD: a custom UI draws them for view.ui.settings '
+            .. '(ui/README.md, Upgrading from 3.0.0).')
+    end,
     hud = function ()
         status.open, status.failed = not status.open, nil
         cfg.ui.open = status.open
@@ -768,7 +785,7 @@ ashita.events.register('command', 'sidekick_command', function (e)
     -- share.LOADING seconds.
     if g.loading or not cfg then
         if sub == 'stop' then return run_command(share.me(), false, args[3]) end
-        if sub == 'alt' and (args[3] or ''):lower() == 'stop' then return alt_command(args, share.me()) end
+        if sub == 'alt' and alt_args(args) == false then return alt_command(args, share.me()) end
         return printf('Waiting for the game to load your job.')
     end
     if COMMANDS[sub] then return COMMANDS[sub](args, g) end

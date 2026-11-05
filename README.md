@@ -46,8 +46,8 @@ Automation always starts **off** after a load. Healing, removal, waking, raising
 | --- | --- |
 | `/sk` | Open or close Sidekick Settings |
 | `/sk hud` | Show or hide the HUD |
-| `/sk alt` `[Name]` | Open or close your alt's Sidekick Settings (every alt's, or the one named) |
-| `/sk alt start` \| `stop` `[Name]` | Your alt's automation on/off (every alt's, or the one named) |
+| `/sk alt` `[Name\|all]` | Open or close your alts' Sidekick Settings: the one named, or every alt's (closing them all while any is open) |
+| `/sk alt start` \| `stop` `[Name\|all]` | Your alts' automation on/off: the one named, or every alt's |
 | `/sk start` \| `stop` `[Name\|all]` | Automation on/off, for this or another session on this PC |
 | `/sk plan` | Show what it would do right now, without doing it |
 | `/sk buff <spell> <targets>` | Keep a buff up (`me`, `p1`–`p5`, `b0`–`c5`, a tracked name); `off` to stop |
@@ -64,7 +64,7 @@ Automation always starts **off** after a load. Healing, removal, waking, raising
 
 - **HUD**: a card per party member and pet with HP/MP/TP bars, the alliance below, and a label showing the next action and who it's for. Target a player outside your alliance and an **Add Tracked** pill at your card tracks them in one click.
 - **Widget**: a compact pill per character with run/stop and settings, handy beside another party list, and the same Add Tracked pill.
-- **Sidekick Settings** (`/sk`, or the cog on your card): one page per behavior (Heal, Remove, Buff, Pet, Recover, Follow, AFK...), with on/off switches per section. Point at a spell or ability to limit it to **Combat** (only while there's a battle target, and a few seconds after) or **Idle** (only out of combat); the one picked stays shown beside its name. Some come that way already, like Berserk (Combat) or Spectral Jig and Sneak (Idle).
+- **Sidekick Settings** (`/sk`, or the cog on your card or the widget): one page per behavior (Heal, Remove, Buff, Pet, Recover, Follow, AFK...), with on/off switches per section. Point at a spell or ability to limit it to **Combat** (only while there's a battle target, and a few seconds after) or **Idle** (only out of combat); the one picked stays shown beside its name. Some come that way already, like Berserk (Combat) or Spectral Jig and Sneak (Idle).
 
 The UI is a single replaceable file; see [ui/README.md](ui/README.md) to build your own.
 

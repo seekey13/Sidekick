@@ -327,6 +327,9 @@ ja.words = {
         .. 'A tracked player\'s stays: their MP can\'t be read.'] =
         'MPのない（0/0）メンバーやペットのMPバーを表示しません（MPのないジョブ、飛竜、呼び出したペットなど）。'
         .. '追跡中のプレイヤーのMPは読めないため、バーはそのまま残ります。',
+    ['Show the HUD'] = 'HUDを表示',
+    ['The party\'s HP, MP and TP, apart from this window: closing either leaves the other. Also /sk hud.'] =
+        'パーティのHP・MP・TP。このウィンドウとは別で、どちらを閉じてももう一方は残ります。/sk hud でも切り替えられます。',
     ['Lock position'] = '位置を固定',
     ['Keep the HUD and the widget where they are: dragging them no longer moves them.'] =
         'HUDとウィジェットを今の位置に固定します。ドラッグしても動きません。',
@@ -422,12 +425,19 @@ ja.words = {
     ['Other sessions can\'t be reached until your game has loaded.'] = 'ゲームの読み込みが終わるまで他のセッションに送れません。',
     ['Sent %s to %s.'] = '%sを%sに送りました。', ['start'] = '開始', ['stop'] = '停止',
     ['No other Sidekick sessions on this PC.'] = 'このPCに他のSidekickのセッションはありません。',
+    ['That\'s you: /sk opens your Sidekick Settings, /sk start|stop your automation.'] =
+        'それはあなたです: /sk で自分のSidekick設定を開き、/sk start|stop で自動操作を切り替えます。',
     ['Not tracking "%s".'] = '「%s」は追跡していません。',
     ['Stopped tracking %s (from %s\'s session) until /sk track %s.'] =
         '%sの追跡をやめました（%sのセッションから）。/sk track %s で再開します。',
     ['Stopped tracking %s.'] = '%sの追跡をやめました。',
     ['ui/custom.lua failed to load, using the standard window: %s'] = 'ui/custom.lua を読み込めないため、標準のウィンドウを使います: %s',
-    ['Window closed on an error: %s'] = 'エラーのためウィンドウを閉じました: %s',
+    ['/sk shows Sidekick Settings now, /sk hud the HUD: a custom UI draws them for view.ui.settings '
+        .. '(ui/README.md, Upgrading from 3.0.0).'] =
+        '/sk はSidekick設定を開くようになりました（HUDは /sk hud）。カスタムUIは view.ui.settings のときに設定を表示します'
+        .. '（ui/README.md の Upgrading from 3.0.0）。',
+    ['Window closed on an error (/sk hud or /sk opens it again): %s'] =
+        'エラーのためウィンドウを閉じました（/sk hud か /sk で再び開きます）: %s',
     ['%s\'s session sent %s, which failed: %s'] = '%sのセッションから届いた%sが失敗しました: %s',
     ['Automation %s from %s\'s session.'] = '自動操作を%s（%sのセッションから）。',
     ['Settings view for another session failed: %s'] = '他のセッション用の設定画面の作成に失敗しました: %s',
@@ -448,12 +458,12 @@ ja.words = {
     ['%s once Invisible wears, then Double-Up at lowest.'] = 'インビジが切れてから%s、続いてダブルアップ（最低リスク）。',
     ['%s once Bust is gone, then Double-Up at lowest.'] = 'バストが消えてから%s、続いてダブルアップ（最低リスク）。',
     ['No roll "%s". /sk help lists the commands.'] = 'ファントムロール「%s」はありません。/sk help でコマンド一覧。',
-    ['/sk opens or closes Sidekick Settings. Commands: hud, alt [name], alt start|stop [name], widget, '
+    ['/sk opens or closes Sidekick Settings. Commands: hud, alt [name|all], alt start|stop [name|all], widget, '
         .. 'start [name|all], stop [name|all], plan, state, '
         .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow <name|off>, rest [on|off], '
         .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], catalog [unknown], log, help. '
         .. 'A Phantom Roll\'s name (Bolter\'s Roll) rolls it now, then Double-Ups at Lowest'] =
-        '/sk でSidekick設定を開閉します。コマンド: hud、alt [名前]、alt start|stop [名前]、widget、'
+        '/sk でSidekick設定を開閉します。コマンド: hud、alt [名前|all]、alt start|stop [名前|all]、widget、'
         .. 'start [名前|all]、stop [名前|all]、plan、state、'
         .. 'buff [名前] [me p1..p5 b0..c5 <追跡>|off]、focus <名前|off>、follow <名前|off>、rest [on|off]、'
         .. 'track [名前]、untrack <名前|all>、profile [名前|default]、afk [on|off|分数]、catalog [unknown]、log、help。'

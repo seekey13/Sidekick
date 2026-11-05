@@ -1151,6 +1151,9 @@ local function list_rows(ui) return kit.rows(ui and ui.list_rows) end
 local function draw_ui(view, pg)
     if view.session then return draw_recent(view, pg) end
     subheader(pg, 'HUD')
+    switch(pg, 'Show the HUD', 'ui.open', view.ui.open == true,
+        'The party\'s HP, MP and TP, apart from this window: closing either leaves the other. Also /sk hud.',
+        act.hud)
     for _, l in ipairs(UI_SLIDERS) do
         slider(pg, l[1], 'ui.' .. l[2], view.ui[l[2]], l[5], l[6], { l[3], l[4] })
     end

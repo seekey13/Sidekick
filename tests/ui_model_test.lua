@@ -360,13 +360,17 @@ test('run, log and Sidekick Settings change the session only; close also remembe
     eq(build(whm, cfg, nil, st).ui.settings, false)  -- closed at load
     act.run(true)
     act.log(false)  -- a custom UI's switch; the standard one has none
-    act.settings(true)  -- as /sk
+    act.settings(true)  -- as the cog
     local view = build(whm, cfg, nil, st)
     eq({ st.running, st.log, writes[1], view.log, view.ui.settings }, { true, false, 0, false, true })
     act.close()
     eq({ st.open, cfg.ui.open, writes[1], build(whm, cfg, nil, st).ui.settings }, { false, false, 1, true })  -- apart
     act.settings(false)
     eq({ st.settings, writes[1] }, { false, 1 })
+    act.hud(true)  -- as /sk hud, or Show the HUD
+    eq({ st.open, cfg.ui.open, writes[1], build(whm, cfg, nil, st).ui.open }, { true, true, 2, true })
+    act.hud(false)
+    eq({ st.open, cfg.ui.open, writes[1] }, { false, false, 3 })
 end)
 
 test('healing skips a member by name, and takes them back', function ()

@@ -550,8 +550,9 @@ end
 
 -- The Sidekick Settings shown here for other sessions, by name: { name, view, other },
 -- the view their session last published (nil until one comes), marked with its
--- `session`; `other` instead when it's another version's (model.VIEW).
-local function remote_views(status)
+-- `session`; `other` instead when it's another version's (model.VIEW). From status alone, so a zone (yours) leaves
+-- them as they are.
+function model.remote(status)
     local out = {}
     for name in pairs(status.watching or {}) do
         if (status.sessions or {})[name] then
@@ -714,7 +715,7 @@ function model.build(g, cat, cfg, status, names)
     end
     local sessions, files = by_sid(status)
     view.party, view.alliance = party(g, cfg, names, sessions, files)
-    view.remote = remote_views(status)
+    view.remote = model.remote(status)
     view.sessions = model.sessions(status)
     view.status.halted = status.running and model.halted(g) or nil
     for k, v in pairs(cfg.ui) do view.ui[k] = v end
@@ -911,7 +912,9 @@ function model.actions(cfg, status, changed, tracking, send)
         if on then status.restart = true end
     end
     function act.log(on) status.log = on end
-    act.close = saving(function () status.open, cfg.ui.open = false, false end)
+    -- The HUD shown or hidden, remembered, as /sk hud; close hides it.
+    act.hud = saving(function (on) status.open = on == true; cfg.ui.open = status.open end)
+    function act.close() act.hud(false) end
     -- Sidekick Settings shown or hidden, as /sk: this session only.
     function act.settings(on) status.settings = on == true end
     -- id: a section with a switch: 'follow' | 'heal' | 'revive' | 'wake' | 'remove' | 'buff' | 'roll' | 'song' | 'geo'

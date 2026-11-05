@@ -299,9 +299,12 @@ end)
 test('/sk alt reaches every other session, in order, or one by name in any case; none, nil', function ()
     local live = { Gamma = session('Gamma', 1, { member(3, 'Gamma') }), Beta = session('Beta', 1, { member(2, 'Beta') }) }
     eq(share.alts(live), { 'Beta', 'Gamma' })
+    eq(share.alts(live, 'ALL'), { 'Beta', 'Gamma' })  -- as /sk stop all
     eq(share.alts(live, 'gAMMA'), { 'Gamma' })
     eq(share.alts(live, 'Nobody'), nil)
-    eq({ share.alts({}), share.alts({}, 'Beta') }, {})
+    eq({ share.alts({}), share.alts({}, 'Beta'), share.alts({}, 'all') }, {})
+    live.All = session('All', 1, { member(4, 'All') })
+    eq(share.alts(live, 'all'), { 'All' })  -- a character named All, by name first
 end)
 
 test('a slider\'s drag queues only its latest value; anything between keeps both', function ()
