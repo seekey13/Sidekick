@@ -2,15 +2,24 @@
 
 Sidekick's UI is one replaceable Lua file. Sidekick does all the deciding and acting; a UI only **shows** a table of data (`view`) and **changes** things through a table of functions (`act`). Anything that keeps to that contract can replace the standard UI: a compact HP list, a bar of on/off switches, one big window instead of two.
 
-[window.lua](window.lua) is the standard UI and the reference: a heads-up display of the party's HP, MP and TP, your pet's under yours and another session's under its card (the **Sidekick** window), whose cog on your own card opens **Sidekick Settings**, a page per group of settings listed down its left, and, with `ui.widget` on, **SK Widget**, one row: each character (yours, then each other Sidekick session's) in a pill, green running, blue held (asleep, mounted, zoning...) and red stopped, with its name, its run button and its cog, `ui.widget_size` pixels high; right-click a name to load one of its profiles. While your target is a player you could track (`view.track.target`), the HUD points an **Add Tracked** pill at your card, ahead of the action labels there, and the widget ends its row with one; a click anywhere on either tracks them (`act.track`). It uses nearly every field and every action below. Its look is [kit.lua](kit.lua)'s, after VanaCore's own `/vana` window ([docs/vana-ui-style.md](../docs/vana-ui-style.md)): a palette, and switches, sliders, drop-downs, chips and buttons drawn on ImGui's draw lists over invisible buttons. A custom UI can `require('ui.kit')` for the same look; each control takes its value and returns the new one and whether it changed, and `kit.frame(scale, view.japanese)` must run once a frame before any of them (on a Japanese client it draws in Meiryo, which has the kana and kanji Segoe UI lacks; on Ashita 4.16, in the Japanese font Ashita's boot config adds, as [the README](../README.md) says). `kit.list_rows` (8; `kit.rows(view.ui.list_rows)` takes the user's Drop-down rows) is the most choices a `kit.dropdown`'s list shows before it scrolls (`kit.list_size(px, min_w, max_w)` before a `kit.popup` of your own caps it the same), and `kit.selectable` in its body opens the list scrolled to the ticked choice. `kit.tooltips()` after them draws the frame's tooltip: only the last `kit.tooltip` asked for shows, as with `SetTooltip` (without it, the next `kit.frame` draws it, a frame late).
+[window.lua](window.lua) is the standard UI and the reference: a heads-up display of the party's HP, MP and TP, your pet's under yours and another session's under its card (the **Sidekick** window), whose cog on your own card opens **Sidekick Settings** (as `/sk` does), a page per group of settings listed down its left, and, with `ui.widget` on, **SK Widget**, one row: each character (yours, then each other Sidekick session's) in a pill, green running, blue held (asleep, mounted, zoning...) and red stopped, with its name, its run button and its cog, `ui.widget_size` pixels high; right-click a name to load one of its profiles. While your target is a player you could track (`view.track.target`), the HUD points an **Add Tracked** pill at your card, ahead of the action labels there, and the widget ends its row with one; a click anywhere on either tracks them (`act.track`). It uses nearly every field and every action below. Its look is [kit.lua](kit.lua)'s, after VanaCore's own `/vana` window ([docs/vana-ui-style.md](../docs/vana-ui-style.md)): a palette, and switches, sliders, drop-downs, chips and buttons drawn on ImGui's draw lists over invisible buttons. A custom UI can `require('ui.kit')` for the same look; each control takes its value and returns the new one and whether it changed, and `kit.frame(scale, view.japanese)` must run once a frame before any of them (on a Japanese client it draws in Meiryo, which has the kana and kanji Segoe UI lacks; on Ashita 4.16, in the Japanese font Ashita's boot config adds, as [the README](../README.md) says). `kit.list_rows` (8; `kit.rows(view.ui.list_rows)` takes the user's Drop-down rows) is the most choices a `kit.dropdown`'s list shows before it scrolls (`kit.list_size(px, min_w, max_w)` before a `kit.popup` of your own caps it the same), and `kit.selectable` in its body opens the list scrolled to the ticked choice. `kit.tooltips()` after them draws the frame's tooltip: only the last `kit.tooltip` asked for shows, as with `SetTooltip` (without it, the next `kit.frame` draws it, a frame late).
 
 ## Install
 
 1. Write `ui/custom.lua` (copy `ui/window.lua` to start from the standard window, or start from the [example](#example)).
-2. `/addon reload sidekick`, then `/sk` to open it.
+2. `/addon reload sidekick`, then `/sk hud` to open it (`/sk` for its Sidekick Settings).
 3. To go back, delete or rename `ui/custom.lua` and reload.
 
-When `ui/custom.lua` exists, Sidekick uses it instead of `ui/window.lua`. If it fails to load (a syntax error, say), Sidekick prints the error and uses the standard window. If it raises an error while drawing, Sidekick closes it and prints the error; `/sk` opens it again. Git ignores `ui/custom.lua`, so updating Sidekick leaves it alone.
+When `ui/custom.lua` exists, Sidekick uses it instead of `ui/window.lua`. If it fails to load (a syntax error, say), Sidekick prints the error and uses the standard window. If it raises an error while drawing, Sidekick closes every window of it and prints the error; `/sk hud`, `/sk` or `/sk alt` opens it again. Git ignores `ui/custom.lua`, so updating Sidekick leaves it alone.
+
+### Upgrading from 3.0.0
+
+In 3.0.0, `/sk` showed or hid the whole UI. From 3.0.1, `/sk` shows Sidekick Settings, `/sk hud` the HUD and `/sk alt` other sessions' Sidekick Settings, each apart from the others, and `render` is called while any one of them is up. A UI written for 3.0.0 draws nothing for `/sk`, so the first `/sk` after a load says so in chat while `ui/custom.lua` is in use. To bring one up to date:
+
+- Draw the HUD only while `view.ui.open`, and Sidekick Settings while `view.ui.settings` rather than a flag of its own: a cog calls `act.settings(not view.ui.settings)`, the window's close button `act.settings(false)`.
+- Leave Sidekick Settings up when the HUD closes (`act.close()` no longer closes them).
+- Draw `view.remote`'s windows whatever `view.ui.open` and `view.ui.widget` say: `/sk alt` shows them alone.
+- A UI with a single window shows it for `view.ui.open or view.ui.settings`, and its close button calls both `act.close()` and `act.settings(false)`, as the [example](#example) does.
 
 ## The contract
 
@@ -19,7 +28,8 @@ A UI file returns a table with one function (and, optionally, `load`: below):
 ```lua
 local ui = {}
 
--- Called every frame while the UI is open or the widget is on, from Ashita's d3d_present.
+-- Called every frame while the HUD, Sidekick Settings (yours or another session's) or the widget is up, from
+-- Ashita's d3d_present.
 function ui.render(view, act)
 end
 
@@ -31,8 +41,8 @@ return ui
 - **`act` is the only way to change anything.** Sidekick saves settings for you (see [Saving](#saving)).
 - **Every ImGui scope it opens must be closed, even when it errors.** ImGui crashes the game on a `Begin` with no `End`. Guard the inside of the window with `pcall`, end the window, then raise the error, as the example and `window.lua` do.
 - **State of its own** (which page is showing, a collapsed panel) lives in locals in the file and lasts until the addon reloads. To keep a preference across reloads, save it under `ui.` with `act.set('ui.<name>', value)` and read it back from `view.ui.<name>`.
-- **Draw nothing but a widget of your own while `view.ui.open` is false.** Sidekick also calls `render` with the UI closed while `view.ui.widget` is on, so a widget can stay up on its own (the standard UI's does). A UI with no widget returns at once then, as the example does.
-- `/sk` opening and closing the window, the commands, and automation itself don't depend on the UI. A UI with no Start button still runs with `/sk start`.
+- **Each window shows apart from the others.** Draw the HUD only while `view.ui.open`, Sidekick Settings only while `view.ui.settings`, another session's only while it's in `view.remote`, and a widget only while `view.ui.widget`: Sidekick calls `render` while any one of them is up, so each can be shown alone (the standard UI's are). A UI with a single window may show it for `view.ui.open` or `view.ui.settings`, as the example does.
+- `/sk`, `/sk hud` and `/sk alt` opening and closing the windows, the commands, and automation itself don't depend on the UI. A UI with no Start button still runs with `/sk start`.
 - **`ui.load()`, if the UI has one, is called once from Ashita's `load` event**, before the first frame. That is where to add fonts: Ashita 4.16's ImGui (1.81) takes none mid-frame. The standard UI's adds Segoe UI there (`kit.bake`).
 
 ## `view`
@@ -69,9 +79,9 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `japanese` | bool | A Japanese client: spell, ability and item names are sent in Japanese, and the view's text is Japanese (see Language, above). Shared by every job pair: it's kept in `ui`'s file (`ui.japanese`) |
 | `log` | bool | Each action sent is printed to chat (`/sk log`; off at load). The standard UI has no switch for it |
 | `profiles` | table | `{ active, names }`: the profile loaded (nil for Default, the working copy) and every saved profile's name, in order, case aside. Each job pair has its own |
-| `ui` | table | The UI's settings, shared by every job pair: `open` (bool, the UI is shown now: false once `/sk`, `act.close()` or an error hid it), and any `ui.<name>` your UI saved. The standard HUD's, which yours may ignore: `hp_width`, `mp_width`, `tp_width` (80 to 600), `hp_height` (10 to 120), `mp_height`, `tp_height` (4 to 80), `name_size` (8 to 64), `text_size` (8 to 48), `gap` (0 to 40), all in pixels; `hide_mp` (bool, on by default: a card with no MP, a line or pet whose `uses_mp` is false, has no MP bar; a tracked player's, and another session's pet's while `pools` is false, stay: their MP is unknown, not none); `locked` (bool, it and the widget can't be dragged); `widget` (bool, the widget is shown, with the UI closed too: `/sk widget` switches it; a UI with no widget may ignore it); `widget_size` (10 to 48, the standard widget's text and icons' height in pixels); Sidekick Settings' `scale` (50 to 200, % of the size that suits the screen; nil for 100); `list_rows` (3 to 30, the most choices a standard drop-down's list, or the widget's profile menu, shows before it scrolls; nil for 8); `japanese` (bool, the client's language, as `view.japanese`: not free for a UI's own use) |
+| `ui` | table | The UI's settings, shared by every job pair: `open` (bool, the HUD is shown now: false once `/sk hud`, `act.hud(false)`, `act.close()` or an error hid it), `settings` (bool, Sidekick Settings are shown now: `/sk` and `act.settings` switch them, apart from the HUD; this session only, closed at load and by an error), and any `ui.<name>` your UI saved. The standard HUD's, which yours may ignore: `hp_width`, `mp_width`, `tp_width` (80 to 600), `hp_height` (10 to 120), `mp_height`, `tp_height` (4 to 80), `name_size` (8 to 64), `text_size` (8 to 48), `gap` (0 to 40), all in pixels; `hide_mp` (bool, on by default: a card with no MP, a line or pet whose `uses_mp` is false, has no MP bar; a tracked player's, and another session's pet's while `pools` is false, stay: their MP is unknown, not none); `locked` (bool, it and the widget can't be dragged); `widget` (bool, the widget is shown, with the UI closed too: `/sk widget` switches it; a UI with no widget may ignore it); `widget_size` (10 to 48, the standard widget's text and icons' height in pixels); Sidekick Settings' `scale` (50 to 200, % of the size that suits the screen; nil for 100); `list_rows` (3 to 30, the most choices a standard drop-down's list, or the widget's profile menu, shows before it scrolls; nil for 8); `japanese` (bool, the client's language, as `view.japanese`: not free for a UI's own use) |
 | `sections` | list | Every setting, by section, below |
-| `remote` | list | The Sidekick Settings of other Sidekick sessions on this PC you have open (`act.watch`; sent only while your UI or the widget is open), by name: `{ name, view, other }`. `view` is the view that session built and sent (nil until its first one comes, about a second): the same fields as yours but `pointer`, `others`, `ui`, `remote` and `sessions`, plus `session` (its name) and `version`. Draw it with `act.remote(name)` in place of `act`. `other` is true (and `view` nil) when that session runs another version of Sidekick, whose view this one can't draw |
+| `remote` | list | The Sidekick Settings of other Sidekick sessions on this PC you have open (`act.watch`, or `/sk alt`), by name: `{ name, view, other }`. `view` is the view that session built and sent (nil until its first one comes, about a second): the same fields as yours but `pointer`, `others`, `ui`, `remote` and `sessions`, plus `session` (its name) and `version`. Draw it with `act.remote(name)` in place of `act`. `other` is true (and `view` nil) when that session runs another version of Sidekick, whose view this one can't draw |
 | `sessions` | list | Every other Sidekick session on this PC, by name, from their session files (in your party or not; a zone, yours or theirs, leaves each as it was): `{ name, running, halted, open, profiles }`, as `party[i].session` |
 | `session` | string or nil | Only on a view in `remote`: the session it came from. nil on yours |
 
@@ -178,7 +188,9 @@ In this order. A section with rows is left out when your job has none for it (Pe
 |---|---|
 | `act.run(on)` | Automation on or off. This session only: it is always off after a load |
 | `act.log(on)` | Print each action sent to chat, or not, as `/sk log`. This session only |
-| `act.close()` | Hide the UI (remembered); `/sk` shows it again. A widget stays while `ui.widget` is on |
+| `act.hud(on)` | Show the HUD (`on` true) or hide it, remembered, as `/sk hud` (the standard Sidekick Settings' Show the HUD switch) |
+| `act.close()` | Hide the HUD, as `act.hud(false)`; `/sk hud` shows it again. Sidekick Settings stay as they are, and a widget while `ui.widget` is on |
+| `act.settings(on)` | Show Sidekick Settings (`on` true) or hide them, as `/sk`. This session only |
 | `act.section(id, on)` | A section's switch: `'follow'`, `'heal'`, `'revive'`, `'wake'`, `'remove'`, `'buff'`, `'roll'`, `'song'`, `'geo'`, `'rune'`, `'pet'`, `'maneuver'`, `'recover'`, `'rest'` or `'afk'` |
 | `act.row(key, on)` | A row on or off |
 | `act.who(name, on)` | Removal runs on this player (`on` true) or leaves them alone, Doom too. `name` is a `who` chip's `name`. Nil toggles |
@@ -198,7 +210,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `act.skip(name, skip)` | Skip a person in healing (`skip` true), or take them back (false): a `view.heal.targets` chip's `name`. Nil toggles. An empty slot has no name and cannot be skipped ahead of time |
 | `act.heal_spell(name, on)` | Heal with one heal (`on` true) or never (false): a heal row's `tiers` `name`. Its row's other tiers go on as they were, and waking uses it either way. Nil toggles |
 | `act.set(path, value)` | A setting by path, below |
-| `act.watch(name, on)` | Show another session's Sidekick Settings (a `party[i].session.name`), or stop: it then sends its view, which comes in `view.remote`. This session only; closed when that session goes |
+| `act.watch(name, on)` | Show another session's Sidekick Settings (a `party[i].session.name`), or stop: it then sends its view, which comes in `view.remote`. `/sk alt` does the same. This session only; closed when that session goes |
 | `act.remote(name)` | Another session's `act`, to change it from here: `run`, `section`, `row`, `who`, `debuff`, `debuffs`, `pick`, `target`, `mod`, `hold`, `gate`, `profile`, `save_profile`, `new_profile`, `delete_profile`, `track` (by name only), `untrack`, `skip`, `heal_spell` and `set`. `target`, `mod`, `hold`, `skip`, `heal_spell`, `who`, `debuff` and `debuffs` need their state (`true` or `false`), never a toggle: the view you click is a moment old; `gate` takes the gate to set, or nil for none. `who` takes the player's name first; `debuff` and `debuffs` take it last, or none for everyone's. `target`, `mod` and `hold` are refused there for a row that has no chips in that session (a buff or luopan row of its job); `gate` for a row it doesn't have, or one whose gate is built in. `set` takes only the paths in the table below but `'japanese'` and `'ui.*'` (the HUD is each session's own), a number held to its range. There's no `close`, `log`, `watch` or `remote` (`/sk log` on that session turns its log on). Each call goes through the files the sessions share and is made there, through its own `act`, within a second or so (a quarter second while its Sidekick Settings are open); its view in `view.remote` then shows it |
 
 `act.set` paths:
@@ -236,7 +248,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'ui.widget_size'` | 10 to 48 |
 | `'ui.scale'` | 50 to 200 |
 | `'ui.list_rows'` | 3 to 30 |
-| `'ui.<name>'` | your UI's own: a string, number or bool |
+| `'ui.<name>'` | your UI's own: a string, number or bool (not `open` or `settings`: Sidekick sets `view.ui`'s from what's shown now) |
 
 Nothing is checked, so keep values in range. Settings are kept per job pair (one file for WHM/BLM, another for WHM/SCH), but for `ui`: every job pair shares it (its own file, `ui.lua`), so a UI's own `ui.<name>` is the same whatever you play.
 
@@ -293,14 +305,17 @@ local function draw(view, act)
 end
 
 function ui.render(view, act)
-    if not view.ui.open then return end  -- it has no widget to show on its own
+    if not (view.ui.open or view.ui.settings) then return end  -- one window, for /sk hud and /sk alike; no widget
     local open = { true }
     local ok, err = true, nil
     if imgui.Begin('Sidekick mini', open, ImGuiWindowFlags_AlwaysAutoResize) then
         ok, err = pcall(draw, view, act)  -- an error still reaches End below
     end
     imgui.End()
-    if not open[1] then act.close() end
+    if not open[1] then  -- closed for both, until either opens it again
+        act.close()
+        act.settings(false)
+    end
     if not ok then error(err, 0) end
 end
 
