@@ -353,15 +353,20 @@ test('section switches and plain values, a UI\'s own under ui', function ()
     eq(cfg.ui.mp_width, 220)
 end)
 
-test('run and log change the session only; close also remembers it in the settings', function ()
+test('run, log and Sidekick Settings change the session only; close also remembers it in the settings', function ()
     local cfg, st = settings.defaults(), status({ open = true })
     cfg.ui.open = true
     local act, writes = actions(cfg, st)
+    eq(build(whm, cfg, nil, st).ui.settings, false)  -- closed at load
     act.run(true)
     act.log(false)  -- a custom UI's switch; the standard one has none
-    eq({ st.running, st.log, writes[1], build(whm, cfg, nil, st).log }, { true, false, 0, false })
+    act.settings(true)  -- as /sk
+    local view = build(whm, cfg, nil, st)
+    eq({ st.running, st.log, writes[1], view.log, view.ui.settings }, { true, false, 0, false, true })
     act.close()
-    eq({ st.open, cfg.ui.open, writes[1] }, { false, false, 1 })
+    eq({ st.open, cfg.ui.open, writes[1], build(whm, cfg, nil, st).ui.settings }, { false, false, 1, true })  -- apart
+    act.settings(false)
+    eq({ st.settings, writes[1] }, { false, 1 })
 end)
 
 test('healing skips a member by name, and takes them back', function ()

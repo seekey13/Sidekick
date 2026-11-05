@@ -25,7 +25,7 @@ Sidekick v3 is a ground-up rewrite of Sidekick v2. Instead of hand-written job f
 - **Pet care**: Repair, Spirit Link, Reward, sending your pet in, and auto-equipping oils and pet food.
 - **Follow, rest and AFK sleep**: follows a leader, rests when MP runs low, and pauses itself if the party goes quiet.
 - **Alliance and tracked players**: looks after all three parties, plus players outside your alliance.
-- **Multiboxing**: every Sidekick session on one PC sees the others and can start, stop and configure them.
+- **Multiboxing**: every Sidekick session on one PC sees the others (your alts) and can start, stop and configure them.
 - **Profiles**: named settings snapshots per job pair (Dynamis, EXP...).
 - **Japanese client support**: commands go out in Japanese and the whole UI can be shown in Japanese.
 
@@ -33,7 +33,7 @@ Sidekick v3 is a ground-up rewrite of Sidekick v2. Instead of hand-written job f
 
 1. Download or clone this repository into `Ashita/addons/sidekick`.
 2. In game: `/addon load sidekick`
-3. Open the HUD with `/sk`, click the cog on your card to configure, and press run.
+3. Configure with `/sk`, open the HUD with `/sk hud`, and press run on your card (or `/sk start`).
 
 Automation always starts **off** after a load. Healing, removal, waking, raising, recovery and pet care are on by default; buffs, items, following and resting are opt-in.
 
@@ -44,7 +44,10 @@ Automation always starts **off** after a load. Healing, removal, waking, raising
 
 | Command | Description |
 | --- | --- |
-| `/sk` | Open or close the HUD |
+| `/sk` | Open or close Sidekick Settings |
+| `/sk hud` | Show or hide the HUD |
+| `/sk alt` `[Name]` | Open or close your alt's Sidekick Settings (every alt's, or the one named) |
+| `/sk alt start` \| `stop` `[Name]` | Your alt's automation on/off (every alt's, or the one named) |
 | `/sk start` \| `stop` `[Name\|all]` | Automation on/off, for this or another session on this PC |
 | `/sk plan` | Show what it would do right now, without doing it |
 | `/sk buff <spell> <targets>` | Keep a buff up (`me`, `p1`–`p5`, `b0`–`c5`, a tracked name); `off` to stop |
@@ -61,7 +64,7 @@ Automation always starts **off** after a load. Healing, removal, waking, raising
 
 - **HUD**: a card per party member and pet with HP/MP/TP bars, the alliance below, and a label showing the next action and who it's for. Target a player outside your alliance and an **Add Tracked** pill at your card tracks them in one click.
 - **Widget**: a compact pill per character with run/stop and settings, handy beside another party list, and the same Add Tracked pill.
-- **Sidekick Settings**: one page per behavior (Heal, Remove, Buff, Pet, Recover, Follow, AFK...), with on/off switches per section. Point at a spell or ability to limit it to **Combat** (only while there's a battle target, and a few seconds after) or **Idle** (only out of combat); the one picked stays shown beside its name. Some come that way already, like Berserk (Combat) or Spectral Jig and Sneak (Idle).
+- **Sidekick Settings** (`/sk`, or the cog on your card): one page per behavior (Heal, Remove, Buff, Pet, Recover, Follow, AFK...), with on/off switches per section. Point at a spell or ability to limit it to **Combat** (only while there's a battle target, and a few seconds after) or **Idle** (only out of combat); the one picked stays shown beside its name. Some come that way already, like Berserk (Combat) or Spectral Jig and Sneak (Idle).
 
 The UI is a single replaceable file; see [ui/README.md](ui/README.md) to build your own.
 

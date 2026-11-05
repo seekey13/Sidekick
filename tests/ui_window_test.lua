@@ -235,8 +235,12 @@ local cat = fake.catalog(3, 75, 4, 37, { 'Divine Seal', 'Martyr' })
 local NAMES = { job = function (id) return ({ [3] = 'WHM', [4] = 'BLM' })[id] end, statuses = fake.res.statuses }
 local SENT = { at = 990, command = '/ma "Cure IV" 101', action = 'Cure IV', target = 'A', behavior = 'heal', why = 'A at 62%' }
 
+-- Sidekick Settings stays open between frames, as in game (status.settings): each status() starts from the last
+-- frame's.
+local settings_shown = false
+
 local function status(t)
-    local s = { running = false, open = true, log = true, intent = SENT, sent = { SENT } }
+    local s = { running = false, open = true, log = true, intent = SENT, sent = { SENT }, settings = settings_shown }
     for k, v in pairs(t or {}) do s[k] = v end
     return s
 end
@@ -259,9 +263,6 @@ end
 
 -- The last frame began this window.
 local function begun(label) return has(frame.args.Begin, label) end
-
--- Sidekick Settings stays open between frames, as in game; this follows it.
-local settings_shown = false
 
 -- What Track and Untrack asked of Sidekick, in order.
 local tracking_calls = {}
@@ -289,8 +290,7 @@ local function draw(ui, cfg, st, clicks, view)
     local ok, err = pcall(ui.render, view or model.build(snap(), cat, cfg, st, NAMES), act)
     eq(frame.stack, {}, 'every ImGui scope closed')
     eq(frame.vars, 0, 'every style var popped')
-    settings_shown = begun('Sidekick Settings') and frame.clicks.close ~= 'Sidekick Settings'
-        and frame.clicks['##sk_settings_close'] ~= true
+    settings_shown = st.settings == true
     return not ok and err or nil, writes
 end
 
@@ -864,14 +864,15 @@ test('the run button starts and stops automation, for this session only', functi
     eq(cfg, settings.defaults())
 end)
 
-test('the close button closes the HUD, remembers it, and hides Sidekick Settings', function ()
+test('the close button closes the HUD and remembers it; Sidekick Settings stay, /sk\'s alone', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
     cfg.ui.open = true
     eq(render(cfg, st, { ['##sk_close'] = true }), 1)
-    eq({ st.open, cfg.ui.open, begun('Sidekick Settings') }, { false, false, false })
+    eq({ st.open, cfg.ui.open, st.settings, begun('Sidekick Settings') }, { false, false, true, true })
     render(cfg, st)
-    eq(begun('Sidekick Settings'), false)
+    eq({ begun('Sidekick'), begun('Sidekick Settings') }, { false, true })
+    close_settings()
 end)
 
 test('hidden, only the windows are begun and ended', function ()
@@ -1084,7 +1085,7 @@ test('UI / Log turns the widget on and off; Lock position keeps it still too', f
     close_settings()
 end)
 
-test('with the HUD closed the widget still shows, and its cog opens Sidekick Settings; closing the HUD keeps them while it\'s up', function ()
+test('with the HUD closed the widget still shows, and its cog opens Sidekick Settings; they stand apart from the HUD', function ()
     close_settings()
     local cfg = widget_cfg()
     render(cfg, status({ open = false }))
@@ -1093,18 +1094,20 @@ test('with the HUD closed the widget still shows, and its cog opens Sidekick Set
     render(cfg, status({ open = false }))
     eq({ begun('Sidekick'), begun('Sidekick Settings') }, { false, true })
     render(cfg, status())
-    render(cfg, status({ open = false }))  -- /sk closed the HUD: the widget's up, so they stay
+    render(cfg, status({ open = false }))  -- /sk hud closed the HUD: they stay
     eq(begun('Sidekick Settings'), true)
     render(cfg, status(), { ['##sk_close'] = true })  -- the HUD's own close too
     render(cfg, status({ open = false }))
     eq(begun('Sidekick Settings'), true)
     local plain = settings.defaults()
-    render(plain, status())
-    render(plain, status({ open = false }))  -- no widget: closing the HUD closes them
-    eq(begun('Sidekick Settings'), false)
-    render(settings.defaults(), status({ open = false }))
-    eq({ begun('Sidekick'), begun('SK Widget'), begun('Sidekick Settings') }, { false, false, false })
-    render(settings.defaults(), status())
+    render(plain, status({ open = false }))  -- no widget nor HUD: still up, /sk's alone
+    eq({ begun('Sidekick'), begun('SK Widget'), begun('Sidekick Settings') }, { false, false, true })
+    render(plain, status({ open = false }), { close = 'Sidekick Settings' })  -- their X: /sk opens them again
+    render(plain, status({ open = false }))
+    eq({ settings_shown, begun('Sidekick Settings') }, { false, false })
+    render(plain, status({ open = false, settings = true }))  -- /sk
+    eq({ begun('Sidekick'), begun('SK Widget'), begun('Sidekick Settings') }, { false, false, true })
+    close_settings()
 end)
 
 test('the widget\'s name tooltip says what it does or why it waits; nothing of it is drawn', function ()
@@ -1737,6 +1740,15 @@ test('your Sidekick Settings and another session\'s draw side by side, each its 
     eq({ begun('Sidekick Settings'), begun('Sidekick Settings: A###sk_settings_A') }, { true, true })
     eq(remote_calls, { { 'A', 'save_profile', '' } })  -- A's name field: blank, A has no profile loaded
     eq(cfg.profiles.Mine.heal ~= nil, true)  -- the click also landed in your own window: saved there under Mine
+end)
+
+test('another session\'s Sidekick Settings (/sk alt) show with the HUD, the widget and yours closed', function ()
+    close_settings()
+    local cfg, st = settings.defaults(), remote_status({ open = false, watching = { A = true } })
+    st.views = { A = remote_view(settings.defaults()) }
+    render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
+    eq({ begun('Sidekick'), begun('SK Widget'), begun('Sidekick Settings'), begun('Sidekick Settings: A###sk_settings_A') },
+       { false, false, false, true })
 end)
 
 test('a view that won\'t draw closes its window and is not shown again; the HUD comes back', function ()

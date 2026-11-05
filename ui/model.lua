@@ -719,6 +719,7 @@ function model.build(g, cat, cfg, status, names)
     view.status.halted = status.running and model.halted(g) or nil
     for k, v in pairs(cfg.ui) do view.ui[k] = v end
     view.ui.open = status.open == true  -- shown now: an error closes it for the session alone
+    view.ui.settings = status.settings == true  -- Sidekick Settings shown (/sk): this session only, closed at load
     view.pointer = pointer(status, g, view.party, view.alliance)
     view.others = others(status, view.party, view.alliance)
     for _, f in ipairs(model.FLAGS) do
@@ -911,6 +912,8 @@ function model.actions(cfg, status, changed, tracking, send)
     end
     function act.log(on) status.log = on end
     act.close = saving(function () status.open, cfg.ui.open = false, false end)
+    -- Sidekick Settings shown or hidden, as /sk: this session only.
+    function act.settings(on) status.settings = on == true end
     -- id: a section with a switch: 'follow' | 'heal' | 'revive' | 'wake' | 'remove' | 'buff' | 'roll' | 'song' | 'geo'
     -- | 'rune' | 'pet' | 'maneuver' | 'recover' | 'rest' | 'afk'
     act.section = saving(function (id, on) cfg[id].on = on end)

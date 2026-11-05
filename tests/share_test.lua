@@ -296,6 +296,14 @@ test('/sk start|stop reaches you, a session by name in any case, or you and ever
     eq({ share.reach(live, 'Alpha', 'all') }, { false, { 'All' } })
 end)
 
+test('/sk alt reaches every other session, in order, or one by name in any case; none, nil', function ()
+    local live = { Gamma = session('Gamma', 1, { member(3, 'Gamma') }), Beta = session('Beta', 1, { member(2, 'Beta') }) }
+    eq(share.alts(live), { 'Beta', 'Gamma' })
+    eq(share.alts(live, 'gAMMA'), { 'Gamma' })
+    eq(share.alts(live, 'Nobody'), nil)
+    eq({ share.alts({}), share.alts({}, 'Beta') }, {})
+end)
+
 test('a slider\'s drag queues only its latest value; anything between keeps both', function ()
     local pending = {}
     share.queue(pending, 'Two', 7, call('set', 'heal.danger', 50), 1)
@@ -433,13 +441,10 @@ test('two sessions: a call goes, is applied once and acknowledged; a watched ses
         eq(share.decode(files[DIR .. 'session_Beta.txt']).running, true)
         both(); both()
         eq({ #got, #share.decode(files[DIR .. 'session_Alpha.txt']).calls }, { 1, 0 })  -- acknowledged: no longer sent
-        sa.watching.Beta, sa.open = true, false  -- the HUD closed: its windows with it, so not watched
-        both(); both()
-        eq({ share.decode(files[DIR .. 'session_Alpha.txt']).watch, files[DIR .. 'view_Beta.txt'] }, { {}, nil })
-        sa.widget = true  -- its cogs open them too: watched with the HUD closed
+        sa.watching.Beta, sa.open = true, false  -- the HUD closed: Beta's Sidekick Settings stand apart (/sk alt), watched
         both(); both()
         eq({ share.decode(files[DIR .. 'session_Alpha.txt']).watch, files[DIR .. 'view_Beta.txt'] ~= nil }, { { Beta = true }, true })
-        sa.widget, sa.open = nil, true
+        sa.open = true
         both(); both()
         eq(a.views.Beta, { job = 'WHM 75', sections = { { id = 'heal', on = true } } })
         fail = true  -- its view fails while still watched: the file goes, and isn't kept as if current
@@ -478,7 +483,7 @@ test('two sessions: what one\'s automation sends is in its file at once, read fo
         acting = nil
         b.tick(gb, 2.3, sb, hb)  -- done: off at once too
         eq(share.decode(files[DIR .. 'session_Beta.txt']).act, nil)
-        sa.open, sa.widget = false, true  -- Alpha's HUD closed, the widget up: read every second again
+        sa.open = false  -- Alpha's HUD closed (the widget up, say): read every second again
         a.tick(ga, 2.5, sa, ha)
         acting = { behavior = 'song', action = 'Valor Minuet IV' }
         b.tick(gb, 2.6, sb, hb)

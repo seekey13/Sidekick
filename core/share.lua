@@ -344,6 +344,16 @@ function share.reach(live, me, who)
     return nil, nil
 end
 
+-- Your alts /sk alt reaches, by name: of the `live` sessions (the others on this PC), the one named `who` (any case),
+-- or with none named, every one, in order. nil when there's none.
+function share.alts(live, who)
+    if not who then return next(live) and sorted_keys(live) or nil end
+    who = who:lower()
+    for name in pairs(live) do
+        if name:lower() == who then return { name } end
+    end
+end
+
 -- Queue `call` ({ fn, n = #args, args... }), numbered `n`, for the session `to` at its
 -- `epoch`, on `pending`. A `set` straight after one of the same path for the same
 -- session replaces it: a slider's drag sends only its latest value.
@@ -512,8 +522,8 @@ end
 -- and at once when what your automation does changes. `g` is the snapshot
 -- (a loading one republishes the last roster, so a
 -- zone isn't taken for a session gone, for LOADING seconds: past that, as after a
--- logout, your file is deleted). `status` gives `running`, `open`, `widget` and `watching` (the
--- sessions whose Sidekick Settings you have open: watched only while the HUD or the widget is); `hooks.apply(from, call)`
+-- logout, your file is deleted). `status` gives `running`, `open` and `watching` (the
+-- sessions whose Sidekick Settings you have open: the cogs' and /sk alt's); `hooks.apply(from, call)`
 -- applies a call another session sent (never while loading), `hooks.view()` builds the view
 -- a watcher draws, `hooks.act()` gives what your automation just sent while it lands, or nil,
 -- `hooks.profiles()` (optional) your profiles, { active, names }, and `hooks.halted()` (optional) what holds your
@@ -543,8 +553,7 @@ function share.tick(g, clock, status, hooks)
     for from, a in pairs(applied) do
         if live[from] then acks[from] = a end
     end
-    local shown = status.open or status.widget
-    for name in pairs(shown and status.watching or {}) do
+    for name in pairs(status.watching or {}) do
         if live[name] then watch[name] = true end
     end
     local pet = not g.loading and share.pet(g) or nil

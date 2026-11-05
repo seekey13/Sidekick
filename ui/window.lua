@@ -57,9 +57,7 @@ local UI_SLIDERS = {
 local JOINED = { party = '  (in your party)', alliance = '  (in your alliance)' }  -- a tracked player's note
 
 local act                    -- this frame's actions (another session's, while drawing its Sidekick Settings)
-local settings_open = false  -- Sidekick Settings shown; this session only
-local hud_open = true        -- last frame's view.ui.open: closing the HUD (/sk) closes Sidekick Settings with it,
-                             -- unless the widget is up
+local settings_open = false  -- Sidekick Settings shown: view.ui.settings, and a cog's click from that same frame
 local profile_names = {}     -- per Sidekick Settings window ('' for yours, else the session's name), this session only:
                              -- { typed = { name }, shown }, the name filled in again when the profile loaded changes
 local panes = {}             -- per Sidekick Settings window: { page, folded = { [section id] = true }, debuff = slot }
@@ -180,7 +178,10 @@ local function run_and_cog(c, ids, x, y, s, gap, lit, tip)
     local cog, over_cog = disc_button(ids[2], x + s + gap, y, s, 'cog', c.shown,
         c.remote and f('Settings for %s', c.name) or t(tip))
     if cog and c.remote then act.watch(c.name, not c.shown)
-    elseif cog then settings_open = not settings_open end
+    elseif cog then
+        settings_open = not settings_open
+        act.settings(settings_open)
+    end
     return over_run or over_cog
 end
 
@@ -202,11 +203,8 @@ local function title_row(dl, view, ts, x0, y0, pw, th, s, chrome)
     imgui.Dummy({ cx - s / 2 - x0, th })
     kit.tip(status_tip(view))
     local clicked = close_mark('##sk_close', cx, cy, s, chrome)
-    kit.tip(t('Close (/sk opens it again)'))
-    if clicked then
-        act.close()
-        if not view.ui.widget then settings_open = false end  -- the widget's cogs keep them
-    end
+    kit.tip(t('Close (/sk hud opens it again)'))
+    if clicked then act.close() end  -- Sidekick Settings stay: /sk has them
 end
 
 -- Run and the cog at the top right of the HP bar of your card, or of another session's, s pixels across (at most
@@ -1777,7 +1775,10 @@ local function settings_window(view)
     local err = settings_shell('Sidekick Settings', open, 0, function (x, y, side, pw, ph)
         draw_settings(view, '', nil, x, y, side, pw, ph, open)
     end)
-    if not open[1] then settings_open = false end
+    if not open[1] then
+        settings_open = false
+        act.settings(false)
+    end
     return err
 end
 
@@ -1815,8 +1816,7 @@ function window.render(view, act_)
     kit.list_rows = list_rows(view.ui)
     lang.use(view.japanese)
     local open = view.ui.open ~= false
-    if hud_open and not open and not view.ui.widget then settings_open = false end  -- the widget's cogs keep them
-    hud_open = open
+    settings_open = view.ui.settings == true  -- /sk's, apart from the HUD
     if view.track.target ~= asked then asked = nil end  -- shown tracked, or someone else targeted: Add Tracked's back
     local err
     if open then
@@ -1831,13 +1831,11 @@ function window.render(view, act_)
     end
     kit.prefix = ''
     if settings_open then err = settings_window(view) or err end
-    if open or view.ui.widget then  -- the widget's cogs open them too
-        for i, r in ipairs(view.remote or {}) do
-            kit.prefix = r.name .. '|'
-            err = remote_window(r, i) or err
-        end
-        kit.prefix = ''
+    for i, r in ipairs(view.remote or {}) do  -- the cogs' and /sk alt's, apart from the HUD too
+        kit.prefix = r.name .. '|'
+        err = remote_window(r, i) or err
     end
+    kit.prefix = ''
     kit.tooltips()
     if err then error(err, 0) end
 end
