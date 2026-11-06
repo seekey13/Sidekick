@@ -2,6 +2,7 @@
 --   luajit tests/run.lua              every tests/*_test.lua
 --   luajit tests/run.lua catalog      one file
 package.path = './?.lua;' .. package.path
+local print = print  -- a test may stub the global (commands_test does): its FAIL lines still show
 
 local pass, fail, current = 0, 0, nil
 

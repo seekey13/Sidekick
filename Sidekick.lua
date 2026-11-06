@@ -14,7 +14,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 addon.name    = 'Sidekick'
 addon.author  = 'Seekey'
-addon.version = '3.0.1'
+addon.version = '3.0.2'
 addon.desc    = 'Support Job Automation Framework'
 addon.link    = 'https://github.com/seekey13/Sidekick'
 
@@ -652,7 +652,7 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function (e)
     packets.handle(e, packet_ctx, os.clock())
 end)
 
-local HELP = '/sk opens or closes Sidekick Settings. Commands: hud, alt [name|all], alt start|stop [name|all], widget, '
+local HELP = '/sk (or /sidekick) opens or closes Sidekick Settings. Commands: hud, alt [name|all], alt start|stop [name|all], widget, '
     .. 'start [name|all], stop [name|all], plan, state, '
     .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow <name|off>, rest [on|off], '
     .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], catalog [unknown], log, help. '
@@ -773,9 +773,12 @@ local function roll_command(roll, g)
     end
 end
 
+-- The commands Sidekick answers: /sk, or /sidekick spelled out.
+local PREFIXES = { ['/sk'] = true, ['/sidekick'] = true }
+
 ashita.events.register('command', 'sidekick_command', function (e)
     local args = e.command:args()
-    if #args == 0 or args[1]:lower() ~= '/sk' then return end
+    if #args == 0 or not PREFIXES[args[1]:lower()] then return end
     e.blocked = true
     stale()
     local sub = (args[2] or ''):lower()

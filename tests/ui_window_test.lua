@@ -1430,11 +1430,22 @@ end)
 -- A custom UI gets the same checks as the standard window. The fake answers
 -- false to any call it has no handler for; add one if yours needs it.
 if package.searchpath('ui.custom', package.path) then
-    test('ui/custom.lua draws running and stopped, every scope closed', function ()
+    test('ui/custom.lua draws running and stopped, its HUD and Sidekick Settings shown and hidden, every scope closed', function ()
         local custom = require('ui.custom')
-        for _, running in ipairs({ false, true }) do
-            eq(draw(custom, settings.defaults(), status({ running = running })), nil, 'no Lua error')
-        end
+        local was_shown = settings_shown
+        local ok, err = pcall(function ()
+            for _, settings_on in ipairs({ false, true }) do  -- its Sidekick Settings
+                for _, hud in ipairs({ false, true }) do
+                    for _, running in ipairs({ false, true }) do
+                        eq(draw(custom, settings.defaults(), status({ running = running, open = hud, settings = settings_on })),
+                           nil, 'no Lua error')
+                    end
+                end
+            end
+        end)
+        -- The tests after this one take up the standard window where it was, failed or not: draw it once more.
+        render(settings.defaults(), status({ settings = was_shown }))
+        assert(ok, err)
     end)
 end
 
