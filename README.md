@@ -42,6 +42,8 @@ Automation always starts **off** after a load. Healing, removal, waking, raising
 
 ## Commands
 
+`/sidekick` works anywhere `/sk` does (`/sidekick hud`, `/sidekick start`...).
+
 | Command | Description |
 | --- | --- |
 | `/sk` | Open or close Sidekick Settings |

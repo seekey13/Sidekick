@@ -149,6 +149,18 @@ local ok, err = pcall(function ()
         eq({ e.frame(), e.files.ui.open }, { nil, false })
     end)
 
+    test('/sidekick answers as /sk does, any case', function ()
+        e.sk('/sidekick')
+        eq(e.frame().ui.settings, true)
+        e.sk('/SideKick')
+        eq(e.frame(), nil)
+        e.sk('/sidekick hud')
+        eq({ e.frame().ui.open, e.files.ui.open }, { true, true })
+        e.sk('/Sidekick HUD')
+        eq({ e.frame(), e.files.ui.open }, { nil, false })
+        eq(e.sk('/sidekickx'), '')  -- not ours
+    end)
+
     test('/sk alt shows every alt\'s Sidekick Settings, or the one named, and hides them all while any is up', function ()
         eq(e.sk('/sk alt'), '')
         eq(remote(e.frame()), { 'Beta', 'Gamma' })  -- with the HUD and yours closed too

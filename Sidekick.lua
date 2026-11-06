@@ -14,7 +14,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 addon.name    = 'Sidekick'
 addon.author  = 'Seekey'
-addon.version = '3.0.1'
+addon.version = '3.0.2'
 addon.desc    = 'Support Job Automation Framework'
 addon.link    = 'https://github.com/seekey13/Sidekick'
 
@@ -773,9 +773,12 @@ local function roll_command(roll, g)
     end
 end
 
+-- The commands Sidekick answers: /sk, or /sidekick spelled out.
+local PREFIXES = { ['/sk'] = true, ['/sidekick'] = true }
+
 ashita.events.register('command', 'sidekick_command', function (e)
     local args = e.command:args()
-    if #args == 0 or args[1]:lower() ~= '/sk' then return end
+    if #args == 0 or not PREFIXES[args[1]:lower()] then return end
     e.blocked = true
     stale()
     local sub = (args[2] or ''):lower()
