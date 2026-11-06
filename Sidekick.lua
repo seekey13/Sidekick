@@ -14,7 +14,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 addon.name    = 'Sidekick'
 addon.author  = 'Seekey'
-addon.version = '3.0.3'
+addon.version = '3.0.4'
 addon.desc    = 'Support Job Automation Framework'
 addon.link    = 'https://github.com/seekey13/Sidekick'
 
@@ -688,7 +688,7 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function (e)
 end)
 
 local HELP = '/sk (or /sidekick) opens or closes Sidekick Settings. Commands: hud, alt [name|all], alt start|stop [name|all], widget, '
-    .. 'start [name|all], stop [name|all], plan, state, '
+    .. 'start [name|all], stop [name|all], toggle, plan, state, '
     .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow [name|on|off], rest [on|off], '
     .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], catalog [unknown], log, help. '
     .. 'A Phantom Roll\'s name (Bolter\'s Roll) rolls it now, then Double-Ups at Lowest'
@@ -728,6 +728,7 @@ local COMMANDS = {
     end,
     start = function (args, g) run_command(g.me.name, true, args[3]) end,
     stop = function (args, g) run_command(g.me.name, false, args[3]) end,
+    toggle = function (_, g) run_command(g.me.name, not status.running) end,  -- yours alone, as v2's
     plan = function (_, g) show_plan(g) end,
     state = function (_, g) show_state(g) end,
     buff = buff_command,
@@ -805,18 +806,23 @@ end
 -- The commands Sidekick answers: /sk, or /sidekick spelled out.
 local PREFIXES = { ['/sk'] = true, ['/sidekick'] = true }
 
+-- v2's names for the commands v3 renamed, so v2's macros still work. Help lists only v3's.
+local V2_NAMES = { config = '', panel = 'hud', addtarget = 'track', removetarget = 'untrack', debug = 'log' }
+
 ashita.events.register('command', 'sidekick_command', function (e)
     local args = e.command:args()
     if #args == 0 or not PREFIXES[args[1]:lower()] then return end
     e.blocked = true
     stale()
     local sub = (args[2] or ''):lower()
+    sub = V2_NAMES[sub] or sub
     if ANYTIME[sub] then return ANYTIME[sub](args) end
     local g = refresh(os.clock())
     -- Stop, yours or your alts', goes through while you load (a zone): your file keeps carrying calls for
-    -- share.LOADING seconds.
+    -- share.LOADING seconds. So does a toggle that stops.
     if g.loading or not cfg then
         if sub == 'stop' then return run_command(share.me(), false, args[3]) end
+        if sub == 'toggle' and status.running then return run_command(share.me(), false) end
         if sub == 'alt' and alt_args(args) == false then return alt_command(args, share.me()) end
         return printf('Waiting for the game to load your job.')
     end

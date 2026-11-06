@@ -51,6 +51,7 @@ Automation always starts **off** after a load. Healing, removal, waking, raising
 | `/sk alt` `[Name\|all]` | Open or close your alts' Sidekick Settings: the one named, or every alt's (closing them all while any is open) |
 | `/sk alt start` \| `stop` `[Name\|all]` | Your alts' automation on/off: the one named, or every alt's |
 | `/sk start` \| `stop` `[Name\|all]` | Automation on/off, for this or another session on this PC |
+| `/sk toggle` | Automation on if it's off, off if it's on (this session only) |
 | `/sk plan` | Show what it would do right now, without doing it |
 | `/sk buff <spell> <targets>` | Keep a buff up (`me`, `p1`–`p5`, `b0`–`c5`, a tracked name); `off` to stop |
 | `/sk focus <Name>` \| `off` | Heal this member first |

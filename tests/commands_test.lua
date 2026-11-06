@@ -1,5 +1,5 @@
--- Sidekick.lua's commands and which windows it draws, with Ashita stubbed out: /sk, /sk hud, /sk alt, zoning and a
--- UI's error. Sidekick.lua runs on fresh copies of every module, and everything it's given is put back at the end, so
+-- Sidekick.lua's commands and which windows it draws, with Ashita stubbed out: /sk, /sk hud, /sk alt, /sk toggle,
+-- v2's command names, zoning and a UI's error. Sidekick.lua runs on fresh copies of every module, and everything it's given is put back at the end, so
 -- no other test sees any of it.
 local fake_names = { 'core%.', 'jobs%.', 'ui%.', 'tests%.fake' }
 local saved_loaded = {}
@@ -209,6 +209,20 @@ local ok, err = pcall(function ()
         e.frame()
     end)
 
+    test('/sk toggle starts automation when stopped, stops it when running, yours alone; mid-zone it only stops',
+        function ()
+        e.sent = {}
+        eq({ e.sk('/sk toggle'), e.sk('/sidekick TOGGLE'), e.sent }, { 'Automation started.', 'Automation stopped.', {} })
+        e.sk('/sk toggle')
+        e.loading(true)
+        e.frame()
+        eq({ e.sk('/sk toggle'), e.sk('/sk toggle') }, { 'Automation stopped.', 'Waiting for the game to load your job.' })
+        e.loading(false)
+        e.frame()
+        eq(e.sk('/sk toggle'), 'Automation started.')  -- stopped all along: the second mid-zone did nothing
+        e.sk('/sk stop')
+    end)
+
     test('while zoning, every window but the HUD stays up, as it is now; only stop goes through', function ()
         e.sk('/sk hud'); e.sk('/sk'); e.sk('/sk alt')
         local v = e.frame()
@@ -242,6 +256,24 @@ local ok, err = pcall(function ()
         e.sk('/sk hud')
         eq(e.frame().ui.open, true)
         e.sk('/sk'); e.sk('/sk hud')
+    end)
+
+    test('v2\'s names still work: config, panel, addtarget, removetarget and debug', function ()
+        e.sk('/sk config')
+        local v = e.frame()
+        eq({ v.ui.settings, v.ui.open }, { true, false })
+        e.sk('/sk PANEL')
+        eq({ e.frame().ui.open, e.files.ui.open }, { true, true })
+        e.sk('/sk config'); e.sk('/sidekick panel')
+        eq({ e.frame(), e.files.ui.open }, { nil, false })
+        eq({ e.sk('/sk debug'), e.sk('/sk debug') }, { 'Action log on.', 'Action log off.' })
+        e.over, e.queued = { target = { sid = 500, tidx = 1500, name = 'Out' } }, {}
+        e.frame()
+        eq({ e.sk('/sk addtarget'), e.queued }, { 'Tracking Out: healed, cleared, raised and buffed (buff rows pick them '
+            .. 'by name). Checking their level.', { '/check Out' } })
+        eq({ e.sk('/sk removetarget out'), e.sk('/sk removetarget Out') }, { 'Stopped tracking Out.', 'Not tracking "Out".' })
+        e.over = {}
+        e.frame()
     end)
 
     -- Follow's settings, in the job pair's file.
