@@ -110,7 +110,9 @@ ja.words = {
     ['px'] = 'px', ['%'] = '%', ['y'] = 'y', ['s'] = '秒', ['m'] = '分',
 
     -- each section's switch
-    ['Follow the leader once they are further away than the distance.'] = 'リーダーが設定した距離より離れたら追従します。',
+    ['Follow the leader once they are further away than the distance: mounted, in a safe zone, in AFK sleep '
+        .. 'and with automation stopped too.'] =
+        'リーダーが設定した距離より離れたら追従します。マウント中、安全エリア、放置スリープ中、自動操作の停止中も追従します。',
     ['Heal the party with the rows that are on.'] = 'オンの行でパーティを回復します。',
     ['Raise fallen members with the rows that are on.'] = 'オンの行で戦闘不能のメンバーを蘇生します。',
     ['Wake a sleeping member with a cure or waltz that is on under Heal; an area one for two or more.'] =
@@ -445,6 +447,11 @@ ja.words = {
     ['Action log %s.'] = 'アクションログ: %s', ['on'] = 'オン',
     ['off'] = 'オフ', ['Widget %s.'] = 'ウィジェット: %s', ['Focus off.'] = 'フォーカス: オフ', ['Focus: %s.'] = 'フォーカス: %s',
     ['Follow off.'] = '追従: オフ', ['Following %s past %d yalms.'] = '%sを追従します（%dヤルムより離れたら）。',
+    ['Follow on, but no leader yet: /sk follow <name>.'] = '追従: オン。ただしリーダーが未設定です: /sk follow <名前>',
+    ['That\'s you: /sk follow <name> follows someone on the Leader list.'] =
+        'それはあなたです: /sk follow <名前> でリーダー一覧の誰かを追従します。',
+    ['No "%s" on the Leader list: your party, your alliance and tracked players (/sk track %s).'] =
+        'リーダー一覧に「%s」はいません。パーティー、アライアンス、追跡中のプレイヤーから選べます（/sk track %s）。',
     ['Tracking no one. Target a player, then /sk track (or /sk track <name>).'] =
         '誰も追跡していません。プレイヤーをターゲットして /sk track（または /sk track <名前>）。',
     ['Tracking: %s. Target another player to add them.'] = '追跡中: %s。他のプレイヤーをターゲットすると追加できます。',
@@ -460,12 +467,12 @@ ja.words = {
     ['No roll "%s". /sk help lists the commands.'] = 'ファントムロール「%s」はありません。/sk help でコマンド一覧。',
     ['/sk (or /sidekick) opens or closes Sidekick Settings. Commands: hud, alt [name|all], alt start|stop [name|all], widget, '
         .. 'start [name|all], stop [name|all], plan, state, '
-        .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow <name|off>, rest [on|off], '
+        .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow [name|on|off], rest [on|off], '
         .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], catalog [unknown], log, help. '
         .. 'A Phantom Roll\'s name (Bolter\'s Roll) rolls it now, then Double-Ups at Lowest'] =
         '/sk（または /sidekick）でSidekick設定を開閉します。コマンド: hud、alt [名前|all]、alt start|stop [名前|all]、widget、'
         .. 'start [名前|all]、stop [名前|all]、plan、state、'
-        .. 'buff [名前] [me p1..p5 b0..c5 <追跡>|off]、focus <名前|off>、follow <名前|off>、rest [on|off]、'
+        .. 'buff [名前] [me p1..p5 b0..c5 <追跡>|off]、focus <名前|off>、follow [名前|on|off]、rest [on|off]、'
         .. 'track [名前]、untrack <名前|all>、profile [名前|default]、afk [on|off|分数]、catalog [unknown]、log、help。'
         .. 'ファントムロールの名前（ボルターズロール）で今すぐロールし、最低リスクでダブルアップします',
 }

@@ -14,7 +14,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 addon.name    = 'Sidekick'
 addon.author  = 'Seekey'
-addon.version = '3.0.2'
+addon.version = '3.0.3'
 addon.desc    = 'Support Job Automation Framework'
 addon.link    = 'https://github.com/seekey13/Sidekick'
 
@@ -24,6 +24,7 @@ local afk = require('core.afk')
 local can = require('core.can')
 local catalog = require('core.catalog')
 local engine = require('core.engine')
+local follow = require('behaviors.follow')
 local game = require('core.game')
 local knowledge = require('core.knowledge')
 local lang = require('core.lang')
@@ -196,10 +197,9 @@ local function say_roll(g)
 end
 
 -- Decide on each fresh snapshot: to act when running and the server will take a
--- command, and while the HUD, Sidekick Settings or the widget is up, to show what it would do. A commanded
--- roll (/sk "Bolter's Roll") is sent while automation is stopped too; nothing
--- else is. A decision that isn't sent changes nothing (revive marks a raise only
--- through intent.sent).
+-- command, and while the HUD, Sidekick Settings or the widget is up, to show what it would do. While automation is
+-- stopped only a commanded roll (/sk "Bolter's Roll") is sent, and Follow, decided alone (engine.free). A decision
+-- that isn't sent changes nothing (revive marks a raise only through intent.sent).
 local function tick(g)
     if g.loading then return end
     say_roll(g)
@@ -209,24 +209,29 @@ local function tick(g)
     if off then
         AshitaCore:GetPacketManager():AddOutgoingPacket(0xF1, { 0xF1, 0x04, 0x00, 0x00, off % 256, math.floor(off / 256), 0x00, 0x00 })
     end
-    local act = (status.running or cor.pending(mem)) and engine.ready(g, mem)
+    local act = (status.running or cor.pending(mem) or cfg.follow.on) and engine.ready(g, mem)
     if not (act or status.open or status.settings or cfg.ui.widget) then return end
     local intent, why = engine.decide(g, cat.list, cfg, mem)
     status.intent, status.why = intent and entry(intent, g), why
     local gather = status.running and engine.gather(g, cfg, mem)
     if gather then AshitaCore:GetChatManager():QueueCommand(1, gather) end
-    if not (act and intent) then return end
-    if not status.running and not intent.once then return end
-    AshitaCore:GetChatManager():QueueCommand(0, status.intent.command)
-    if status.intent.english and not warned_english[status.intent.action] then
-        warned_english[status.intent.action] = true
-        say(chat.warning, 'No Japanese name for "%s": sent in English, which the Japanese client won\'t take.', status.intent.action)
+    if not act then return end
+    local e = status.intent
+    if not status.running and not (intent and intent.once) then
+        intent = engine.free(g, cat.list, cfg, mem)
+        e = intent and entry(intent, g)
+    end
+    if not intent then return end
+    AshitaCore:GetChatManager():QueueCommand(0, e.command)
+    if e.english and not warned_english[e.action] then
+        warned_english[e.action] = true
+        say(chat.warning, 'No Japanese name for "%s": sent in English, which the Japanese client won\'t take.', e.action)
     end
     engine.sent(intent, g, mem)
     game.sent(intent.action)
-    table.insert(status.sent, 1, status.intent)
+    table.insert(status.sent, 1, e)
     status.sent[SENT_KEPT + 1] = nil
-    if status.log then printf('%s  (%s: %s)', status.intent.command, word(intent.behavior), sentence(intent.why)) end
+    if status.log then printf('%s  (%s: %s)', e.command, word(intent.behavior), sentence(intent.why)) end
 end
 
 -- Names in chat-sized lines.
@@ -377,6 +382,29 @@ local function afk_command(w, g)
     local now = not status.running and word('counts only while running') or st.asleep and word('asleep: move to wake')
         or left and word('sleeps in %d min'):format(math.ceil(left / 60)) or word('starts counting now')
     printf('AFK sleep after %d min with no party movement or combat (%s).', cfg.afk.minutes, now)
+end
+
+-- /sk follow [name | on | off]: Follow on or off, toggled with no word; with a name, that leader followed: someone
+-- Sidekick Settings' Leader list holds (your party, your alliance, a tracked player). A leader named Off goes by name.
+local function follow_command(w, g)
+    local f = cfg.follow
+    local leader = w and follow.leader(g, w)
+    local toggle = (w or ''):lower()
+    if leader then
+        f.on, f.target = true, leader.name
+    elseif toggle == 'on' or toggle == 'off' or toggle == '' then
+        f.on = toggle == 'on' or toggle == '' and not f.on
+    elseif w:lower() == g.me.name:lower() then
+        printf('That\'s you: /sk follow <name> follows someone on the Leader list.')
+        return
+    else
+        printf('No "%s" on the Leader list: your party, your alliance and tracked players (/sk track %s).', w, w)
+        return
+    end
+    settings.save()
+    if not f.on then printf('Follow off.')
+    elseif f.target == '' then printf('Follow on, but no leader yet: /sk follow <name>.')
+    else printf('Following %s past %d yalms.', f.target, f.distance) end
 end
 
 -- /sk profile [name | default]: load a profile of this job pair's (Sidekick Settings
@@ -654,7 +682,7 @@ end)
 
 local HELP = '/sk (or /sidekick) opens or closes Sidekick Settings. Commands: hud, alt [name|all], alt start|stop [name|all], widget, '
     .. 'start [name|all], stop [name|all], plan, state, '
-    .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow <name|off>, rest [on|off], '
+    .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow [name|on|off], rest [on|off], '
     .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], catalog [unknown], log, help. '
     .. 'A Phantom Roll\'s name (Bolter\'s Roll) rolls it now, then Double-Ups at Lowest'
 
@@ -703,13 +731,7 @@ local COMMANDS = {
         settings.save()
         if name == '' then printf('Focus off.') else printf('Focus: %s.', name) end
     end,
-    follow = function (args)
-        local name = name_or_off(args)
-        cfg.follow.on = name ~= ''
-        if name ~= '' then cfg.follow.target = name end
-        settings.save()
-        if name == '' then printf('Follow off.') else printf('Following %s past %d yalms.', name, cfg.follow.distance) end
-    end,
+    follow = function (args, g) follow_command(args[3], g) end,
     track = function (args, g)
         -- With no name it only adds your target when it's someone new: one already
         -- tracked is re-checked by name, so no one is examined by accident.

@@ -1,8 +1,10 @@
 --[[
     /follow the member named in follow.target once they're further than
     follow.distance. Low in priority, so support goes first; while you move the
-    engine waits anyway, so it isn't sent again until you stop. Only your
-    party has <p1>-<p5>: the alliance and tracked players are followed by name.
+    engine waits anyway, so it isn't sent again until you stop. Free
+    (core/engine.lua): it goes on mounted, in a town, in AFK sleep and while
+    automation is stopped. Only your party has <p1>-<p5>: the alliance and
+    tracked players are followed by name.
 ]]--
 
 local can = require('core.can')
