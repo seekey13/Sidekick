@@ -177,6 +177,34 @@ test('follow: past the distance, by party slot; not while moving', function ()
     eq({ decide(snap({ { name = 'A', dist = 8 } }, { moving = true }), follower(), whm) }, { nil, 'moving' })
 end)
 
+test('follow: mounted, in a safe zone and in AFK sleep too, where the rest waits; never in an event', function ()
+    local hurt = { { name = 'B', hpp = 40 }, { name = 'A', dist = 8 } }
+    for _, over in ipairs({ { mounted = true }, { safe = true }, { afk = true }, { mounted = true, afk = true } }) do
+        eq(decide(snap(hurt, over), follower(), whm), '/follow <p2>')
+        eq({ decide(snap(hurt, over), nil, whm) }, { nil, over.mounted and 'mounted' or over.safe and 'safe' or 'afk' })
+    end
+    eq({ decide(snap({ { name = 'A', dist = 4 } }, { mounted = true }), follower(), whm) }, { nil, 'mounted' })
+    eq({ decide(snap(hurt, { safe = true, event = true }), follower(), whm) }, { nil, 'safe' })
+    eq({ decide(snap(hurt, { mounted = true, moving = true }), follower(), whm) }, { nil, 'mounted' })
+    for _, gate in ipairs({ 'dead', 'incapacitated', 'casting' }) do
+        eq({ decide(snap(hurt, { [gate] = true }), follower(), whm) }, { nil, gate })
+    end
+    eq({ decide(snap(hurt, { resting = true }), follower(), whm) }, { nil, 'resting' })  -- resting stands up for it
+end)
+
+test('follow while automation is stopped: engine.free decides it alone, through the same gates', function ()
+    local g = snap({ { name = 'B', hpp = 40 }, { name = 'A', dist = 8 } })
+    eq(decide(g, follower(), whm):match('^/ma "Cur'), '/ma "Cur')  -- running, the heal goes first
+    local intent = engine.free(g, whm, follower(), {})
+    eq({ engine.command(intent, follower()), intent.behavior }, { '/follow <p2>', 'follow' })
+    g.mounted = true
+    eq(engine.command(engine.free(g, whm, follower(), {}), follower()), '/follow <p2>')
+    g.mounted, g.moving = nil, true
+    eq({ engine.free(g, whm, follower(), {}) }, { nil, 'moving' })
+    g.moving = nil
+    eq({ engine.free(g, whm, settings.defaults(), {}) }, { nil, 'nothing to do' })  -- off
+end)
+
 test('rest: under the MP line, out of combat, 3s after your last move and send', function ()
     local cfg = cfg_with({ ['rest.on'] = true, ['rest.mp'] = 40 })
     local g = snap(nil, { moved_at = 997, combat_at = 994, finished = 999.5 })

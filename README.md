@@ -35,7 +35,7 @@ Sidekick v3 is a ground-up rewrite of Sidekick v2. Instead of hand-written job f
 2. In game: `/addon load sidekick`
 3. Configure with `/sk`, open the HUD with `/sk hud`, and press run on your card (or `/sk start`).
 
-Automation always starts **off** after a load. Healing, removal, waking, raising, recovery and pet care are on by default; buffs, items, following and resting are opt-in.
+Automation always starts **off** after a load. Healing, removal, waking, raising, recovery and pet care are on by default; buffs, items, following and resting are opt-in. Following, once on, works with automation stopped too, and stays on through a load: it follows again at once.
 
 > [!NOTE]
 > v3 replaces Sidekick v2: both answer `/sk` and `/sidekick`, so don't load them together. Installing over v2? Delete its folder first (v2's `lib/` would otherwise stay behind). v2's settings in `config/addons/sidekick/` are left as they are and never read.
@@ -54,7 +54,7 @@ Automation always starts **off** after a load. Healing, removal, waking, raising
 | `/sk plan` | Show what it would do right now, without doing it |
 | `/sk buff <spell> <targets>` | Keep a buff up (`me`, `p1`–`p5`, `b0`–`c5`, a tracked name); `off` to stop |
 | `/sk focus <Name>` \| `off` | Heal this member first |
-| `/sk follow <Name>` \| `off` | Follow a member |
+| `/sk follow` `[Name\|on\|off]` | Follow on or off (toggled with nothing after it); with a name, follow that leader: anyone in your party, alliance or tracked (a name not there yet is kept, with a warning). Follow goes on mounted, in town and while automation is stopped |
 | `/sk rest` / `afk` `[on\|off]` | Rest when MP runs low / AFK sleep |
 | `/sk track` / `untrack` `[Name]` | Look after a player outside your alliance |
 | `/sk profile [Name]` | Load a profile, or list them |

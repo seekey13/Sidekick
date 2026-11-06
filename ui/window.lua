@@ -1504,7 +1504,8 @@ end
 -- Sidekick Settings -----------------------------------------------------------------------
 
 local SWITCH_HELP = {
-    follow = 'Follow the leader once they are further away than the distance.',
+    follow = 'Follow the leader once they are further away than the distance: mounted, in a safe zone and with '
+        .. 'automation stopped too.',
     heal = 'Heal the party with the rows that are on.',
     revive = 'Raise fallen members with the rows that are on.',
     wake = 'Wake a sleeping member with a cure or waltz that is on under Heal; an area one for two or more.',

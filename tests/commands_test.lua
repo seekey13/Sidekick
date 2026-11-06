@@ -34,14 +34,16 @@ local function alt(name, sid)
 end
 
 -- Sidekick.lua loaded afresh, `custom` with a ui/custom.lua: { sk(command) -> chat, frame() -> the view drawn or nil,
--- sessions, sent, loading(on), ui (the stub UI: its render can be replaced), act (the last frame's) }.
-local function boot(custom)
+-- sessions, sent, loading(on), ui (the stub UI: its render can be replaced), act (the last frame's), party and over
+-- (who the game reads besides you, and its snapshot's flags), queued (the commands sent to the game) }. With `spells`, you
+-- know every spell your job has (else none).
+local function boot(custom, spells)
     for k in pairs(package.loaded) do
         for _, p in ipairs(fake_names) do
             if k:match('^' .. p) then package.loaded[k] = nil end
         end
     end
-    local env = { sessions = {}, sent = {}, out = {}, renders = {} }
+    local env = { sessions = {}, sent = {}, out = {}, renders = {}, party = { { name = 'B' } }, over = {}, queued = {} }
     rawset(_G, 'print', function (s) env.out[#env.out + 1] = s end)
     rawset(string, 'args', function (s)  -- Ashita's, from 'common'
         local t = {}
@@ -55,11 +57,13 @@ local function boot(custom)
                            fs = { get_dir = function () return {} end } })
     local player = { GetMainJobLevel = function () return 75 end, GetMainJob = function () return 3 end,
         GetSubJob = function () return 0 end, GetSubJobLevel = function () return 0 end,
-        HasSpell = function () return false end, HasAbility = function () return false end }
+        HasSpell = function () return spells == true end, HasAbility = function () return false end }
     rawset(_G, 'AshitaCore', {
         GetMemoryManager = function () return { GetPlayer = function () return player end } end,
         GetResourceManager = function () return { GetString = function () return 'WHM' end } end,
-        GetChatManager = function () return { QueueCommand = function () end } end,
+        GetChatManager = function ()
+            return { QueueCommand = function (_, _, command) env.queued[#env.queued + 1] = command end }
+        end,
         GetPacketManager = function () return { AddOutgoingPacket = function () end } end,
         GetInstallPath = function () return 'C:/nowhere' end,
     })
@@ -82,7 +86,7 @@ local function boot(custom)
     package.loaded['core.game'] = {
         read = function (now)
             if loading then return { loading = true, now = now, tracks = {} } end
-            local g = fake.snap({ { name = 'B' } })
+            local g = fake.snap(copy(env.party), copy(env.over))
             g.now, g.loading = now, false
             return g
         end,
@@ -238,6 +242,81 @@ local ok, err = pcall(function ()
         e.sk('/sk hud')
         eq(e.frame().ui.open, true)
         e.sk('/sk'); e.sk('/sk hud')
+    end)
+
+    -- Follow's settings, in the job pair's file.
+    local function follow_of(env)
+        for _, file in pairs(env.files) do
+            if file.follow then return file.follow end
+        end
+    end
+
+    test('/sk follow toggles Follow; with a name, that leader is followed, spelled as the game does', function ()
+        local f = follow_of(e)
+        eq({ f.on, f.target }, { false, '' })
+        eq(e.sk('/sk follow'), 'Follow on, but no leader yet: /sk follow <name>.')
+        eq({ e.sk('/sk follow'), f.on }, { 'Follow off.', false })
+        eq(e.sk('/sk follow b'), 'Following B past 5 yalms.')
+        eq({ f.on, f.target }, { true, 'B' })
+        eq(e.sk('/sk follow b'), 'Following B past 5 yalms.')  -- a name never toggles
+        eq({ e.sk('/sk follow'), f.on, f.target }, { 'Follow off.', false, 'B' })
+        eq(e.sk('/sk follow'), 'Following B past 5 yalms.')
+        eq({ e.sk('/sk follow off'), e.sk('/sk follow off'), e.sk('/sk follow ON'), e.sk('/sk follow on') },
+           { 'Follow off.', 'Follow off.', 'Following B past 5 yalms.', 'Following B past 5 yalms.' })
+    end)
+
+    test('/sk follow <name>: one off the Leader list is kept with a warning, never you; a leader named Off by name', function ()
+        local f = follow_of(e)
+        eq(e.sk('/sk follow me'), 'That\'s you: /sk follow <name> follows someone on the Leader list.')
+        eq({ f.on, f.target }, { true, 'B' })  -- left as it was
+        local away = 'Following Nobody past 5 yalms. | Nobody isn\'t on the Leader list now: followed once in your party '
+            .. 'or alliance, or tracked (/sk track Nobody).'
+        eq({ e.sk('/sk follow nOBODY'), f.on, f.target }, { away, true, 'Nobody' })  -- spelled as names are
+        eq({ e.sk('/sk follow'), e.sk('/sk follow') }, { 'Follow off.', away })  -- turned on again, still away
+        e.party = { { name = 'B' }, { name = 'Off', kind = 'alliance' }, { name = 'Out', kind = 'tracked' } }
+        e.frame()
+        eq({ e.sk('/sk follow off'), f.target }, { 'Following Off past 5 yalms.', 'Off' })
+        eq({ e.sk('/sk follow OUT'), f.target }, { 'Following Out past 5 yalms.', 'Out' })
+        e.party = { { name = 'B' } }
+        e.frame()
+        e.sk('/sk follow B')
+    end)
+
+    test('Follow goes on with automation stopped, mounted or in a safe zone too; never while you move', function ()
+        e.party, e.queued = { { name = 'B', dist = 9 } }, {}
+        e.frame()
+        eq(e.queued, { '/follow <p1>' })
+        e.over = { moving = true }
+        e.frame(); e.frame()
+        eq(e.queued, { '/follow <p1>' })
+        e.over = { mounted = true }
+        e.frame()
+        eq(#e.queued, 2)
+        e.over = { safe = true }
+        e.frame(); e.frame()  -- the first inside the 1.1s throttle
+        eq(#e.queued, 3)
+        e.sk('/sk start')
+        e.over = { mounted = true }
+        e.frame(); e.frame()
+        eq({ #e.queued, e.queued[4] }, { 4, '/follow <p1>' })  -- running, as well
+        e.sk('/sk stop')
+        e.sk('/sk follow off')
+        e.frame(); e.frame()
+        eq(#e.queued, 4)
+        e.party, e.over = { { name = 'B' } }, {}
+        e.frame()
+    end)
+
+    test('Stopped, Follow alone is sent, though a cure is due; started, the cure goes first', function ()
+        local s = boot(false, true)
+        s.party = { { name = 'B', hpp = 40, dist = 9 } }
+        s.sk('/sk follow B')
+        s.queued = {}
+        s.frame(); s.frame(); s.frame()  -- the second inside the 1.1s throttle
+        eq(s.queued, { '/follow <p1>', '/follow <p1>' })
+        s.sk('/sk start')
+        s.frame(); s.frame()
+        eq(s.queued[3]:match('^/ma "Cur'), '/ma "Cur')
     end)
 
     test('with ui/custom.lua, the first /sk says what changed, once', function ()

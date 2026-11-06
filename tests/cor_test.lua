@@ -513,6 +513,15 @@ test('an event, a safe zone too, holds a commanded roll until it ends', function
     eq(step(snap({}, nil, nil, {}, { safe = true }), cfg, mem, shot_cat), '/ja "Bolter\'s Roll" <me>')
 end)
 
+test('a mount holds a commanded roll until you get off, in town too', function ()
+    local cfg, mem = quiet(), {}
+    order(mem)
+    eq({ decide(snap({}, nil, nil, {}, { mounted = true }), cfg, mem, shot_cat) }, { nil, 'mounted' })
+    eq({ decide(snap({}, nil, nil, {}, { mounted = true, safe = true }), cfg, mem, shot_cat) }, { nil, 'mounted' })
+    eq(cor.pending(mem), true)
+    eq(step(snap({}, nil, nil, {}, {}), cfg, mem, shot_cat), '/ja "Bolter\'s Roll" <me>')
+end)
+
 test('a commanded roll stays armed through its recast and through Invisible, and goes while you rest', function ()
     local cfg, mem = quiet(), {}
     order(mem)

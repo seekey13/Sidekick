@@ -397,6 +397,19 @@ test('status line: what it would do or why not when stopped, the last send when 
     eq(model.action_text(e), 'Cure IV')
 end)
 
+test('status line, stopped with Follow on: following comes first, as it goes on; once, when it is the would-do', function ()
+    local cfg = settings.defaults()
+    cfg.follow.on, cfg.follow.target = true, 'B'
+    local e = { at = 990, action = 'Cure IV', target = 'A', behavior = 'heal', why = 'A at 62%' }
+    eq(build(whm, cfg, nil, status({ intent = e })).status.text, 'following B; would: Cure IV -> A (heal: A at 62%)')
+    eq(build(whm, cfg, nil, status({ why = 'nothing to do' })).status.text, 'following B; nothing to do')
+    local f = { at = 990, action = 'Follow', target = 'B', behavior = 'follow', why = 'B 9.0y away' }
+    eq(build(whm, cfg, nil, status({ intent = f })).status.text, 'would: Follow -> B (follow: B 9.0y away)')
+    eq(build(whm, cfg, nil, status({ running = true, sent = { e } })).status.text, 'Cure IV -> A (heal: A at 62%)')
+    cfg.follow.target = ''
+    eq(build(whm, cfg, nil, status({ why = 'nothing to do' })).status.text, 'nothing to do')  -- no leader: no follow
+end)
+
 test('party lines: HP against the danger and critical lines, distance, statuses by name', function ()
     local cfg = settings.defaults()
     cfg.heal.focus = 'tank'
