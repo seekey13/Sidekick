@@ -107,7 +107,7 @@ local mem = {}         -- the engine's memory between ticks
 
 -- What the window shows and toggles besides the settings.
 local status = {
-    running = false,  -- automation on (/sk start); never resumed on load
+    running = false,  -- automation on (/sk start); resumed on load only with Always load stopped off (cfg.ui)
     open = nil,       -- the HUD shown (/sk hud); from cfg.ui.open at the first settings load
     settings = false, -- Sidekick Settings shown (/sk); never reopened on load
     failed = nil,     -- the UI raised an error: not drawn, the widget either, until /sk, /sk hud, /sk alt or /sk widget
@@ -144,7 +144,13 @@ local packet_ctx = {
 local snap = { loading = true, now = 0, tracks = {} }
 local function refresh(now)
     if now - snap.now < 0.1 and not snap.loading then return snap, false end
+    local was_loading = snap.loading
     snap = game.read(now, not status.running or mem.afk and mem.afk.asleep)
+    -- After zone stop: a zone (a logout too) stops automation as it begins.
+    if snap.loading and not was_loading and status.running and cfg and cfg.ui.zone_stop == true then
+        status.running = false
+        printf('Automation stopped: you zoned (After zone stop).')
+    end
     if not snap.loading then
         current_catalog()
         packet_ctx.me, packet_ctx.pet, packet_ctx.tracks = snap.me.sid, snap.pet and snap.pet.sid, snap.tracks
@@ -152,8 +158,15 @@ local function refresh(now)
         local pair = abbr(snap.main) .. '_' .. abbr(snap.sub)
         if pair ~= cfg_pair then brd.clear() end  -- your songs go with the job
         if pair ~= cfg_pair or settings.switched() then cfg, cfg_pair, mem = settings.load(pair), pair, {} end
-        -- The HUD stays as it is across a job change; only /sk hud and its close button move it.
-        if status.open == nil then status.open = cfg.ui.open end
+        -- The first settings load: the HUD as it was left, and automation too with Always load stopped off. Both stay
+        -- as they are across a job change; only /sk hud and its close button move the HUD.
+        if status.open == nil then
+            status.open = cfg.ui.open
+            if cfg.ui.load_stopped == false and cfg.ui.running == true then
+                status.running = true
+                printf('Automation started, as it was left (Always load stopped is off).')
+            end
+        end
         -- AFK sleep counts only while running, and starts over on a start or a job change.
         if status.restart then mem.afk, status.restart = nil, nil end
         if status.running then
@@ -668,6 +681,12 @@ ashita.events.register('d3d_present', 'sidekick_present', function ()
     end
     -- Each window apart from the others; while zoning, all but the HUD, from the last view of the party.
     if any_window() and (good or not g.loading) then draw(g) end
+    -- Always load stopped off: automation's state kept as it changes (a command, a click, another session, a zone), for
+    -- the next load to start as it was left.
+    if cfg and cfg.ui.load_stopped == false and cfg.ui.running ~= status.running then
+        cfg.ui.running = status.running
+        unsaved = true
+    end
     if unsaved and not imgui.IsAnyItemActive() then
         settings.save()
         unsaved = false

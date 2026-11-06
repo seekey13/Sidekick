@@ -347,6 +347,13 @@ ja.words = {
     ['The most choices a drop-down or the widget\'s profile menu shows at once; scroll for the rest. Lower it on a '
         .. 'small screen.'] =
         'ドロップダウンとウィジェットのプロファイルメニューに一度に表示する選択肢の最大数。残りはスクロールで表示されます。小さい画面では下げてください。',
+    ['After zone stop'] = 'エリア移動で停止',
+    ['Stop automation each time you zone, a logout too: it stays stopped in the new zone until you start it.'] =
+        'エリアを移動するたびに（ログアウトも）自動操作を停止します。移動先では開始するまで停止したままです。',
+    ['Always load stopped'] = '常に停止状態で読み込む',
+    ['Start stopped each time Sidekick loads. Off: automation comes back as it was when Sidekick last ran, running '
+        .. 'or stopped.'] =
+        'Sidekickを読み込むたびに停止した状態で始まります。オフなら、前回Sidekickが動いていたときの状態（実行中か停止中か）に戻ります。',
     ['This window\'s size, % of the size that suits your screen. Taken up once the slider is let go.'] =
         'このウィンドウのサイズ（画面に合ったサイズに対する%）。スライダーを離すと反映されます。',
     ['Japanese client'] = '日本語クライアント',
@@ -425,6 +432,9 @@ ja.words = {
     ['No Sidekick session "%s" on this PC (%s).'] = 'このPCにSidekickのセッション「%s」はありません（%s）。',
     ['sessions: %s'] = 'セッション: %s', ['no other sessions'] = '他のセッションはありません',
     ['Automation %s.'] = '自動操作を%s。', ['started'] = '開始しました', ['stopped'] = '停止しました',
+    ['Automation stopped: you zoned (After zone stop).'] = 'エリアを移動したため自動操作を停止しました（エリア移動で停止）。',
+    ['Automation started, as it was left (Always load stopped is off).'] =
+        '前回の状態のまま自動操作を開始しました（「常に停止状態で読み込む」がオフ）。',
     ['Other sessions can\'t be reached until your game has loaded.'] = 'ゲームの読み込みが終わるまで他のセッションに送れません。',
     ['Sent %s to %s.'] = '%sを%sに送りました。', ['start'] = '開始', ['stop'] = '停止',
     ['No other Sidekick sessions on this PC.'] = 'このPCに他のSidekickのセッションはありません。',

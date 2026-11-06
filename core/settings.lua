@@ -63,6 +63,9 @@ local DEFAULTS = {
            widget = false,  -- the widget, v2's floating one (/sk widget)
            widget_size = 16,  -- its text and icons' height, in pixels
            list_rows = 8,  -- the most choices a drop-down's list shows before it scrolls (kit.LIST_ROWS.default)
+           zone_stop = false,  -- After zone stop: automation stops as you zone (v2's Stop after zone)
+           load_stopped = true,  -- Always load stopped: off, a load starts automation as it was left (v2's Load stopped)
+           running = false,  -- ...as it was left: kept by Sidekick.lua while load_stopped is off
            japanese = false },  -- send spell, ability and item names in Japanese
 }
 local UI_FILE = 'ui'

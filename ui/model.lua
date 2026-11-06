@@ -910,8 +910,9 @@ function model.actions(cfg, status, changed, tracking, send)
     -- `f`, then changed(): for the calls that write the settings.
     local function saving(f) return function (...) f(...); changed() end end
 
-    -- This session only: automation always starts stopped, and a start wakes AFK sleep and starts its wait over
-    -- (Sidekick.lua); the log as set (/sk log; the standard UI has no switch for it, a custom one may).
+    -- This session only: automation starts stopped (with Always load stopped off, as it was left), and a start wakes
+    -- AFK sleep and starts its wait over (Sidekick.lua); the log as set (/sk log; the standard UI has no switch for it,
+    -- a custom one may).
     function act.run(on)
         status.running = on
         if on then status.restart = true end

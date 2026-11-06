@@ -35,9 +35,10 @@ end
 
 -- Sidekick.lua loaded afresh, `custom` with a ui/custom.lua: { sk(command) -> chat, frame() -> the view drawn or nil,
 -- sessions, sent, loading(on), ui (the stub UI: its render can be replaced), act (the last frame's), party and over
--- (who the game reads besides you, and its snapshot's flags), queued (the commands sent to the game) }. With `spells`, you
--- know every spell your job has (else none).
-local function boot(custom, spells)
+-- (who the game reads besides you, and its snapshot's flags), queued (the commands sent to the game), files (the settings
+-- files, by alias), out (chat since the last command) }. With `spells`, you know every spell your job has (else none).
+-- `ui`: what the ui file was left holding, over its defaults.
+local function boot(custom, spells, ui)
     for k in pairs(package.loaded) do
         for _, p in ipairs(fake_names) do
             if k:match('^' .. p) then package.loaded[k] = nil end
@@ -74,7 +75,10 @@ local function boot(custom, spells)
     env.files = {}
     package.loaded['settings'] = {
         load = function (defaults, alias)
-            env.files[alias] = env.files[alias] or copy(defaults)
+            if not env.files[alias] then
+                env.files[alias] = copy(defaults)
+                for k, v in pairs(alias == 'ui' and ui or {}) do env.files[alias][k] = v end
+            end
             return env.files[alias]
         end,
         save = function () end,
@@ -349,6 +353,63 @@ local ok, err = pcall(function ()
         s.sk('/sk start')
         s.frame(); s.frame()
         eq(s.queued[3]:match('^/ma "Cur'), '/ma "Cur')
+    end)
+
+    test('Always load stopped, on by default: a load starts stopped, whatever was left', function ()
+        local s = boot(false, nil, { running = true })
+        eq({ s.out, s.sk('/sk toggle') }, { {}, 'Automation started.' })
+        s.frame()
+        eq(s.files.ui.running, true)  -- not kept while it's on: no file written for each start and stop
+        s.sk('/sk stop')
+        s.frame()
+        eq(s.files.ui.running, true)
+        s.files.ui.load_stopped = false  -- turned off: kept from then on
+        s.frame()
+        eq(s.files.ui.running, false)
+    end)
+
+    test('Always load stopped off: a load starts as automation was left, kept as it changes, by any way', function ()
+        local s = boot(false, nil, { load_stopped = false, running = true })
+        eq({ s.out, s.sk('/sk toggle') },
+           { { 'Automation started, as it was left (Always load stopped is off).' }, 'Automation stopped.' })
+        s.sk('/sk')
+        s.frame()
+        eq(s.files.ui.running, false)
+        s.act.run(true)  -- the run icon
+        s.frame()
+        eq(s.files.ui.running, true)
+        s.loading(true)
+        s.frame()
+        s.sk('/sk stop')  -- mid-zone
+        s.frame()
+        eq(s.files.ui.running, false)
+        s.loading(false)
+        s.frame()
+        eq(boot(false, nil, { load_stopped = false }).sk('/sk toggle'), 'Automation started.')  -- left stopped: stopped
+    end)
+
+    test('After zone stop: off, a zone leaves automation running; on, it stops as the zone begins, said once', function ()
+        local z = boot(false)
+        z.sk('/sk start')
+        z.loading(true); z.frame(); z.frame()
+        z.loading(false); z.frame()
+        eq(z.sk('/sk toggle'), 'Automation stopped.')  -- running through the zone
+        z.files.ui.zone_stop = true
+        z.sk('/sk start')
+        z.out = {}
+        z.loading(true); z.frame(); z.frame()
+        eq(z.out, { 'Automation stopped: you zoned (After zone stop).' })
+        z.loading(false); z.frame()
+        eq(z.sk('/sk toggle'), 'Automation started.')  -- stopped after it
+        z.sk('/sk stop')
+        z.out = {}
+        z.loading(true); z.frame()
+        eq(z.out, {})  -- stopped already: nothing to say
+        z.loading(false); z.frame()
+        z.files.ui.load_stopped = false
+        z.sk('/sk start')
+        z.loading(true); z.frame()
+        eq(z.files.ui.running, false)  -- what the next load starts as
     end)
 
     test('with ui/custom.lua, the first /sk says what changed, once', function ()

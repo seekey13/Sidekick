@@ -1174,6 +1174,11 @@ local function draw_ui(view, pg)
         'The most choices a drop-down or the widget\'s profile menu shows at once; scroll for the rest. Lower it on a '
         .. 'small screen.', nil,
         kit.LIST_ROWS)
+    switch(pg, 'After zone stop', 'ui.zone_stop', view.ui.zone_stop == true,
+        'Stop automation each time you zone, a logout too: it stays stopped in the new zone until you start it.')
+    switch(pg, 'Always load stopped', 'ui.load_stopped', view.ui.load_stopped ~= false,
+        'Start stopped each time Sidekick loads. Off: automation comes back as it was when Sidekick last ran, running '
+        .. 'or stopped.')
     subheader(pg, 'LOG')
     draw_recent(view, pg)
     subheader(pg, 'CLIENT')
