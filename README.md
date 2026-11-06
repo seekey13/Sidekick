@@ -38,7 +38,7 @@ Sidekick v3 is a ground-up rewrite of Sidekick v2. Instead of hand-written job f
 Automation always starts **off** after a load. Healing, removal, waking, raising, recovery and pet care are on by default; buffs, items, following and resting are opt-in.
 
 > [!NOTE]
-> v3 replaces Sidekick v2: both answer `/sk`, so don't load them together. Installing over v2? Delete its folder first (v2's `lib/` would otherwise stay behind). v2's settings in `config/addons/sidekick/` are left as they are and never read.
+> v3 replaces Sidekick v2: both answer `/sk` and `/sidekick`, so don't load them together. Installing over v2? Delete its folder first (v2's `lib/` would otherwise stay behind). v2's settings in `config/addons/sidekick/` are left as they are and never read.
 
 ## Commands
 

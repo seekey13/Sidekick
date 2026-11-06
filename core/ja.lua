@@ -458,12 +458,12 @@ ja.words = {
     ['%s once Invisible wears, then Double-Up at lowest.'] = 'インビジが切れてから%s、続いてダブルアップ（最低リスク）。',
     ['%s once Bust is gone, then Double-Up at lowest.'] = 'バストが消えてから%s、続いてダブルアップ（最低リスク）。',
     ['No roll "%s". /sk help lists the commands.'] = 'ファントムロール「%s」はありません。/sk help でコマンド一覧。',
-    ['/sk opens or closes Sidekick Settings. Commands: hud, alt [name|all], alt start|stop [name|all], widget, '
+    ['/sk (or /sidekick) opens or closes Sidekick Settings. Commands: hud, alt [name|all], alt start|stop [name|all], widget, '
         .. 'start [name|all], stop [name|all], plan, state, '
         .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow <name|off>, rest [on|off], '
         .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], catalog [unknown], log, help. '
         .. 'A Phantom Roll\'s name (Bolter\'s Roll) rolls it now, then Double-Ups at Lowest'] =
-        '/sk でSidekick設定を開閉します。コマンド: hud、alt [名前|all]、alt start|stop [名前|all]、widget、'
+        '/sk（または /sidekick）でSidekick設定を開閉します。コマンド: hud、alt [名前|all]、alt start|stop [名前|all]、widget、'
         .. 'start [名前|all]、stop [名前|all]、plan、state、'
         .. 'buff [名前] [me p1..p5 b0..c5 <追跡>|off]、focus <名前|off>、follow <名前|off>、rest [on|off]、'
         .. 'track [名前]、untrack <名前|all>、profile [名前|default]、afk [on|off|分数]、catalog [unknown]、log、help。'

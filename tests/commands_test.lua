@@ -158,7 +158,7 @@ local ok, err = pcall(function ()
         eq({ e.frame().ui.open, e.files.ui.open }, { true, true })
         e.sk('/Sidekick HUD')
         eq({ e.frame(), e.files.ui.open }, { nil, false })
-        eq(e.sk('/sidekickx'), '')  -- not ours
+        eq({ e.sk('/sidekickx'), e.frame() }, { '', nil })  -- not ours: Sidekick Settings stays closed
     end)
 
     test('/sk alt shows every alt\'s Sidekick Settings, or the one named, and hides them all while any is up', function ()

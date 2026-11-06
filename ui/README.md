@@ -274,7 +274,7 @@ Sidekick saves after any `act` call that changes a setting, once no ImGui widget
 luajit tests/run.lua ui_window
 ```
 
-With `ui/custom.lua` present, this also draws it through a fake ImGui, running and stopped, and fails on a Lua error or an ImGui scope left open. The fake answers `false` to calls it has no handler for; if your UI needs a number back (a width, say), add a handler in `tests/ui_window_test.lua`. It reports every popup open, so a drop-down's list is drawn and its choices can be clicked; for `ui/kit.lua`'s controls it steps `kit.clock` a second a frame (every eased value lands at once) and drags a slider through `kit.dragged`. In the game, `/addon reload sidekick` picks up each change.
+With `ui/custom.lua` present, this also draws it through a fake ImGui, running and stopped with its HUD and Sidekick Settings each shown and hidden, and fails on a Lua error or an ImGui scope left open. The fake answers `false` to calls it has no handler for; if your UI needs a number back (a width, say), add a handler in `tests/ui_window_test.lua`. It reports every popup open, so a drop-down's list is drawn and its choices can be clicked; for `ui/kit.lua`'s controls it steps `kit.clock` a second a frame (every eased value lands at once) and drags a slider through `kit.dragged`. In the game, `/addon reload sidekick` picks up each change.
 
 ## Example
 

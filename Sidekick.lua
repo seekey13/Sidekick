@@ -652,7 +652,7 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function (e)
     packets.handle(e, packet_ctx, os.clock())
 end)
 
-local HELP = '/sk opens or closes Sidekick Settings. Commands: hud, alt [name|all], alt start|stop [name|all], widget, '
+local HELP = '/sk (or /sidekick) opens or closes Sidekick Settings. Commands: hud, alt [name|all], alt start|stop [name|all], widget, '
     .. 'start [name|all], stop [name|all], plan, state, '
     .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow <name|off>, rest [on|off], '
     .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], catalog [unknown], log, help. '
