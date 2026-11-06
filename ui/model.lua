@@ -423,15 +423,20 @@ function model.action_text(e, with_why)
     return text
 end
 
-local function status_line(status)
+-- Stopped with Follow on, that it goes on (it's sent while stopped too) comes first, unless it's the would-do.
+local function status_line(status, follow)
     if status.running then
         local last = status.sent[1]
         return { state = 'Running', running = true,
                  text = last and model.action_text(last, true) or lang.t('nothing sent yet'),
                  dim = not status.intent and lang.why(reason(status.why)) or nil }
     end
-    return { state = 'Stopped', running = false,
-             text = status.intent and lang.f('would: %s', model.action_text(status.intent, true)) or lang.why(reason(status.why)) }
+    local e = status.intent
+    local text = e and lang.f('would: %s', model.action_text(e, true)) or lang.why(reason(status.why))
+    if follow.on and follow.target ~= '' and not (e and e.behavior == 'follow') then
+        text = lang.f('following %s; %s', follow.target, text)
+    end
+    return { state = 'Stopped', running = false, text = text }
 end
 
 local function buff_names(buffs, statuses)
@@ -688,7 +693,7 @@ function model.build(g, cat, cfg, status, names)
 
     local view = {
         job = jobs(names.job, g.main, g.main_lv, g.sub, g.sub_lv),
-        status = status_line(status),
+        status = status_line(status, cfg.follow),
         bt = entity(g.bt), pet = pet_line(g.pet),
         flags = {}, recent = {}, sections = {},
         heal = { threshold = h.threshold, danger = h.danger, critical = h.critical, focus = h.focus,

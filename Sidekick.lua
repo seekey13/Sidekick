@@ -384,8 +384,10 @@ local function afk_command(w, g)
     printf('AFK sleep after %d min with no party movement or combat (%s).', cfg.afk.minutes, now)
 end
 
--- /sk follow [name | on | off]: Follow on or off, toggled with no word; with a name, that leader followed: someone
--- Sidekick Settings' Leader list holds (your party, your alliance, a tracked player). A leader named Off goes by name.
+-- /sk follow [name | on | off]: Follow on or off, toggled with no word; with a name, that leader followed, spelled as
+-- the game does. One not on Sidekick Settings' Leader list now (your party, your alliance, a tracked player) is taken
+-- too, as names are spelled (Kupipi), with a warning: a macro may name them before they join. Never you. A leader
+-- named Off goes by name.
 local function follow_command(w, g)
     local f = cfg.follow
     local leader = w and follow.leader(g, w)
@@ -394,17 +396,22 @@ local function follow_command(w, g)
         f.on, f.target = true, leader.name
     elseif toggle == 'on' or toggle == 'off' or toggle == '' then
         f.on = toggle == 'on' or toggle == '' and not f.on
-    elseif w:lower() == g.me.name:lower() then
+    elseif toggle == g.me.name:lower() then
         printf('That\'s you: /sk follow <name> follows someone on the Leader list.')
         return
     else
-        printf('No "%s" on the Leader list: your party, your alliance and tracked players (/sk track %s).', w, w)
-        return
+        f.on, f.target = true, toggle:sub(1, 1):upper() .. toggle:sub(2)
     end
     settings.save()
     if not f.on then printf('Follow off.')
     elseif f.target == '' then printf('Follow on, but no leader yet: /sk follow <name>.')
-    else printf('Following %s past %d yalms.', f.target, f.distance) end
+    else
+        printf('Following %s past %d yalms.', f.target, f.distance)
+        if not follow.leader(g, f.target) then
+            printf('%s isn\'t on the Leader list now: followed once in your party or alliance, or tracked (/sk track %s).',
+                   f.target, f.target)
+        end
+    end
 end
 
 -- /sk profile [name | default]: load a profile of this job pair's (Sidekick Settings

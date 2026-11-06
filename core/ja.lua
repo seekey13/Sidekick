@@ -34,6 +34,7 @@ ja.words = {
     ['incapacitated'] = '行動不能', ['silenced'] = '静寂', ['amnesia'] = 'アムネジア', ['zoning'] = 'エリア移動中',
     ['loading'] = 'エリア移動中', ['nothing to do'] = 'することがありません', ['waiting for a cure'] = '回復待ち',
     ['invisible'] = 'インビジ中', ['nothing sent yet'] = 'まだ何も送っていません', ['would: %s'] = '予定: %s',
+    ['following %s; %s'] = '%sを追従中、%s',
     ['%s -> %s'] = '%s → %s', ['%s (%s: %s)'] = '%s（%s: %s）', ['%s: %s'] = '%s: %s', ['%s:%s'] = '%s:%s', ['%s'] = '%s',
 
     -- Names and their notes --------------------------------------------------------------------
@@ -110,9 +111,9 @@ ja.words = {
     ['px'] = 'px', ['%'] = '%', ['y'] = 'y', ['s'] = '秒', ['m'] = '分',
 
     -- each section's switch
-    ['Follow the leader once they are further away than the distance: mounted, in a safe zone, in AFK sleep '
-        .. 'and with automation stopped too.'] =
-        'リーダーが設定した距離より離れたら追従します。マウント中、安全エリア、放置スリープ中、自動操作の停止中も追従します。',
+    ['Follow the leader once they are further away than the distance: mounted, in a safe zone and with '
+        .. 'automation stopped too.'] =
+        'リーダーが設定した距離より離れたら追従します。マウント中、安全エリア、自動操作の停止中も追従します。',
     ['Heal the party with the rows that are on.'] = 'オンの行でパーティを回復します。',
     ['Raise fallen members with the rows that are on.'] = 'オンの行で戦闘不能のメンバーを蘇生します。',
     ['Wake a sleeping member with a cure or waltz that is on under Heal; an area one for two or more.'] =
@@ -450,8 +451,8 @@ ja.words = {
     ['Follow on, but no leader yet: /sk follow <name>.'] = '追従: オン。ただしリーダーが未設定です: /sk follow <名前>',
     ['That\'s you: /sk follow <name> follows someone on the Leader list.'] =
         'それはあなたです: /sk follow <名前> でリーダー一覧の誰かを追従します。',
-    ['No "%s" on the Leader list: your party, your alliance and tracked players (/sk track %s).'] =
-        'リーダー一覧に「%s」はいません。パーティー、アライアンス、追跡中のプレイヤーから選べます（/sk track %s）。',
+    ['%s isn\'t on the Leader list now: followed once in your party or alliance, or tracked (/sk track %s).'] =
+        '%sは今リーダー一覧にいません。パーティーかアライアンスに加わるか、追跡すると追従します（/sk track %s）。',
     ['Tracking no one. Target a player, then /sk track (or /sk track <name>).'] =
         '誰も追跡していません。プレイヤーをターゲットして /sk track（または /sk track <名前>）。',
     ['Tracking: %s. Target another player to add them.'] = '追跡中: %s。他のプレイヤーをターゲットすると追加できます。',

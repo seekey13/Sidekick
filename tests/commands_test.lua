@@ -35,8 +35,9 @@ end
 
 -- Sidekick.lua loaded afresh, `custom` with a ui/custom.lua: { sk(command) -> chat, frame() -> the view drawn or nil,
 -- sessions, sent, loading(on), ui (the stub UI: its render can be replaced), act (the last frame's), party and over
--- (who the game reads besides you, and its snapshot's flags), queued (the commands sent to the game) }.
-local function boot(custom)
+-- (who the game reads besides you, and its snapshot's flags), queued (the commands sent to the game) }. With `spells`, you
+-- know every spell your job has (else none).
+local function boot(custom, spells)
     for k in pairs(package.loaded) do
         for _, p in ipairs(fake_names) do
             if k:match('^' .. p) then package.loaded[k] = nil end
@@ -56,7 +57,7 @@ local function boot(custom)
                            fs = { get_dir = function () return {} end } })
     local player = { GetMainJobLevel = function () return 75 end, GetMainJob = function () return 3 end,
         GetSubJob = function () return 0 end, GetSubJobLevel = function () return 0 end,
-        HasSpell = function () return false end, HasAbility = function () return false end }
+        HasSpell = function () return spells == true end, HasAbility = function () return false end }
     rawset(_G, 'AshitaCore', {
         GetMemoryManager = function () return { GetPlayer = function () return player end } end,
         GetResourceManager = function () return { GetString = function () return 'WHM' end } end,
@@ -264,12 +265,14 @@ local ok, err = pcall(function ()
            { 'Follow off.', 'Follow off.', 'Following B past 5 yalms.', 'Following B past 5 yalms.' })
     end)
 
-    test('/sk follow <name> takes only someone on the Leader list, never you; a leader named Off goes by name', function ()
+    test('/sk follow <name>: one off the Leader list is kept with a warning, never you; a leader named Off by name', function ()
         local f = follow_of(e)
-        eq(e.sk('/sk follow Nobody'),
-           'No "Nobody" on the Leader list: your party, your alliance and tracked players (/sk track Nobody).')
         eq(e.sk('/sk follow me'), 'That\'s you: /sk follow <name> follows someone on the Leader list.')
         eq({ f.on, f.target }, { true, 'B' })  -- left as it was
+        local away = 'Following Nobody past 5 yalms. | Nobody isn\'t on the Leader list now: followed once in your party '
+            .. 'or alliance, or tracked (/sk track Nobody).'
+        eq({ e.sk('/sk follow nOBODY'), f.on, f.target }, { away, true, 'Nobody' })  -- spelled as names are
+        eq({ e.sk('/sk follow'), e.sk('/sk follow') }, { 'Follow off.', away })  -- turned on again, still away
         e.party = { { name = 'B' }, { name = 'Off', kind = 'alliance' }, { name = 'Out', kind = 'tracked' } }
         e.frame()
         eq({ e.sk('/sk follow off'), f.target }, { 'Following Off past 5 yalms.', 'Off' })
@@ -302,6 +305,18 @@ local ok, err = pcall(function ()
         eq(#e.queued, 4)
         e.party, e.over = { { name = 'B' } }, {}
         e.frame()
+    end)
+
+    test('Stopped, Follow alone is sent, though a cure is due; started, the cure goes first', function ()
+        local s = boot(false, true)
+        s.party = { { name = 'B', hpp = 40, dist = 9 } }
+        s.sk('/sk follow B')
+        s.queued = {}
+        s.frame(); s.frame(); s.frame()  -- the second inside the 1.1s throttle
+        eq(s.queued, { '/follow <p1>', '/follow <p1>' })
+        s.sk('/sk start')
+        s.frame(); s.frame()
+        eq(s.queued[3]:match('^/ma "Cur'), '/ma "Cur')
     end)
 
     test('with ui/custom.lua, the first /sk says what changed, once', function ()
