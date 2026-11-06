@@ -1432,9 +1432,14 @@ end)
 if package.searchpath('ui.custom', package.path) then
     test('ui/custom.lua draws running and stopped, every scope closed', function ()
         local custom = require('ui.custom')
-        for _, running in ipairs({ false, true }) do
-            eq(draw(custom, settings.defaults(), status({ running = running })), nil, 'no Lua error')
+        local was_shown = settings_shown
+        for _, open in ipairs({ false, true }) do  -- its Sidekick Settings hidden, then shown
+            for _, running in ipairs({ false, true }) do
+                eq(draw(custom, settings.defaults(), status({ running = running, settings = open })), nil, 'no Lua error')
+            end
         end
+        -- The tests after this one take up the standard window where it was: draw it once more.
+        render(settings.defaults(), status({ settings = was_shown }))
     end)
 end
 
