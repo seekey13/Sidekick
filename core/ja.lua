@@ -315,7 +315,7 @@ ja.words = {
         '変更は使用中の設定に保存されます。プロファイルには「保存」でのみ保存されます。',
 
     -- UI / Log
-    ['HUD'] = 'HUD', ['LOG'] = 'ログ', ['CLIENT'] = 'クライアント', ['Nothing sent yet.'] = 'まだ何も送っていません。',
+    ['HUD'] = 'HUD', ['LOG'] = 'ログ', ['CLIENT'] = 'クライアント', ['AUTOMATION'] = '自動操作', ['Nothing sent yet.'] = 'まだ何も送っていません。',
     ['%ds'] = '%d秒',
     ['HP bar width'] = 'HPバーの幅', ['HP bar height'] = 'HPバーの高さ', ['MP bar width'] = 'MPバーの幅',
     ['MP bar height'] = 'MPバーの高さ', ['TP bar width'] = 'TPバーの幅', ['TP bar height'] = 'TPバーの高さ',
@@ -348,8 +348,9 @@ ja.words = {
         .. 'small screen.'] =
         'ドロップダウンとウィジェットのプロファイルメニューに一度に表示する選択肢の最大数。残りはスクロールで表示されます。小さい画面では下げてください。',
     ['After zone stop'] = 'エリア移動で停止',
-    ['Stop automation each time you zone, a logout too: it stays stopped in the new zone until you start it.'] =
-        'エリアを移動するたびに（ログアウトも）自動操作を停止します。移動先では開始するまで停止したままです。',
+    ['Stop automation each time you zone, logging in and out too: it stays stopped in the new zone until you start '
+        .. 'it.'] =
+        'エリアを移動するたびに（ログイン・ログアウトも）自動操作を停止します。移動先では開始するまで停止したままです。',
     ['Always load stopped'] = '常に停止状態で読み込む',
     ['Start stopped each time Sidekick loads. Off: automation comes back as it was when Sidekick last ran, running '
         .. 'or stopped.'] =
@@ -433,10 +434,12 @@ ja.words = {
     ['sessions: %s'] = 'セッション: %s', ['no other sessions'] = '他のセッションはありません',
     ['Automation %s.'] = '自動操作を%s。', ['started'] = '開始しました', ['stopped'] = '停止しました',
     ['Automation stopped: you zoned (After zone stop).'] = 'エリアを移動したため自動操作を停止しました（エリア移動で停止）。',
-    ['Automation started, as it was left (Always load stopped is off).'] =
-        '前回の状態のまま自動操作を開始しました（「常に停止状態で読み込む」がオフ）。',
+    ['Automation %s, as it was left (Always load stopped is off).'] =
+        '前回の状態のまま自動操作を%s（「常に停止状態で読み込む」がオフ）。',
     ['Other sessions can\'t be reached until your game has loaded.'] = 'ゲームの読み込みが終わるまで他のセッションに送れません。',
     ['Sent %s to %s.'] = '%sを%sに送りました。', ['start'] = '開始', ['stop'] = '停止',
+    ['/sk toggle takes no name, it\'s this session\'s alone: use /sk start|stop %s.'] =
+        '/sk toggle に名前は付けられません（このセッション専用）。/sk start|stop %s を使ってください。',
     ['No other Sidekick sessions on this PC.'] = 'このPCに他のSidekickのセッションはありません。',
     ['That\'s you: /sk opens your Sidekick Settings, /sk start|stop your automation.'] =
         'それはあなたです: /sk で自分のSidekick設定を開き、/sk start|stop で自動操作を切り替えます。',
