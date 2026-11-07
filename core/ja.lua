@@ -474,6 +474,8 @@ ja.words = {
         .. '（ui/README.md の Upgrading from 3.0.0）。',
     ['Window closed on an error (/sk hud or /sk opens it again): %s'] =
         'エラーのためウィンドウを閉じました（/sk hud か /sk で再び開きます）: %s',
+    ['Window closed on an error in theme %s (/sk hud or /sk opens it again, /sk theme standard goes back to Standard): %s'] =
+        'テーマ「%s」のエラーのためウィンドウを閉じました（/sk hud か /sk で再び開きます。/sk theme standard で標準に戻ります）: %s',
     ['%s\'s session sent %s, which failed: %s'] = '%sのセッションから届いた%sが失敗しました: %s',
     ['Automation %s from %s\'s session.'] = '自動操作を%s（%sのセッションから）。',
     ['Settings view for another session failed: %s'] = '他のセッション用の設定画面の作成に失敗しました: %s',

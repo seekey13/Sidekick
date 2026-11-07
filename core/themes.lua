@@ -36,17 +36,19 @@ function themes.folder()
     return (root:gsub('[\\/]+$', '')) .. '\\ui\\'
 end
 
--- The .lua files in ui/, by their bare names.
+-- The .lua files in ui/, by their bare names. Not its subfolders' (a third argument of true would go into each, and
+-- run a theme's own helper files as themes); the mask is matched with case counting, hence [Ll][Uu][Aa].
 function themes.files()
-    local ok, files = pcall(ashita.fs.get_dir, themes.folder(), '.*\\.lua', true)
+    local ok, files = pcall(ashita.fs.get_dir, themes.folder(), '.*\\.[Ll][Uu][Aa]')
     return ok and type(files) == 'table' and files or {}
 end
 
--- The theme in the file at `path`: the table it returns, or nil and why not.
-function themes.open(path)
+-- The theme in the file at `path`: the table it returns, or nil and why not. `name` is its `...`, as require gives
+-- a module ('ui.classic'), for a theme that requires its own files beside it.
+function themes.open(path, name)
     local chunk, err = loadfile(path)
     if not chunk then return nil, tostring(err) end
-    local ok, ui = pcall(chunk)
+    local ok, ui = pcall(chunk, name)
     if not ok then return nil, tostring(ui) end
     if type(ui) ~= 'table' or type(ui.render) ~= 'function' then return nil, 'it returns no table with a render function' end
     return ui
@@ -87,12 +89,12 @@ end
 function themes.scan(keep)
     local rest, seen = {}, {}
     for _, file in ipairs(themes.files()) do
-        local key = tostring(file):match('^(.+)%.[Ll][Uu][Aa]$')
+        local key = tostring(file):match('^([^\\/]+)%.[Ll][Uu][Aa]$')  -- in ui/ itself, not a folder under it
         local low = key and key:lower()
         if key and not OWN[low] and not seen[low] then
             seen[low] = true
             local t = themes.get(key)
-            if not (t and t.ui) then t = entry(key, 'ui/' .. file, themes.open(themes.folder() .. file)) end
+            if not (t and t.ui) then t = entry(key, 'ui/' .. file, themes.open(themes.folder() .. file, 'ui.' .. key)) end
             rest[#rest + 1] = t
         end
     end

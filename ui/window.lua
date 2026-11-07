@@ -1,6 +1,6 @@
 --[[
     The standard Sidekick UI, and the reference: it uses only the `view` and `act`
-    every UI is given (ui/README.md), so ui/custom.lua can replace it, and takes each
+    every UI is given (ui/README.md), so any theme in ui/ can replace it, and takes each
     setting's range from ui/model.lua's REMOTE_SET. ImGui only: it reads no game
     state and decides nothing. Everything is drawn on ImGui's draw lists in
     ui/kit.lua's look (docs/vana-ui-style.md); Sidekick Settings' sidebar and page

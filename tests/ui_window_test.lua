@@ -1,4 +1,4 @@
--- ui/window.lua (and ui/custom.lua, when there is one) against a fake imgui:
+-- ui/window.lua (and every other theme in ui/: Classic, and yours) against a fake imgui:
 -- every path draws without a Lua error, every ImGui scope it opens is closed,
 -- widget ids are unique, and clicks reach the settings through `act`.
 local fake = require('tests.fake')

@@ -60,10 +60,7 @@ local ok, err = pcall(function ()
     end)
 
     test('Standard first, then each .lua in ui/ by name (its own, else its file\'s), but kit.lua and model.lua', function ()
-        in_ui = {}
-        put('kit.lua', 'return {}')
-        put('model.lua', 'return {}')
-        put('window.lua', 'return {}')
+        in_ui = { 'kit.lua', 'model.lua', 'window.lua' }  -- only listed: never opened, so never written to the temp folder
         put(PREFIX .. 'zeta.lua', theme('zeta', '  Alpha  '))  -- its name trimmed: listed by it, first
         put(PREFIX .. 'beta.LUA', theme('beta'))  -- no name: its file's
         put(PREFIX .. 'blank.lua', theme('blank', ' '))
@@ -135,6 +132,31 @@ local ok, err = pcall(function ()
         f:close()
         eq(themes.read(), nil)
         os.remove(tmp .. PREFIX .. 'theme.txt')
+    end)
+
+    test('themes.files: the .lua files in ui/ itself, any case (get_dir\'s mask counts it), not its folders\'', function ()
+        local was, asked = rawget(_G, 'ashita'), nil
+        local listing = { 'a.lua' }
+        rawset(_G, 'ashita', { fs = { get_dir = function (...)
+            asked = { n = select('#', ...), ... }
+            return listing
+        end } })
+        local files = real.files()
+        listing = nil  -- no such folder
+        local none = real.files()
+        rawset(_G, 'ashita', was)
+        -- A third argument of true would go into every folder under ui/, naming its files 'sub\name'.
+        eq({ files, none, asked[1], asked[2], asked[3] }, { { 'a.lua' }, {}, tmp, '.*\\.[Ll][Uu][Aa]', nil })
+    end)
+
+    test('a theme gets its name as ..., as from require; a file in a folder under ui/ is no theme', function ()
+        put(PREFIX .. 'named.lua', 'return { name = ..., render = function () end }')
+        in_ui[#in_ui + 1] = 'parts\\' .. PREFIX .. 'helper.lua'  -- as get_dir names one under a folder, if asked to
+        in_ui[#in_ui + 1] = 'parts/' .. PREFIX .. 'helper.lua'
+        themes.scan()
+        eq({ themes.get(PREFIX .. 'named').name, themes.get('parts\\' .. PREFIX .. 'helper'),
+             themes.get('parts/' .. PREFIX .. 'helper') }, { 'ui.' .. PREFIX .. 'named', nil, nil })
+        eq(themes.open(tmp .. PREFIX .. 'named.lua', 'ui.x').name, 'ui.x')
     end)
 end)
 

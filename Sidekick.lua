@@ -616,13 +616,9 @@ local function rescan()
     stale()
 end
 
--- Draw with the theme `key` names (nil: none picked).
+-- Draw with the theme `key` names (nil: none picked), from ui/ as last looked at.
 local function use_theme(key)
     local t = themes.get(key or themes.OLD)
-    if key and not t then
-        themes.scan(theme)  -- added since the last look, maybe
-        t = themes.get(key)
-    end
     if key and not t then
         say(chat.error, 'No theme "%s" in Sidekick\'s ui folder: using Standard.', key)
     elseif t and t.error then
@@ -636,6 +632,13 @@ end
 theme_read = themes.read()
 use_theme(theme_read)
 
+-- The theme drawing, found after Sidekick loaded: its `load` hasn't run, so chat says what finishes it.
+local function unfinished(t)
+    if type(t.ui.load) == 'function' and not t.loaded then
+        printf('%s finishes setting up at the next load: /addon reload sidekick.', theme_name(t))
+    end
+end
+
 -- `t` picked for this PC: drawn here at once, by each other session within a second (follow_theme), and at each load
 -- after (theme.txt). One that failed to load isn't taken.
 local function pick_theme(t)
@@ -644,9 +647,7 @@ local function pick_theme(t)
     else say(chat.error, 'The theme couldn\'t be saved: the other sessions and the next load won\'t have it.') end
     use_theme(t.key)
     printf('Theme: %s. /sk theme lists them all.', theme_name(t))
-    if type(t.ui.load) == 'function' and not t.loaded then  -- found after Sidekick loaded: its load hasn't run
-        printf('%s finishes setting up at the next load: /addon reload sidekick.', theme_name(t))
-    end
+    unfinished(t)
 end
 
 -- The UI's Theme pick (act.theme), by its key.
@@ -655,14 +656,18 @@ local function theme_act(key)
     if t then pick_theme(t) end
 end
 
--- Another session's pick, taken up within a second. Unread (no file yet, or caught mid-write), the theme stays.
+-- Another session's pick, taken up within a second. Unread (no file yet, or caught mid-write), the theme stays. One
+-- not in ui/ as last looked at, or that failed to load then, is looked for again: that session found it, or it's fixed.
 local function follow_theme(now)
     if now - theme_at < 1 then return end
     theme_at = now
     local key = themes.read()
     if key and key ~= theme_read then
         theme_read = key
+        local t = themes.get(key)
+        if not (t and t.ui) then themes.scan(theme) end
         use_theme(key)
+        unfinished(theme)
     end
 end
 
@@ -697,6 +702,7 @@ local function zoning_view()
     v.status.halted = status.running and 'zoning' or nil
     v.sessions = model.sessions(status)
     v.remote = model.remote(status)
+    v.themes = status.themes and util.copy(status.themes) or v.themes  -- /sk theme works while zoning
     return v
 end
 
@@ -710,7 +716,12 @@ local function draw(g)
     end)
     if ok then return end
     status.open, status.settings, status.watching, status.failed = false, false, {}, true
-    say(chat.error, 'Window closed on an error (/sk hud or /sk opens it again): %s', tostring(err))
+    if theme.key == themes.STANDARD then
+        return say(chat.error, 'Window closed on an error (/sk hud or /sk opens it again): %s', tostring(err))
+    end
+    -- Another theme's: picked for the whole PC and kept across loads, so say the way back.
+    say(chat.error, 'Window closed on an error in theme %s (/sk hud or /sk opens it again, /sk theme standard goes '
+        .. 'back to Standard): %s', theme_name(theme), tostring(err))
 end
 
 -- Some window is up: the HUD, Sidekick Settings (yours or an alt's) or the widget.
