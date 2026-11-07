@@ -38,7 +38,7 @@ local LIMITS = require('ui.model').REMOTE_SET  -- each setting's range
 local util = require('core.util')
 
 local ui = {}
-ui.name = '2.9.1 Classic'  -- as the theme lists show it
+ui.name = 'Classic'  -- as the theme lists show it
 
 local game_text = lang.text  -- a name the game gave (Shift-JIS on a Japanese client), to draw
 

@@ -695,12 +695,12 @@ end)
 
 test('view.themes: a copy of Sidekick.lua\'s, or none; act.theme hands the key to it, no setting written', function ()
     local th = { current = 'window', list = { { key = 'window', name = 'Standard', standard = true },
-                                              { key = 'classic', name = '2.9.1 Classic', file = 'ui/classic.lua' } } }
+                                              { key = 'classic', name = 'Classic', file = 'ui/classic.lua' } } }
     local st = status({ themes = th })
     local view = build(whm, nil, nil, st)
     eq(view.themes, th)
     view.themes.list[2].name = 'Changed'
-    eq({ th.list[2].name, build(whm).themes }, { '2.9.1 Classic', { list = {} } })
+    eq({ th.list[2].name, build(whm).themes }, { 'Classic', { list = {} } })
     local picked, writes = {}, 0
     local act = model.actions(settings.defaults(), st, function () writes = writes + 1 end, nil, nil,
         function (key) picked[#picked + 1] = key end)

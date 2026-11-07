@@ -239,11 +239,11 @@ local SENT = { at = 990, command = '/ma "Cure IV" 101', action = 'Cure IV', targ
 -- frame's.
 local settings_shown = false
 
--- The themes Sidekick.lua finds (core/themes.lua's shown): Standard drawing, 2.9.1 Classic, and one that failed to load.
+-- The themes Sidekick.lua finds (core/themes.lua's shown): Standard drawing, Classic, and one that failed to load.
 local BROKEN = 'ui/broken.lua:3: unexpected symbol'
 local THEMES = { current = 'window', list = {
     { key = 'window', name = 'Standard', file = 'ui/window.lua', standard = true },
-    { key = 'classic', name = '2.9.1 Classic', file = 'ui/classic.lua' },
+    { key = 'classic', name = 'Classic', file = 'ui/classic.lua' },
     { key = 'broken', name = 'broken', file = 'ui/broken.lua', error = BROKEN },
 } }
 
@@ -1447,16 +1447,16 @@ test('UI / Log lists the themes, Standard first, the one drawing lit: a click on
     local clicks = { ['##sk_theme_window'] = true, ['##sk_theme_classic'] = true, ['##sk_theme_broken'] = true }
     eq(render(settings.defaults(), status(), on('UI / Log', clicks)), 0)  -- not a setting: nothing written
     eq(theme_calls, { 'classic' })
-    eq({ drew('T H E M E'), drew('Standard'), drew('2.9.1 Classic'), drew('broken (failed to load)') }, { true, true, true, true })
+    eq({ drew('T H E M E'), drew('Standard'), drew('Classic'), drew('broken (failed to load)') }, { true, true, true, true })
     eq({ tipped('ui/classic.lua'), tipped('Failed to load: ' .. BROKEN) }, { true, true })
-    eq(fill('Standard') ~= fill('2.9.1 Classic'), true)  -- lit: drawing now
+    eq(fill('Standard') ~= fill('Classic'), true)  -- lit: drawing now
     render(settings.defaults(), status({ themes = { list = {} } }), on('UI / Log'))
     eq(drew('T H E M E'), false)  -- none known: no list
     render(settings.defaults(), status(), on('UI / Log'), model.build(snap(), cat, settings.defaults(), status({ themes = false }), NAMES))
     eq(drew('T H E M E'), false)
 end)
 
--- Every theme in ui/ (Sidekick's 2.9.1 Classic, and any of yours) gets the same checks as the standard window: it
+-- Every theme in ui/ (Sidekick's Classic, and any of yours) gets the same checks as the standard window: it
 -- loads, and draws running and stopped, its HUD and Sidekick Settings shown and hidden, closing every scope. The fake
 -- answers false to any call it has no handler for; add one if yours needs it.
 local themes = require('core.themes')
@@ -1489,14 +1489,14 @@ for _, th in ipairs(themes.list) do
     end
 end
 
-test('2.9.1 Classic is ui/classic.lua; Party State\'s Theme lists every theme, a click on another picks it', function ()
+test('Classic is ui/classic.lua; Party State\'s Theme lists every theme, a click on another picks it', function ()
     local classic = themes.get('classic')
-    eq({ classic and classic.name, classic and classic.error }, { '2.9.1 Classic', nil })
+    eq({ classic and classic.name, classic and classic.error }, { 'Classic', nil })
     local was_shown = settings_shown
     theme_calls = {}
     local th = { current = 'classic', list = THEMES.list }
     local err = draw(classic.ui, settings.defaults(), status({ open = true, themes = th }),
-        { ['Standard##sk_ps_theme_window'] = true, ['2.9.1 Classic##sk_ps_theme_classic'] = true,
+        { ['Standard##sk_ps_theme_window'] = true, ['Classic##sk_ps_theme_classic'] = true,
           ['broken (failed to load)##sk_ps_theme_broken'] = true })
     local combo = has(frame.args.BeginCombo, 'Theme##sk_ps_theme')
     render(settings.defaults(), status({ settings = was_shown }))

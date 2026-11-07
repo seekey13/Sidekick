@@ -495,14 +495,14 @@ local ok, err = pcall(function ()
             .. '(ui/README.md, Upgrading from 3.0.0).'
         eq({ c.sk('/sk'), c.frame().ui.settings }, { hint, true })
         eq({ c.sk('/sk'), c.sk('/sk') }, { '', '' })
-        local t = boot({ files = { 'custom.lua', 'classic.lua' }, uis = { classic = { name = '2.9.1 Classic' } }, picked = 'classic' })
+        local t = boot({ files = { 'custom.lua', 'classic.lua' }, uis = { classic = { name = 'Classic' } }, picked = 'classic' })
         eq({ t.sk('/sk'), t.frame() and t.by }, { '', 'classic' })  -- a theme picked: no hint, ui/custom.lua or not
     end)
 
     -- ui/ with Sidekick's own files, a theme that names itself, one that failed to load and one that goes by its file's.
     local UI = { 'classic.lua', 'kit.lua', 'model.lua', 'window.lua', 'broken.lua', 'Mine.LUA' }
     local function themed(picked, uis, files)
-        local all = { classic = { name = '2.9.1 Classic' }, broken = 'ui/broken.lua:3: unexpected symbol' }
+        local all = { classic = { name = 'Classic' }, broken = 'ui/broken.lua:3: unexpected symbol' }
         for k, v in pairs(uis or {}) do all[k] = v end
         return boot({ files = files or UI, uis = all, picked = picked })
     end
@@ -530,24 +530,24 @@ local ok, err = pcall(function ()
 
     test('/sk theme lists Standard, then each theme in ui/ by name, but Sidekick\'s own files; the one drawing marked',
         function ()
-        eq(themed().sk('/sk theme'), 'Themes: Standard (in use), 2.9.1 Classic, broken (failed to load), Mine. '
+        eq(themed().sk('/sk theme'), 'Themes: Standard (in use), broken (failed to load), Classic, Mine. '
             .. '/sk theme <name> switches every character on this PC.')
-        eq(shown(themed('classic')), { 'classic', 'window Standard', 'classic 2.9.1 Classic', 'broken broken!', 'Mine Mine' })
+        eq(shown(themed('classic')), { 'classic', 'window Standard', 'broken broken!', 'classic Classic', 'Mine Mine' })
     end)
 
     test('/sk theme <name> draws with it at once, saved for every character: by its name or its file\'s, any case',
         function ()
         local s = themed()
         s.sk('/sk')
-        eq({ s.sk('/sk theme 2.9.1 classic'), s.frame() ~= nil, s.by, s.theme.picked },
-           { 'Theme: 2.9.1 Classic' .. SAVED, true, 'classic', 'classic' })
+        eq({ s.sk('/sk theme CLASSIC'), s.frame() ~= nil, s.by, s.theme.picked },
+           { 'Theme: Classic' .. SAVED, true, 'classic', 'classic' })
         eq({ s.sk('/sk theme "standard"'), s.frame() ~= nil, s.by, s.theme.picked },
            { 'Theme: Standard' .. SAVED, true, 'window', 'window' })
         eq({ s.sk('/sk theme MINE'), s.frame() ~= nil, s.by, s.theme.picked }, { 'Theme: Mine' .. SAVED, true, 'Mine', 'Mine' })
         eq({ s.sk('/sk theme broken'), s.theme.picked }, { 'Theme broken failed to load: ui/broken.lua:3: unexpected symbol', 'Mine' })
         eq({ s.sk('/sk theme Nope'), s.theme.picked }, { 'No theme "Nope" in Sidekick\'s ui folder. /sk theme lists them.', 'Mine' })
         s.loading(true)  -- needs no game: while you zone too
-        eq({ s.sk('/sk theme classic'), s.theme.picked }, { 'Theme: 2.9.1 Classic' .. SAVED, 'classic' })
+        eq({ s.sk('/sk theme classic'), s.theme.picked }, { 'Theme: Classic' .. SAVED, 'classic' })
     end)
 
     test('act.theme picks one as /sk theme does; one that failed to load isn\'t taken', function ()
@@ -613,7 +613,7 @@ local ok, err = pcall(function ()
         local s = themed('window')
         s.theme.unwritable = true
         eq(s.sk('/sk theme classic'), 'The theme couldn\'t be saved: the other sessions and the next load won\'t have it.'
-            .. ' | Theme: 2.9.1 Classic' .. SAVED)
+            .. ' | Theme: Classic' .. SAVED)
         s.sk('/sk')
         s.frame()
         eq({ s.frame() ~= nil, s.by, s.theme.picked }, { true, 'classic', 'window' })

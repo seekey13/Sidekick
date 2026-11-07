@@ -128,7 +128,7 @@ local ok, err = pcall(function ()
         made['theme.txt'] = true
         os.remove(tmp .. PREFIX .. 'theme.txt')
         eq(themes.read(), nil)
-        eq({ themes.write('2.9.1 Classic'), themes.read() }, { true, '2.9.1 Classic' })
+        eq({ themes.write('Classic'), themes.read() }, { true, 'Classic' })
         eq({ themes.write('classic'), themes.read() }, { true, 'classic' })
         local f = assert(io.open(tmp .. PREFIX .. 'theme.txt', 'w'))
         f:write('  \n')
