@@ -14,7 +14,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 addon.name    = 'Sidekick'
 addon.author  = 'Seekey'
-addon.version = '3.0.3'
+addon.version = '3.0.4'
 addon.desc    = 'Support Job Automation Framework'
 addon.link    = 'https://github.com/seekey13/Sidekick'
 
@@ -107,7 +107,7 @@ local mem = {}         -- the engine's memory between ticks
 
 -- What the window shows and toggles besides the settings.
 local status = {
-    running = false,  -- automation on (/sk start); never resumed on load
+    running = false,  -- automation on (/sk start); resumed on load only with Always load stopped off (cfg.ui)
     open = nil,       -- the HUD shown (/sk hud); from cfg.ui.open at the first settings load
     settings = false, -- Sidekick Settings shown (/sk); never reopened on load
     failed = nil,     -- the UI raised an error: not drawn, the widget either, until /sk, /sk hud, /sk alt or /sk widget
@@ -142,18 +142,48 @@ local packet_ctx = {
 -- Latest game snapshot, at most 10 a second: plenty for a 1.1s action throttle.
 -- Returns it and whether it was just read.
 local snap = { loading = true, now = 0, tracks = {} }
+-- What a load (the first, or a relog's) asks of automation besides the file: `zoned_in`, the game was read loading
+-- since Sidekick loaded (you came in by a login or a zone, which After zone stop stops); `stopped_early`, /sk stop was
+-- said while loading, which the load doesn't undo.
+local zoned_in, stopped_early = false, false
 local function refresh(now)
     if now - snap.now < 0.1 and not snap.loading then return snap, false end
+    local was_loading = snap.loading
     snap = game.read(now, not status.running or mem.afk and mem.afk.asleep)
+    zoned_in = zoned_in or snap.loading
+    -- After zone stop: a zone (a logout too) stops automation as it begins. A logout's stop reaches no file (the
+    -- settings library has already moved to the next character's), so the login stops it too (zoned_in).
+    if snap.loading and not was_loading and status.running and cfg and cfg.ui.zone_stop == true then
+        status.running = false
+        printf('Automation stopped: you zoned (After zone stop).')
+    end
     if not snap.loading then
         current_catalog()
         packet_ctx.me, packet_ctx.pet, packet_ctx.tracks = snap.me.sid, snap.pet and snap.pet.sid, snap.tracks
         packet_ctx.buffs, packet_ctx.slots = snap.me.buffs, brd.slots(snap)
         local pair = abbr(snap.main) .. '_' .. abbr(snap.sub)
         if pair ~= cfg_pair then brd.clear() end  -- your songs go with the job
-        if pair ~= cfg_pair or settings.switched() then cfg, cfg_pair, mem = settings.load(pair), pair, {} end
-        -- The HUD stays as it is across a job change; only /sk hud and its close button move it.
-        if status.open == nil then status.open = cfg.ui.open end
+        local relog = settings.switched()  -- logged out and in: the library has loaded every file afresh
+        if pair ~= cfg_pair or relog then cfg, cfg_pair, mem = settings.load(pair), pair, {} end
+        -- The first settings load: the HUD as it was left. It stays as it is across a job change and a relog; only
+        -- /sk hud and its close button move it.
+        local first = status.open == nil
+        if first then status.open = cfg.ui.open end
+        -- The first load and a relog: automation stopped if you came in by a zone with After zone stop on, else as this
+        -- character left it with Always load stopped off. A job change leaves it as it is.
+        if first or relog then
+            if zoned_in and cfg.ui.zone_stop == true then
+                if status.running then
+                    status.running = false
+                    printf('Automation stopped: you zoned (After zone stop).')
+                end
+            elseif cfg.ui.load_stopped == false and not stopped_early and status.running ~= (cfg.ui.running == true) then
+                status.running = cfg.ui.running == true
+                printf('Automation %s, as it was left (Always load stopped is off).',
+                    word(status.running and 'started' or 'stopped'))
+            end
+        end
+        stopped_early = false
         -- AFK sleep counts only while running, and starts over on a start or a job change.
         if status.restart then mem.afk, status.restart = nil, nil end
         if status.running then
@@ -492,6 +522,7 @@ local function run_command(me, on, who)
     if not here and not others then no_session(who); return end
     if here then
         status.running = on
+        if snap.loading or not cfg then stopped_early = true end  -- a stop while you load: the load doesn't undo it
         if on then status.restart = true end  -- wakes AFK sleep, as the run icon's start
         printf('Automation %s.', word(on and 'started' or 'stopped'))
     end
@@ -500,6 +531,12 @@ local function run_command(me, on, who)
     elseif here and who and who:lower() == 'all' and not next(share.sessions) then
         printf('No other Sidekick sessions on this PC.')
     end
+end
+
+-- /sk toggle: your automation on if it's off, off if it's on; yours alone, as v2's. A name isn't taken as you.
+local function toggle_command(args, me)
+    if args[3] then return printf('/sk toggle takes no name, it\'s this session\'s alone: use /sk start|stop %s.', args[3]) end
+    run_command(me, not status.running)
 end
 
 -- What /sk alt's words ask: automation on or off (`on`; nil to show or hide their Sidekick Settings), and for whom. A
@@ -668,6 +705,12 @@ ashita.events.register('d3d_present', 'sidekick_present', function ()
     end
     -- Each window apart from the others; while zoning, all but the HUD, from the last view of the party.
     if any_window() and (good or not g.loading) then draw(g) end
+    -- Always load stopped off: automation's state kept as it changes (a command, a click, another session, a zone), for
+    -- the next load to start as it was left.
+    if cfg and cfg.ui.load_stopped == false and cfg.ui.running ~= status.running then
+        cfg.ui.running = status.running
+        unsaved = true
+    end
     if unsaved and not imgui.IsAnyItemActive() then
         settings.save()
         unsaved = false
@@ -688,7 +731,7 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function (e)
 end)
 
 local HELP = '/sk (or /sidekick) opens or closes Sidekick Settings. Commands: hud, alt [name|all], alt start|stop [name|all], widget, '
-    .. 'start [name|all], stop [name|all], plan, state, '
+    .. 'start [name|all], stop [name|all], toggle, plan, state, '
     .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow [name|on|off], rest [on|off], '
     .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], catalog [unknown], log, help. '
     .. 'A Phantom Roll\'s name (Bolter\'s Roll) rolls it now, then Double-Ups at Lowest'
@@ -728,6 +771,7 @@ local COMMANDS = {
     end,
     start = function (args, g) run_command(g.me.name, true, args[3]) end,
     stop = function (args, g) run_command(g.me.name, false, args[3]) end,
+    toggle = function (args, g) toggle_command(args, g.me.name) end,
     plan = function (_, g) show_plan(g) end,
     state = function (_, g) show_state(g) end,
     buff = buff_command,
@@ -805,18 +849,23 @@ end
 -- The commands Sidekick answers: /sk, or /sidekick spelled out.
 local PREFIXES = { ['/sk'] = true, ['/sidekick'] = true }
 
+-- v2's names for the commands v3 renamed, so v2's macros still work. Help lists only v3's.
+local V2_NAMES = { config = '', panel = 'hud', addtarget = 'track', removetarget = 'untrack', debug = 'log' }
+
 ashita.events.register('command', 'sidekick_command', function (e)
     local args = e.command:args()
     if #args == 0 or not PREFIXES[args[1]:lower()] then return end
     e.blocked = true
     stale()
     local sub = (args[2] or ''):lower()
+    sub = V2_NAMES[sub] or sub
     if ANYTIME[sub] then return ANYTIME[sub](args) end
     local g = refresh(os.clock())
     -- Stop, yours or your alts', goes through while you load (a zone): your file keeps carrying calls for
-    -- share.LOADING seconds.
+    -- share.LOADING seconds. So does a toggle that stops.
     if g.loading or not cfg then
         if sub == 'stop' then return run_command(share.me(), false, args[3]) end
+        if sub == 'toggle' and (status.running or args[3]) then return toggle_command(args, share.me()) end
         if sub == 'alt' and alt_args(args) == false then return alt_command(args, share.me()) end
         return printf('Waiting for the game to load your job.')
     end

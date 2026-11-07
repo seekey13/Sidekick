@@ -1,5 +1,5 @@
--- Sidekick.lua's commands and which windows it draws, with Ashita stubbed out: /sk, /sk hud, /sk alt, zoning and a
--- UI's error. Sidekick.lua runs on fresh copies of every module, and everything it's given is put back at the end, so
+-- Sidekick.lua's commands and which windows it draws, with Ashita stubbed out: /sk, /sk hud, /sk alt, /sk toggle,
+-- v2's command names, zoning and a UI's error. Sidekick.lua runs on fresh copies of every module, and everything it's given is put back at the end, so
 -- no other test sees any of it.
 local fake_names = { 'core%.', 'jobs%.', 'ui%.', 'tests%.fake' }
 local saved_loaded = {}
@@ -35,9 +35,11 @@ end
 
 -- Sidekick.lua loaded afresh, `custom` with a ui/custom.lua: { sk(command) -> chat, frame() -> the view drawn or nil,
 -- sessions, sent, loading(on), ui (the stub UI: its render can be replaced), act (the last frame's), party and over
--- (who the game reads besides you, and its snapshot's flags), queued (the commands sent to the game) }. With `spells`, you
--- know every spell your job has (else none).
-local function boot(custom, spells)
+-- (who the game reads besides you, and its snapshot's flags), queued (the commands sent to the game), files (the settings
+-- files, by alias), out (chat since the last command) }. With `spells`, you know every spell your job has (else none).
+-- `ui`: what the ui file was left holding, over its defaults. `login`: loaded before you're in, as at the title screen,
+-- so the game reads loading till env.loading(false).
+local function boot(custom, spells, ui, login)
     for k in pairs(package.loaded) do
         for _, p in ipairs(fake_names) do
             if k:match('^' .. p) then package.loaded[k] = nil end
@@ -74,14 +76,17 @@ local function boot(custom, spells)
     env.files = {}
     package.loaded['settings'] = {
         load = function (defaults, alias)
-            env.files[alias] = env.files[alias] or copy(defaults)
+            if not env.files[alias] then
+                env.files[alias] = copy(defaults)
+                for k, v in pairs(alias == 'ui' and ui or {}) do env.files[alias][k] = v end
+            end
             return env.files[alias]
         end,
         save = function () end,
         get = function (alias) return env.files[alias] end,
     }
     local fake = require('tests.fake')
-    local loading = false
+    local loading = login == true
     function env.loading(on) loading = on end
     package.loaded['core.game'] = {
         read = function (now)
@@ -209,6 +214,27 @@ local ok, err = pcall(function ()
         e.frame()
     end)
 
+    test('/sk toggle starts automation when stopped, stops it when running, yours alone; mid-zone it only stops',
+        function ()
+        e.sent = {}
+        eq({ e.sk('/sk toggle'), e.sk('/sidekick TOGGLE'), e.sent }, { 'Automation started.', 'Automation stopped.', {} })
+        e.sk('/sk toggle')
+        e.loading(true)
+        e.frame()
+        eq({ e.sk('/sk toggle'), e.sk('/sk toggle') }, { 'Automation stopped.', 'Waiting for the game to load your job.' })
+        e.loading(false)
+        e.frame()
+        eq(e.sk('/sk toggle'), 'Automation started.')  -- stopped all along: the second mid-zone did nothing
+        local named = '/sk toggle takes no name, it\'s this session\'s alone: use /sk start|stop %s.'
+        eq({ e.sk('/sk toggle B'), e.sk('/sk toggle all'), e.sent }, { named:format('B'), named:format('all'), {} })
+        e.loading(true)
+        e.frame()
+        eq(e.sk('/sk toggle B'), named:format('B'))  -- mid-zone too
+        e.loading(false)
+        e.frame()
+        eq(e.sk('/sk toggle'), 'Automation stopped.')  -- running all along: no name toggled you
+    end)
+
     test('while zoning, every window but the HUD stays up, as it is now; only stop goes through', function ()
         e.sk('/sk hud'); e.sk('/sk'); e.sk('/sk alt')
         local v = e.frame()
@@ -242,6 +268,24 @@ local ok, err = pcall(function ()
         e.sk('/sk hud')
         eq(e.frame().ui.open, true)
         e.sk('/sk'); e.sk('/sk hud')
+    end)
+
+    test('v2\'s names still work: config, panel, addtarget, removetarget and debug', function ()
+        e.sk('/sk config')
+        local v = e.frame()
+        eq({ v.ui.settings, v.ui.open }, { true, false })
+        e.sk('/sk PANEL')
+        eq({ e.frame().ui.open, e.files.ui.open }, { true, true })
+        e.sk('/sk config'); e.sk('/sidekick panel')
+        eq({ e.frame(), e.files.ui.open }, { nil, false })
+        eq({ e.sk('/sk debug'), e.sk('/sk debug') }, { 'Action log on.', 'Action log off.' })
+        e.over, e.queued = { target = { sid = 500, tidx = 1500, name = 'Out' } }, {}
+        e.frame()
+        eq({ e.sk('/sk addtarget'), e.queued }, { 'Tracking Out: healed, cleared, raised and buffed (buff rows pick them '
+            .. 'by name). Checking their level.', { '/check Out' } })
+        eq({ e.sk('/sk removetarget out'), e.sk('/sk removetarget Out') }, { 'Stopped tracking Out.', 'Not tracking "Out".' })
+        e.over = {}
+        e.frame()
     end)
 
     -- Follow's settings, in the job pair's file.
@@ -317,6 +361,111 @@ local ok, err = pcall(function ()
         s.sk('/sk start')
         s.frame(); s.frame()
         eq(s.queued[3]:match('^/ma "Cur'), '/ma "Cur')
+    end)
+
+    test('Always load stopped, on by default: a load starts stopped, whatever was left', function ()
+        local s = boot(false, nil, { running = true })
+        eq({ s.out, s.sk('/sk toggle') }, { {}, 'Automation started.' })
+        s.frame()
+        eq(s.files.ui.running, true)  -- not kept while it's on: no file written for each start and stop
+        s.sk('/sk stop')
+        s.frame()
+        eq(s.files.ui.running, true)
+        s.files.ui.load_stopped = false  -- turned off: kept from then on
+        s.frame()
+        eq(s.files.ui.running, false)
+    end)
+
+    test('Always load stopped off: a load starts as automation was left, kept as it changes, by any way', function ()
+        local s = boot(false, nil, { load_stopped = false, running = true })
+        eq({ s.out, s.sk('/sk toggle') },
+           { { 'Automation started, as it was left (Always load stopped is off).' }, 'Automation stopped.' })
+        s.sk('/sk')
+        s.frame()
+        eq(s.files.ui.running, false)
+        s.act.run(true)  -- the run icon
+        s.frame()
+        eq(s.files.ui.running, true)
+        s.loading(true)
+        s.frame()
+        s.sk('/sk stop')  -- mid-zone
+        s.frame()
+        eq(s.files.ui.running, false)
+        s.loading(false)
+        s.frame()
+        eq(boot(false, nil, { load_stopped = false }).sk('/sk toggle'), 'Automation started.')  -- left stopped: stopped
+    end)
+
+    test('After zone stop: off, a zone leaves automation running; on, it stops as the zone begins, said once', function ()
+        local z = boot(false)
+        z.sk('/sk start')
+        z.loading(true); z.frame(); z.frame()
+        z.loading(false); z.frame()
+        eq(z.sk('/sk toggle'), 'Automation stopped.')  -- running through the zone
+        z.files.ui.zone_stop = true
+        z.sk('/sk start')
+        z.out = {}
+        z.loading(true); z.frame(); z.frame()
+        eq(z.out, { 'Automation stopped: you zoned (After zone stop).' })
+        z.loading(false); z.frame()
+        eq(z.sk('/sk toggle'), 'Automation started.')  -- stopped after it
+        z.sk('/sk stop')
+        z.out = {}
+        z.loading(true); z.frame()
+        eq(z.out, {})  -- stopped already: nothing to say
+        z.loading(false); z.frame()
+        z.files.ui.load_stopped = false
+        z.sk('/sk start')
+        z.frame()
+        eq(z.files.ui.running, true)
+        z.loading(true); z.frame()
+        eq(z.files.ui.running, false)  -- what the next load starts as
+    end)
+
+    test('After zone stop on, a login starts stopped, whatever was left; Sidekick loaded in a zone resumes', function ()
+        local left = { load_stopped = false, running = true, zone_stop = true }
+        local s = boot(false, nil, left, true)  -- a logout's stop reaches no file: running = true stays in it
+        s.loading(false); s.frame()
+        eq({ s.out, s.files.ui.running }, { {}, false })  -- the file put right
+        eq(s.sk('/sk toggle'), 'Automation started.')
+        eq(boot(false, nil, left).out, { 'Automation started, as it was left (Always load stopped is off).' })
+        left.zone_stop = false
+        local l = boot(false, nil, left, true)
+        l.loading(false); l.frame()
+        eq(l.out, { 'Automation started, as it was left (Always load stopped is off).' })
+    end)
+
+    test('a relog: Always load stopped off, as the character left it; After zone stop on, stopped; else as it is',
+        function ()
+        local s = boot(false)
+        -- Logged out and in to a character whose ui file holds `ui` over the defaults: the library loads every file
+        -- again, into new tables.
+        local function relog(ui, typed)
+            s.loading(true); s.frame()
+            if typed then s.sk(typed) end
+            local f = copy(s.files.ui)
+            f.load_stopped, f.zone_stop, f.running = true, false, false
+            for k, v in pairs(ui) do f[k] = v end
+            s.files.ui, s.out = f, {}
+            s.loading(false); s.frame()
+            return s.out
+        end
+        s.sk('/sk start')
+        eq({ relog({ load_stopped = false, running = false }), s.files.ui.running },
+           { { 'Automation stopped, as it was left (Always load stopped is off).' }, false })
+        eq({ relog({ running = true }), s.sk('/sk toggle') }, { {}, 'Automation started.' })  -- load_stopped on: as is
+        eq(relog({ load_stopped = false, running = true }), {})  -- running already
+        eq(relog({ zone_stop = true }), { 'Automation stopped: you zoned (After zone stop).' })  -- the login stops it
+        s.sk('/sk start')
+        eq({ relog({ load_stopped = false, running = true }, '/sk stop'), s.files.ui.running }, { {}, false })
+    end)
+
+    test('Always load stopped off: a /sk stop while you first load stands', function ()
+        local s = boot(false, nil, { load_stopped = false, running = true }, true)
+        eq(s.sk('/sk stop'), 'Automation stopped.')
+        s.out = {}
+        s.loading(false); s.frame()
+        eq({ s.out, s.files.ui.running, s.sk('/sk toggle') }, { {}, false, 'Automation started.' })
     end)
 
     test('with ui/custom.lua, the first /sk says what changed, once', function ()

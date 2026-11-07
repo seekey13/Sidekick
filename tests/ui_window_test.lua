@@ -1967,6 +1967,19 @@ test('UI / Log: Drop-down rows sets how many choices a drop-down shows, held to 
     eq({ rows(nil), rows(4), rows(500), rows(1), rows('what') }, { 8, 4, 30, 3, 8 })
 end)
 
+test('UI / Log: After zone stop (off by default) and Always load stopped (on) switch, each its own', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    eq({ cfg.ui.zone_stop, cfg.ui.load_stopped }, { false, true })
+    eq(render(cfg, st, on('UI / Log', { ['After zone stop##sk_ui_zone_stop'] = true })), 1)
+    eq({ cfg.ui.zone_stop, cfg.ui.load_stopped }, { true, true })
+    eq(render(cfg, st, on('UI / Log', { ['Always load stopped##sk_ui_load_stopped'] = true })), 1)
+    eq({ cfg.ui.zone_stop, cfg.ui.load_stopped, st.running }, { true, false, false })  -- neither starts or stops it
+    cfg.ui.load_stopped = nil  -- a file from before it: on
+    render(cfg, st, on('UI / Log', { ['Always load stopped##sk_ui_load_stopped'] = true }))
+    eq(cfg.ui.load_stopped, false)
+end)
+
 -- `fn()` with the fake's `name` calls going to `handler`, and kit.list_rows and kit.custom put back after, a failure too.
 local function with_handler(name, handler, fn)
     local real, rows, custom = handlers[name], kit.list_rows, kit.custom

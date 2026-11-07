@@ -35,7 +35,7 @@ Sidekick v3 is a ground-up rewrite of Sidekick v2. Instead of hand-written job f
 2. In game: `/addon load sidekick`
 3. Configure with `/sk`, open the HUD with `/sk hud`, and press run on your card (or `/sk start`).
 
-Automation always starts **off** after a load. Healing, removal, waking, raising, recovery and pet care are on by default; buffs, items, following and resting are opt-in. Following, once on, works with automation stopped too, and stays on through a load: it follows again at once.
+Automation starts **off** after a load; turn off **Always load stopped** (Sidekick Settings, UI / Log) to have it come back as you left it, running or stopped. **After zone stop** there stops it each time you zone, and keeps it off when you log in. Healing, removal, waking, raising, recovery and pet care are on by default; buffs, items, following and resting are opt-in. Following, once on, works with automation stopped too, and stays on through a load: it follows again at once.
 
 > [!NOTE]
 > v3 replaces Sidekick v2: both answer `/sk` and `/sidekick`, so don't load them together. Installing over v2? Delete its folder first (v2's `lib/` would otherwise stay behind). v2's settings in `config/addons/sidekick/` are left as they are and never read.
@@ -51,6 +51,7 @@ Automation always starts **off** after a load. Healing, removal, waking, raising
 | `/sk alt` `[Name\|all]` | Open or close your alts' Sidekick Settings: the one named, or every alt's (closing them all while any is open) |
 | `/sk alt start` \| `stop` `[Name\|all]` | Your alts' automation on/off: the one named, or every alt's |
 | `/sk start` \| `stop` `[Name\|all]` | Automation on/off, for this or another session on this PC |
+| `/sk toggle` | Automation on if it's off, off if it's on (this session only) |
 | `/sk plan` | Show what it would do right now, without doing it |
 | `/sk buff <spell> <targets>` | Keep a buff up (`me`, `p1`–`p5`, `b0`–`c5`, a tracked name); `off` to stop |
 | `/sk focus <Name>` \| `off` | Heal this member first |
