@@ -166,7 +166,7 @@ rows = { Cure = { on = true }, Protect = { on = true, pick = 'Protect IV', targe
 - **One row widget:** toggle, tier dropdown (when there is more than one tier), target chips (when not self-only), modifier chips (from the knowledge table).
 - **Tooltips:** from the DAT descriptions.
 - **The HUD:** the party's HP and MP bars, with an arrow at whoever the next action is for; its cog opens Sidekick Settings, which fits itself to its contents.
-- `ui/model.lua` builds the view and owns the only setting writers; `ui/window.lua` only draws it. A user's own `ui/custom.lua` replaces the window; [ui/README.md](../../../ui/README.md) is its contract.
+- `ui/model.lua` builds the view and owns the only setting writers; `ui/window.lua` only draws it. Any other `.lua` in `ui/` is a theme that replaces the window (`core/themes.lua`: picked for the PC, under UI / Log or `/sk theme`; Classic ships as `ui/classic.lua`); [ui/README.md](../../../ui/README.md) is its contract.
 
 ## Features kept
 
