@@ -34,6 +34,7 @@ local profiles = require('core.profiles')
 local resources = require('core.resources')
 local settings = require('core.settings')
 local share = require('core.share')
+local themes = require('core.themes')
 local tracked = require('core.tracked')
 local util = require('core.util')
 local imgui = require('imgui')
@@ -119,6 +120,7 @@ local status = {
     watching = {},    -- ...those whose Sidekick Settings are shown here (a cog, /sk alt): { [name] = true }...
     views = {},       -- ...and the views they published for it
     restart = nil,    -- automation just started: AFK sleep starts over (core/afk.lua)
+    themes = nil,     -- the themes in ui/ and the one drawing (core/themes.lua's shown): view.themes
 }
 local SENT_KEPT = 10
 
@@ -579,16 +581,6 @@ local function untrack(name)
 end
 local tracking = { add = track, remove = untrack }
 
--- The UI: ui/custom.lua when there is one, else the standard window (ui/README.md).
--- A custom UI that fails to load is reported and the standard one used instead.
-local ui = require('ui.window')
-local custom_hint = false  -- a custom UI is drawing: the first /sk says what 3.0.1 changed (one for 3.0.0 shows nothing)
-if package.searchpath('ui.custom', package.path) then
-    local ok, custom = pcall(require, 'ui.custom')
-    if ok then ui, custom_hint = custom, true
-    else say(chat.error, 'ui/custom.lua failed to load, using the standard window: %s', tostring(custom)) end
-end
-
 -- Settings the UI changed, saved once no widget is held: a dragged slider saves when let go.
 local unsaved = false
 local function changed() unsaved = true end
@@ -605,12 +597,81 @@ end
 local shown
 local function stale() shown = nil end
 
+-- The UI: the theme picked for this PC (core/themes.lua, ui/README.md), drawn here and by every other session. With
+-- none picked, ui/custom.lua when there is one (as before themes), else Standard (ui/window.lua); Standard too, said in
+-- chat, when the one picked isn't in ui/ or failed to load.
+themes.init(require('ui.window'))
+local ui, theme       -- the theme drawing: its table, and its entry in themes.list
+local theme_read      -- what theme.txt held when last read or written: the PC's pick, nil for none
+local theme_at = 0    -- when it was last read (os.clock)
+local hinted = false  -- ui/custom.lua drawing: the first /sk has said what 3.0.1 changed (one for 3.0.0 shows nothing)
+
+-- A theme's name for chat: Standard's in the client's language.
+local function theme_name(t) return t.key == themes.STANDARD and word('Standard') or t.name end
+
+-- The themes in ui/ looked at again (a file added since), for the view.
+local function rescan()
+    themes.scan(theme)
+    status.themes = themes.shown(theme)
+    stale()
+end
+
+-- Draw with the theme `key` names (nil: none picked).
+local function use_theme(key)
+    local t = themes.get(key or themes.OLD)
+    if key and not t then
+        themes.scan(theme)  -- added since the last look, maybe
+        t = themes.get(key)
+    end
+    if key and not t then
+        say(chat.error, 'No theme "%s" in Sidekick\'s ui folder: using Standard.', key)
+    elseif t and t.error then
+        say(chat.error, 'Theme %s failed to load, using Standard: %s', t.name, t.error)
+    end
+    if not (t and t.ui) then t = themes.list[1] end
+    theme, ui = t, t.ui
+    status.themes, status.failed = themes.shown(t), nil
+    stale()
+end
+theme_read = themes.read()
+use_theme(theme_read)
+
+-- `t` picked for this PC: drawn here at once, by each other session within a second (follow_theme), and at each load
+-- after (theme.txt). One that failed to load isn't taken.
+local function pick_theme(t)
+    if t.error then return say(chat.error, 'Theme %s failed to load: %s', t.name, t.error) end
+    if themes.write(t.key) then theme_read = t.key
+    else say(chat.error, 'The theme couldn\'t be saved: the other sessions and the next load won\'t have it.') end
+    use_theme(t.key)
+    printf('Theme: %s. /sk theme lists them all.', theme_name(t))
+    if type(t.ui.load) == 'function' and not t.loaded then  -- found after Sidekick loaded: its load hasn't run
+        printf('%s finishes setting up at the next load: /addon reload sidekick.', theme_name(t))
+    end
+end
+
+-- The UI's Theme pick (act.theme), by its key.
+local function theme_act(key)
+    local t = themes.get(key)
+    if t then pick_theme(t) end
+end
+
+-- Another session's pick, taken up within a second. Unread (no file yet, or caught mid-write), the theme stays.
+local function follow_theme(now)
+    if now - theme_at < 1 then return end
+    theme_at = now
+    local key = themes.read()
+    if key and key ~= theme_read then
+        theme_read = key
+        use_theme(key)
+    end
+end
+
 -- `act`, each call of which makes the view stale. Built again only for new settings (another job pair, a relog),
 -- not every frame: cfg is the one thing model.actions is given that changes.
 local act_cfg, act_proxy
 local function acts()
     if not act_proxy or act_cfg ~= cfg then
-        local act = model.actions(cfg, status, changed, tracking, share.send)
+        local act = model.actions(cfg, status, changed, tracking, share.send, theme_act)
         act_cfg, act_proxy = cfg, setmetatable({}, { __index = function (_, k)
             local f = act[k]
             return f and function (...) stale(); return f(...) end
@@ -692,6 +753,8 @@ local shared = {
     halted = function () return status.running and model.halted(snap) or nil end,
 }
 
+local settings_were = false  -- Sidekick Settings were shown last frame: opening them looks at ui/ again
+
 ashita.events.register('d3d_present', 'sidekick_present', function ()
     local g, fresh = refresh(os.clock())
     if fresh then
@@ -702,7 +765,10 @@ ashita.events.register('d3d_present', 'sidekick_present', function ()
         for name in pairs(status.watching) do
             if not status.sessions[name] then status.watching[name] = nil end  -- gone: its window closes
         end
+        follow_theme(os.clock())
     end
+    if status.settings and not settings_were then rescan() end
+    settings_were = status.settings
     -- Each window apart from the others; while zoning, all but the HUD, from the last view of the party.
     if any_window() and (good or not g.loading) then draw(g) end
     -- Always load stopped off: automation's state kept as it changes (a command, a click, another session, a zone), for
@@ -717,11 +783,12 @@ ashita.events.register('d3d_present', 'sidekick_present', function ()
     end
 end)
 
--- The UI's fonts, outside any frame (ImGui 1.81 takes none mid-frame). An error is reported, and the UI still drawn.
+-- Every theme's fonts, outside any frame (ImGui 1.81 takes none mid-frame), so a switch to one needs no reload. An
+-- error is reported, and the theme still drawn.
 ashita.events.register('load', 'sidekick_load', function ()
-    if not ui.load then return end
-    local ok, err = pcall(ui.load)
-    if not ok then say(chat.error, 'The UI failed at load: %s', tostring(err)) end
+    for _, failed in ipairs(themes.load_all()) do
+        say(chat.error, 'Theme %s failed at load: %s', theme_name(failed[1]), failed[2])
+    end
 end)
 
 ashita.events.register('unload', 'sidekick_unload', share.close)
@@ -733,11 +800,38 @@ end)
 local HELP = '/sk (or /sidekick) opens or closes Sidekick Settings. Commands: hud, alt [name|all], alt start|stop [name|all], widget, '
     .. 'start [name|all], stop [name|all], toggle, plan, state, '
     .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow [name|on|off], rest [on|off], '
-    .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], catalog [unknown], log, help. '
-    .. 'A Phantom Roll\'s name (Bolter\'s Roll) rolls it now, then Double-Ups at Lowest'
+    .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], theme [name], catalog [unknown], '
+    .. 'log, help. A Phantom Roll\'s name (Bolter\'s Roll) rolls it now, then Double-Ups at Lowest'
 
 -- A command's name argument, or '' for none or `off`.
 local function name_or_off(args) return args[3] and args[3]:lower() ~= 'off' and args[3] or '' end
+
+-- The words of a command from args[first] on, quotes around them stripped ("Bolter's Roll").
+local function words_from(args, first)
+    local parts = {}
+    for i = first, #args do
+        local w = args[i]:gsub('^"+', ''):gsub('"+$', '')
+        if w ~= '' then parts[#parts + 1] = w end
+    end
+    return table.concat(parts, ' ')
+end
+
+-- /sk theme [name]: the themes in ui/, the one drawing marked; with a name (a theme's, or its file's), that one,
+-- on every character on this PC.
+local function theme_command(args)
+    rescan()
+    local wanted = words_from(args, 3)
+    if wanted == '' then
+        local listed = {}
+        for i, t in ipairs(themes.list) do
+            listed[i] = theme_name(t) .. (t == theme and word(' (in use)') or t.error and word(' (failed to load)') or '')
+        end
+        return printf('Themes: %s. /sk theme <name> switches every character on this PC.', table.concat(listed, ', '))
+    end
+    local t = themes.find(wanted)
+    if not t then return printf('No theme "%s" in Sidekick\'s ui folder. /sk theme lists them.', wanted) end
+    pick_theme(t)
+end
 
 -- /sk commands that need nothing loaded: (args).
 local ANYTIME = {
@@ -746,6 +840,7 @@ local ANYTIME = {
         status.log = not status.log
         printf('Action log %s.', word(status.log and 'on' or 'off'))
     end,
+    theme = theme_command,
     help = function () printf('%s', word(HELP)) end,
 }
 
@@ -753,8 +848,8 @@ local ANYTIME = {
 local COMMANDS = {
     [''] = function ()
         status.settings, status.failed = not status.settings, nil
-        if not custom_hint then return end
-        custom_hint = false
+        if hinted or theme.key ~= themes.OLD then return end
+        hinted = true
         printf('/sk shows Sidekick Settings now, /sk hud the HUD: a custom UI draws them for view.ui.settings '
             .. '(ui/README.md, Upgrading from 3.0.0).')
     end,
@@ -821,16 +916,6 @@ local COMMANDS = {
     end,
 }
 
--- The words after /sk, quotes around a roll's name stripped ("Bolter's Roll").
-local function roll_text(args)
-    local parts = {}
-    for i = 2, #args do
-        local w = args[i]:gsub('^"+', ''):gsub('"+$', '')
-        if w ~= '' then parts[#parts + 1] = w end
-    end
-    return table.concat(parts, ' ')
-end
-
 -- /sk "Bolter's Roll": that roll now, then Double-Up at lowest (jobs/cor.lua).
 local function roll_command(roll, g)
     cor.order(mem, roll)
@@ -870,7 +955,7 @@ ashita.events.register('command', 'sidekick_command', function (e)
         return printf('Waiting for the game to load your job.')
     end
     if COMMANDS[sub] then return COMMANDS[sub](args, g) end
-    local name = roll_text(args)
+    local name = words_from(args, 2)  -- a roll's name
     local roll = cor.roll_named(cat.list, name)
     if roll then return roll_command(roll, g) end
     if name:lower():find('roll', 1, true) then

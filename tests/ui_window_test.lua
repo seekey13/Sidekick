@@ -239,8 +239,17 @@ local SENT = { at = 990, command = '/ma "Cure IV" 101', action = 'Cure IV', targ
 -- frame's.
 local settings_shown = false
 
+-- The themes Sidekick.lua finds (core/themes.lua's shown): Standard drawing, 2.9.1 Classic, and one that failed to load.
+local BROKEN = 'ui/broken.lua:3: unexpected symbol'
+local THEMES = { current = 'window', list = {
+    { key = 'window', name = 'Standard', file = 'ui/window.lua', standard = true },
+    { key = 'classic', name = '2.9.1 Classic', file = 'ui/classic.lua' },
+    { key = 'broken', name = 'broken', file = 'ui/broken.lua', error = BROKEN },
+} }
+
 local function status(t)
-    local s = { running = false, open = true, log = true, intent = SENT, sent = { SENT }, settings = settings_shown }
+    local s = { running = false, open = true, log = true, intent = SENT, sent = { SENT }, settings = settings_shown,
+                themes = THEMES }
     for k, v in pairs(t or {}) do s[k] = v end
     return s
 end
@@ -271,6 +280,10 @@ local TRACKING = {
     remove = function (name) tracking_calls[#tracking_calls + 1] = { 'remove', name } end,
 }
 
+-- The themes act.theme picked, in order.
+local theme_calls = {}
+local function pick_theme(key) theme_calls[#theme_calls + 1] = key end
+
 -- What act.remote sent, as { session, fn, args... }.
 local remote_calls = {}
 local function send(name, call)
@@ -286,7 +299,7 @@ local function draw(ui, cfg, st, clicks, view)
               drawn = {}, extent = {}, clicks = clicks or {}, asked = {}, tips = {}, at = {} }
     frame.hover = frame.clicks.hover ~= false
     local writes = 0
-    local act = model.actions(cfg, st, function () writes = writes + 1 end, TRACKING, send)
+    local act = model.actions(cfg, st, function () writes = writes + 1 end, TRACKING, send, pick_theme)
     local ok, err = pcall(ui.render, view or model.build(snap(), cat, cfg, st, NAMES), act)
     eq(frame.stack, {}, 'every ImGui scope closed')
     eq(frame.vars, 0, 'every style var popped')
@@ -1427,27 +1440,68 @@ test('UI / Log lists the last actions sent, and has no action log switch', funct
     eq(drew('Nothing sent yet.'), true)
 end)
 
--- A custom UI gets the same checks as the standard window. The fake answers
--- false to any call it has no handler for; add one if yours needs it.
-if package.searchpath('ui.custom', package.path) then
-    test('ui/custom.lua draws running and stopped, its HUD and Sidekick Settings shown and hidden, every scope closed', function ()
-        local custom = require('ui.custom')
-        local was_shown = settings_shown
-        local ok, err = pcall(function ()
-            for _, settings_on in ipairs({ false, true }) do  -- its Sidekick Settings
-                for _, hud in ipairs({ false, true }) do
-                    for _, running in ipairs({ false, true }) do
-                        eq(draw(custom, settings.defaults(), status({ running = running, open = hud, settings = settings_on })),
-                           nil, 'no Lua error')
+test('UI / Log lists the themes, Standard first, the one drawing lit: a click on another picks it, one that failed '
+    .. 'says why and isn\'t taken', function ()
+    open_settings()
+    theme_calls = {}
+    local clicks = { ['##sk_theme_window'] = true, ['##sk_theme_classic'] = true, ['##sk_theme_broken'] = true }
+    eq(render(settings.defaults(), status(), on('UI / Log', clicks)), 0)  -- not a setting: nothing written
+    eq(theme_calls, { 'classic' })
+    eq({ drew('T H E M E'), drew('Standard'), drew('2.9.1 Classic'), drew('broken (failed to load)') }, { true, true, true, true })
+    eq({ tipped('ui/classic.lua'), tipped('Failed to load: ' .. BROKEN) }, { true, true })
+    eq(fill('Standard') ~= fill('2.9.1 Classic'), true)  -- lit: drawing now
+    render(settings.defaults(), status({ themes = { list = {} } }), on('UI / Log'))
+    eq(drew('T H E M E'), false)  -- none known: no list
+    render(settings.defaults(), status(), on('UI / Log'), model.build(snap(), cat, settings.defaults(), status({ themes = false }), NAMES))
+    eq(drew('T H E M E'), false)
+end)
+
+-- Every theme in ui/ (Sidekick's 2.9.1 Classic, and any of yours) gets the same checks as the standard window: it
+-- loads, and draws running and stopped, its HUD and Sidekick Settings shown and hidden, closing every scope. The fake
+-- answers false to any call it has no handler for; add one if yours needs it.
+local themes = require('core.themes')
+local in_ui = {}
+for file in io.popen(package.config:sub(1, 1) == '\\' and 'dir /b ui' or 'ls ui'):lines() do in_ui[#in_ui + 1] = file end
+local real_files = themes.files
+themes.files = function () return in_ui end
+themes.init(window)
+themes.files = real_files
+for _, th in ipairs(themes.list) do
+    if th.key ~= themes.STANDARD then
+        test(th.file .. ' loads and draws running and stopped, its HUD and Sidekick Settings shown and hidden, every '
+            .. 'scope closed', function ()
+            assert(th.ui, th.error)
+            local was_shown = settings_shown
+            local ok, err = pcall(function ()
+                for _, settings_on in ipairs({ false, true }) do  -- its Sidekick Settings
+                    for _, hud in ipairs({ false, true }) do
+                        for _, running in ipairs({ false, true }) do
+                            eq(draw(th.ui, settings.defaults(), status({ running = running, open = hud, settings = settings_on })),
+                               nil, 'no Lua error')
+                        end
                     end
                 end
-            end
+            end)
+            -- The tests after this one take up the standard window where it was, failed or not: draw it once more.
+            render(settings.defaults(), status({ settings = was_shown }))
+            assert(ok, err)
         end)
-        -- The tests after this one take up the standard window where it was, failed or not: draw it once more.
-        render(settings.defaults(), status({ settings = was_shown }))
-        assert(ok, err)
-    end)
+    end
 end
+
+test('2.9.1 Classic is ui/classic.lua; Party State\'s Theme lists every theme, a click on another picks it', function ()
+    local classic = themes.get('classic')
+    eq({ classic and classic.name, classic and classic.error }, { '2.9.1 Classic', nil })
+    local was_shown = settings_shown
+    theme_calls = {}
+    local th = { current = 'classic', list = THEMES.list }
+    local err = draw(classic.ui, settings.defaults(), status({ open = true, themes = th }),
+        { ['Standard##sk_ps_theme_window'] = true, ['2.9.1 Classic##sk_ps_theme_classic'] = true,
+          ['broken (failed to load)##sk_ps_theme_broken'] = true })
+    local combo = has(frame.args.BeginCombo, 'Theme##sk_ps_theme')
+    render(settings.defaults(), status({ settings = was_shown }))
+    eq({ err, combo, theme_calls }, { nil, true, { 'window' } })
+end)
 
 test('a tracked player\'s card has its tag; Tracked lists them to untrack, and offers your target', function ()
     local g = fake.snap({ { name = 'A', tracked = true }, { kind = 'tracked', name = 'Out', hpp = 80, main = 3, main_lv = 75, sub = 4, sub_lv = 37 } },

@@ -693,11 +693,29 @@ test('landing: the last send for a moment, or while it is cast; nothing while st
     eq(model.landing(status({ running = true, sent = { e } }), g), nil)
 end)
 
+test('view.themes: a copy of Sidekick.lua\'s, or none; act.theme hands the key to it, no setting written', function ()
+    local th = { current = 'window', list = { { key = 'window', name = 'Standard', standard = true },
+                                              { key = 'classic', name = '2.9.1 Classic', file = 'ui/classic.lua' } } }
+    local st = status({ themes = th })
+    local view = build(whm, nil, nil, st)
+    eq(view.themes, th)
+    view.themes.list[2].name = 'Changed'
+    eq({ th.list[2].name, build(whm).themes }, { '2.9.1 Classic', { list = {} } })
+    local picked, writes = {}, 0
+    local act = model.actions(settings.defaults(), st, function () writes = writes + 1 end, nil, nil,
+        function (key) picked[#picked + 1] = key end)
+    act.theme('classic')
+    eq({ picked, writes }, { { 'classic' }, 0 })
+    model.actions(settings.defaults(), st, function () end).theme('classic')  -- no hook: nothing
+    eq(act.remote('A').theme, nil)  -- the PC's own: another session can't switch it
+end)
+
 test('a published view leaves out the HUD\'s labels and sizes and the views it shows itself', function ()
-    local view = build(whm, nil, nil, status({ intent = { at = 990, action = 'Cure', target = 'A', behavior = 'heal', why = 'x' } }))
+    local view = build(whm, nil, nil, status({ intent = { at = 990, action = 'Cure', target = 'A', behavior = 'heal', why = 'x' },
+                                              themes = { current = 'window', list = {} } }))
     local out = model.published(view)
-    eq({ out.pointer, out.others, out.ui, out.remote, out.job, out.sections == view.sections, out.version },
-       { nil, nil, nil, nil, 'WHM 75 / BLM 37', true, model.VIEW })
+    eq({ out.pointer, out.others, out.ui, out.remote, out.themes, out.job, out.sections == view.sections, out.version },
+       { nil, nil, nil, nil, nil, 'WHM 75 / BLM 37', true, model.VIEW })
     eq({ view.pointer ~= nil, view.others }, { true, {} })  -- the view itself is left as it was
 end)
 

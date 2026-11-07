@@ -315,6 +315,12 @@ ja.words = {
         '変更は使用中の設定に保存されます。プロファイルには「保存」でのみ保存されます。',
 
     -- UI / Log
+    ['THEME'] = 'テーマ', ['Standard'] = '標準', ['%s (failed to load)'] = '%s（読み込み失敗）',
+    ['Failed to load: %s'] = '読み込めませんでした: %s',
+    ['Every character on this PC draws with the theme picked here. To add one, put its .lua file in '
+        .. 'Sidekick\'s ui folder (ui/README.md says how).'] =
+        'ここで選んだテーマは、このPCのすべてのキャラクターで使われます。テーマを追加するには、その .lua ファイルを'
+        .. 'Sidekickの ui フォルダーに置きます（ui/README.md に説明があります）。',
     ['HUD'] = 'HUD', ['LOG'] = 'ログ', ['CLIENT'] = 'クライアント', ['AUTOMATION'] = '自動操作', ['Nothing sent yet.'] = 'まだ何も送っていません。',
     ['%ds'] = '%d秒',
     ['HP bar width'] = 'HPバーの幅', ['HP bar height'] = 'HPバーの高さ', ['MP bar width'] = 'MPバーの幅',
@@ -447,7 +453,21 @@ ja.words = {
     ['Stopped tracking %s (from %s\'s session) until /sk track %s.'] =
         '%sの追跡をやめました（%sのセッションから）。/sk track %s で再開します。',
     ['Stopped tracking %s.'] = '%sの追跡をやめました。',
-    ['ui/custom.lua failed to load, using the standard window: %s'] = 'ui/custom.lua を読み込めないため、標準のウィンドウを使います: %s',
+    ['No theme "%s" in Sidekick\'s ui folder: using Standard.'] =
+        'Sidekickの ui フォルダーにテーマ「%s」がありません。標準を使います。',
+    ['Theme %s failed to load, using Standard: %s'] = 'テーマ「%s」を読み込めないため、標準を使います: %s',
+    ['Theme %s failed to load: %s'] = 'テーマ「%s」を読み込めませんでした: %s',
+    ['The theme couldn\'t be saved: the other sessions and the next load won\'t have it.'] =
+        'テーマを保存できませんでした。他のセッションと次回の読み込みには反映されません。',
+    ['Theme: %s. /sk theme lists them all.'] = 'テーマ: %s。/sk theme で一覧を表示します。',
+    ['%s finishes setting up at the next load: /addon reload sidekick.'] =
+        '%sの準備は次回の読み込みで完了します: /addon reload sidekick',
+    ['Themes: %s. /sk theme <name> switches every character on this PC.'] =
+        'テーマ: %s。/sk theme <名前> で、このPCのすべてのキャラクターのテーマを切り替えます。',
+    [' (in use)'] = '（使用中）', [' (failed to load)'] = '（読み込み失敗）',
+    ['No theme "%s" in Sidekick\'s ui folder. /sk theme lists them.'] =
+        'Sidekickの ui フォルダーにテーマ「%s」はありません。/sk theme で一覧を表示します。',
+    ['Theme %s failed at load: %s'] = 'テーマ「%s」の読み込み時の処理に失敗しました: %s',
     ['/sk shows Sidekick Settings now, /sk hud the HUD: a custom UI draws them for view.ui.settings '
         .. '(ui/README.md, Upgrading from 3.0.0).'] =
         '/sk はSidekick設定を開くようになりました（HUDは /sk hud）。カスタムUIは view.ui.settings のときに設定を表示します'
@@ -457,7 +477,6 @@ ja.words = {
     ['%s\'s session sent %s, which failed: %s'] = '%sのセッションから届いた%sが失敗しました: %s',
     ['Automation %s from %s\'s session.'] = '自動操作を%s（%sのセッションから）。',
     ['Settings view for another session failed: %s'] = '他のセッション用の設定画面の作成に失敗しました: %s',
-    ['The UI failed at load: %s'] = '読み込み時にUIが失敗しました: %s',
     ['Action log %s.'] = 'アクションログ: %s', ['on'] = 'オン',
     ['off'] = 'オフ', ['Widget %s.'] = 'ウィジェット: %s', ['Focus off.'] = 'フォーカス: オフ', ['Focus: %s.'] = 'フォーカス: %s',
     ['Follow off.'] = '追従: オフ', ['Following %s past %d yalms.'] = '%sを追従します（%dヤルムより離れたら）。',
@@ -482,12 +501,12 @@ ja.words = {
     ['/sk (or /sidekick) opens or closes Sidekick Settings. Commands: hud, alt [name|all], alt start|stop [name|all], widget, '
         .. 'start [name|all], stop [name|all], toggle, plan, state, '
         .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow [name|on|off], rest [on|off], '
-        .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], catalog [unknown], log, help. '
-        .. 'A Phantom Roll\'s name (Bolter\'s Roll) rolls it now, then Double-Ups at Lowest'] =
+        .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], theme [name], catalog [unknown], '
+        .. 'log, help. A Phantom Roll\'s name (Bolter\'s Roll) rolls it now, then Double-Ups at Lowest'] =
         '/sk（または /sidekick）でSidekick設定を開閉します。コマンド: hud、alt [名前|all]、alt start|stop [名前|all]、widget、'
         .. 'start [名前|all]、stop [名前|all]、toggle、plan、state、'
         .. 'buff [名前] [me p1..p5 b0..c5 <追跡>|off]、focus <名前|off>、follow [名前|on|off]、rest [on|off]、'
-        .. 'track [名前]、untrack <名前|all>、profile [名前|default]、afk [on|off|分数]、catalog [unknown]、log、help。'
+        .. 'track [名前]、untrack <名前|all>、profile [名前|default]、afk [on|off|分数]、theme [名前]、catalog [unknown]、log、help。'
         .. 'ファントムロールの名前（ボルターズロール）で今すぐロールし、最低リスクでダブルアップします',
 }
 

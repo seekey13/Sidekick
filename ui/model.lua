@@ -711,6 +711,8 @@ function model.build(g, cat, cfg, status, names)
         track = { target = g.target and not known[g.target.sid] and g.target.name or nil },
         japanese = cfg.ui.japanese, log = status.log, ui = {},
         profiles = { active = profiles.active(cfg), names = profiles.names(cfg) },
+        -- The themes in ui/ and the one drawing (core/themes.lua): the PC's, Sidekick.lua's to keep.
+        themes = status.themes and util.copy(status.themes) or { list = {} },
     }
     local job_shown = {}  -- [section id] = whether a job module's section is shown
     local help = { party = party_names, units = units, ready = availability }
@@ -769,7 +771,7 @@ end
 model.VIEW = 11
 function model.published(view)
     local out = util.shallow_copy(view)
-    out.pointer, out.others, out.ui, out.remote, out.sessions = nil, nil, nil, nil, nil
+    out.pointer, out.others, out.ui, out.remote, out.sessions, out.themes = nil, nil, nil, nil, nil, nil
     out.version = model.VIEW
     return out
 end
@@ -905,7 +907,7 @@ local function flag(set, key, on)
     set[key] = on or nil
 end
 
-function model.actions(cfg, status, changed, tracking, send)
+function model.actions(cfg, status, changed, tracking, send, theme)
     local act = {}
     -- `f`, then changed(): for the calls that write the settings.
     local function saving(f) return function (...) f(...); changed() end end
@@ -923,6 +925,9 @@ function model.actions(cfg, status, changed, tracking, send)
     function act.close() act.hud(false) end
     -- Sidekick Settings shown or hidden, as /sk: this session only.
     function act.settings(on) status.settings = on == true end
+    -- Draw with another theme, a view.themes.list[i].key, as /sk theme: on every character on this PC, kept by
+    -- Sidekick.lua (core/themes.lua), not in the settings.
+    function act.theme(key) if theme then theme(key) end end
     -- id: a section with a switch: 'follow' | 'heal' | 'revive' | 'wake' | 'remove' | 'buff' | 'roll' | 'song' | 'geo'
     -- | 'rune' | 'pet' | 'maneuver' | 'recover' | 'rest' | 'afk'
     act.section = saving(function (id, on) cfg[id].on = on end)

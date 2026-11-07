@@ -458,6 +458,9 @@ local function read(file)
     return text
 end
 
+-- The same, for the other file Sidekick keeps beside the sessions': the PC's theme (core/themes.lua).
+share.dir, share.write_file, share.read_file = dir, write, read
+
 local function read_others(me)
     local ok, files = pcall(ashita.fs.get_dir, dir(), '.*', true)
     if not ok or not files then return end
