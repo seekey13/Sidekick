@@ -572,6 +572,50 @@ local ok, err = pcall(function ()
         eq({ s.frame() ~= nil, s.by }, { true, 'classic' })
     end)
 
+    test('another session\'s pick of a theme that failed to load here is looked for again: fixed since, it draws',
+        function ()
+        local uis = { classic = { name = 'Classic' }, mine = 'ui/mine.lua:1: unexpected symbol' }
+        local s = boot({ files = { 'classic.lua', 'mine.lua' }, uis = uis, picked = 'window' })
+        s.sk('/sk')
+        s.frame()
+        uis.mine = { name = 'Mine' }  -- fixed, then picked in another session (its look in ui/ loaded it)
+        s.theme.picked = 'mine'
+        s.frame()
+        eq({ s.frame() ~= nil, s.by, s.out }, { true, 'mine', {} })
+    end)
+
+    test('another session\'s pick of a theme added since this one loaded draws here; its load not run, chat says so',
+        function ()
+        local loads = {}
+        local s = themed('window', { later = { load = function () loads[#loads + 1] = 'later' end } }, {})
+        s.sk('/sk')
+        s.frame()
+        s.theme.files = { 'later.lua' }  -- added, then picked in another session
+        s.theme.picked = 'later'
+        s.frame()
+        eq({ s.frame() ~= nil, s.by, loads, s.out },
+           { true, 'later', {}, { 'later finishes setting up at the next load: /addon reload sidekick.' } })
+    end)
+
+    test('another theme\'s error says how to go back to Standard, the PC\'s pick being kept across loads', function ()
+        local s = themed('classic', { classic = { name = 'Classic', render = function () error('boom', 0) end } })
+        s.sk('/sk')
+        s.frame()
+        eq(s.out, { 'Window closed on an error in theme Classic (/sk hud or /sk opens it again, /sk theme standard goes '
+            .. 'back to Standard): boom' })
+    end)
+
+    test('/sk theme while zoning: the view drawn from before the zone lists the theme now drawing', function ()
+        local s = themed()
+        s.sk('/sk')
+        s.frame()
+        s.loading(true)
+        s.sk('/sk theme classic')
+        local v = s.frame()
+        eq({ s.by, v and v.themes.current }, { 'classic', 'classic' })
+        s.loading(false)
+    end)
+
     test('the theme picked draws from the load; one not in ui/, or failing to load, is said and Standard drawn', function ()
         local s = themed('classic')
         s.sk('/sk')
