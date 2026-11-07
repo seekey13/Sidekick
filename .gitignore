@@ -1,8 +1,12 @@
 # Claude Code agent worktrees (full repo copies)
 .claude/
 
-# A user's own UI (ui/README.md)
-ui/custom.lua
+# A user's own UI themes (ui/README.md): every ui/*.lua but Sidekick's own
+ui/*.lua
+!ui/kit.lua
+!ui/model.lua
+!ui/window.lua
+!ui/classic.lua
 
 # Release builds
 *.zip

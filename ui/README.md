@@ -4,17 +4,25 @@ Sidekick's UI is one replaceable Lua file. Sidekick does all the deciding and ac
 
 [window.lua](window.lua) is the standard UI and the reference: a heads-up display of the party's HP, MP and TP, your pet's under yours and another session's under its card (the **Sidekick** window), whose cog on your own card opens **Sidekick Settings** (as `/sk` does), a page per group of settings listed down its left, and, with `ui.widget` on, **SK Widget**, one row: each character (yours, then each other Sidekick session's) in a pill, green running, blue held (asleep, mounted, zoning...) and red stopped, with its name, its run button and its cog, `ui.widget_size` pixels high; right-click a name to load one of its profiles. While your target is a player you could track (`view.track.target`), the HUD points an **Add Tracked** pill at your card, ahead of the action labels there, and the widget ends its row with one; a click anywhere on either tracks them (`act.track`). It uses nearly every field and every action below. Its look is [kit.lua](kit.lua)'s, after VanaCore's own `/vana` window ([docs/vana-ui-style.md](../docs/vana-ui-style.md)): a palette, and switches, sliders, drop-downs, chips and buttons drawn on ImGui's draw lists over invisible buttons. A custom UI can `require('ui.kit')` for the same look; each control takes its value and returns the new one and whether it changed, and `kit.frame(scale, view.japanese)` must run once a frame before any of them (on a Japanese client it draws in Meiryo, which has the kana and kanji Segoe UI lacks; on Ashita 4.16, in the Japanese font Ashita's boot config adds, as [the README](../README.md) says). `kit.list_rows` (8; `kit.rows(view.ui.list_rows)` takes the user's Drop-down rows) is the most choices a `kit.dropdown`'s list shows before it scrolls (`kit.list_size(px, min_w, max_w)` before a `kit.popup` of your own caps it the same), and `kit.selectable` in its body opens the list scrolled to the ticked choice. `kit.tooltips()` after them draws the frame's tooltip: only the last `kit.tooltip` asked for shows, as with `SetTooltip` (without it, the next `kit.frame` draws it, a frame late).
 
+## Themes
+
+A UI file is a **theme**. Standard is `ui/window.lua`; every other `.lua` file in `ui/` is a theme too, but for Sidekick's own `kit.lua` and `model.lua`. Sidekick comes with one, **Classic** (`ui/classic.lua`): Sidekick 2.9.1's windows, drawn from this version's view.
+
+Sidekick Settings' **UI / Log** page lists them under **Theme**, Standard first, then each by its name; a click on one draws Sidekick with it at once. `/sk theme` lists them in chat, and `/sk theme <name>` (a theme's name, or its file's: `/sk theme Classic`, `/sk theme classic`, `/sk theme standard`) picks one. A theme can offer the pick too, from `view.themes` and `act.theme`: Classic's is the **Theme** drop-down on its Party State (`/sk hud`).
+
+The theme picked is the PC's: every character on it draws with it, kept in `config/addons/sidekick/theme.txt`. Every other Sidekick session running on the PC switches to it within a second. With none picked yet, Sidekick draws with `ui/custom.lua` when there is one (the one file it took before themes), else Standard.
+
 ## Install
 
-1. Write `ui/custom.lua` (copy `ui/window.lua` to start from the standard window, or start from the [example](#example)).
-2. `/addon reload sidekick`, then `/sk hud` to open it (`/sk` for its Sidekick Settings).
-3. To go back, delete or rename `ui/custom.lua` and reload.
+1. Write a `.lua` file in `ui/`, any name but Sidekick's own (`kit.lua`, `model.lua`, `window.lua`, `classic.lua`): copy `ui/window.lua` to start from the standard window, or start from the [example](#example). Give it a `name` (below).
+2. Open Sidekick Settings (`/sk`): a file added since Sidekick loaded is found then, and listed under UI / Log's Theme. Click it there, or `/sk theme <its name>`.
+3. To go back, pick Standard: under Theme, or `/sk theme standard`.
 
-When `ui/custom.lua` exists, Sidekick uses it instead of `ui/window.lua`. If it fails to load (a syntax error, say), Sidekick prints the error and uses the standard window. If it raises an error while drawing, Sidekick closes every window of it and prints the error; `/sk hud`, `/sk` or `/sk alt` opens it again. Git ignores `ui/custom.lua`, so updating Sidekick leaves it alone.
+Every theme in `ui/` is loaded as Sidekick loads, and one added later the next time Sidekick Settings open or `/sk theme` lists them. An edit to one already loaded waits for `/addon reload sidekick`. If one fails to load (a syntax error, say), the lists say so and why, and it can't be picked; one picked that fails, at a load, is said in chat and Standard drawn instead. If a theme raises an error while drawing, Sidekick closes every window of it and prints the error; `/sk hud`, `/sk` or `/sk alt` opens it again. Git ignores every `.lua` in `ui/` but Sidekick's own, so updating Sidekick leaves yours alone (it does replace `ui/classic.lua`: to change it, copy it to a file of your own and give the copy a `name` of its own).
 
 ### Upgrading from 3.0.0
 
-In 3.0.0, `/sk` showed or hid the whole UI. From 3.0.1, `/sk` shows Sidekick Settings, `/sk hud` the HUD and `/sk alt` other sessions' Sidekick Settings, each apart from the others, and `render` is called while any one of them is up. A UI written for 3.0.0 draws nothing for `/sk`, so the first `/sk` after a load says so in chat while `ui/custom.lua` is in use. To bring one up to date:
+In 3.0.0, `/sk` showed or hid the whole UI. From 3.0.1, `/sk` shows Sidekick Settings, `/sk hud` the HUD and `/sk alt` other sessions' Sidekick Settings, each apart from the others, and `render` is called while any one of them is up. A UI written for 3.0.0 draws nothing for `/sk`, so the first `/sk` after a load says so in chat while `ui/custom.lua` (where such a UI was kept) is drawing. To bring one up to date:
 
 - Draw the HUD only while `view.ui.open`, and Sidekick Settings while `view.ui.settings` rather than a flag of its own: a cog calls `act.settings(not view.ui.settings)`, the window's close button `act.settings(false)`.
 - Leave Sidekick Settings up when the HUD closes (`act.close()` no longer closes them).
@@ -23,10 +31,11 @@ In 3.0.0, `/sk` showed or hid the whole UI. From 3.0.1, `/sk` shows Sidekick Set
 
 ## The contract
 
-A UI file returns a table with one function (and, optionally, `load`: below):
+A UI file returns a table with one function (and, optionally, `name` and `load`: below):
 
 ```lua
 local ui = {}
+ui.name = 'My theme'  -- as the theme lists show it; without one, the file's name (my_theme for ui/my_theme.lua)
 
 -- Called every frame while the HUD, Sidekick Settings (yours or another session's) or the widget is up, from
 -- Ashita's d3d_present.
@@ -43,7 +52,8 @@ return ui
 - **State of its own** (which page is showing, a collapsed panel) lives in locals in the file and lasts until the addon reloads. To keep a preference across reloads, save it under `ui.` with `act.set('ui.<name>', value)` and read it back from `view.ui.<name>`.
 - **Each window shows apart from the others.** Draw the HUD only while `view.ui.open`, Sidekick Settings only while `view.ui.settings`, another session's only while it's in `view.remote`, and a widget only while `view.ui.widget`: Sidekick calls `render` while any one of them is up, so each can be shown alone (the standard UI's are). A UI with a single window may show it for `view.ui.open` or `view.ui.settings`, as the example does.
 - `/sk`, `/sk hud` and `/sk alt` opening and closing the windows, the commands, and automation itself don't depend on the UI. A UI with no Start button still runs with `/sk start`.
-- **`ui.load()`, if the UI has one, is called once from Ashita's `load` event**, before the first frame. That is where to add fonts: Ashita 4.16's ImGui (1.81) takes none mid-frame. The standard UI's adds Segoe UI there (`kit.bake`).
+- **`ui.load()`, if the UI has one, is called once from Ashita's `load` event**, before the first frame, for every theme in `ui/` whether it's the one drawing or not: a switch to it then needs no reload. That is where to add fonts: Ashita 4.16's ImGui (1.81) takes none mid-frame. The standard UI's adds Segoe UI there (`kit.bake`). A theme added after Sidekick loaded has its `load` run at the next `/addon reload sidekick`; picked before then, it draws, and chat says so.
+- **Its file is run once, when Sidekick finds it**, and its table is kept: anything at the top of the file runs then, whether or not the theme is ever drawn.
 
 ## `view`
 
@@ -79,6 +89,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `japanese` | bool | A Japanese client: spell, ability and item names are sent in Japanese, and the view's text is Japanese (see Language, above). Shared by every job pair: it's kept in `ui`'s file (`ui.japanese`) |
 | `log` | bool | Each action sent is printed to chat (`/sk log`; off at load). The standard UI has no switch for it |
 | `profiles` | table | `{ active, names }`: the profile loaded (nil for Default, the working copy) and every saved profile's name, in order, case aside. Each job pair has its own |
+| `themes` | table | `{ current, list }`: the themes in `ui/` (Themes, above), the PC's, every character's. `list`: Standard first, then the rest by name, each `{ key, name, file, error, standard }`: `key` its file's name without `.lua` (`'classic'`; Standard's `'window'`), what `act.theme` takes; `name` as it gives it (`'Classic'`), else its `key`; `file` (`'ui/classic.lua'`); `error`, why it failed to load (it can't be picked), else nil; `standard`, true for Standard (shown as 標準 on a Japanese client). `current`: the `key` of the one drawing. The standard UI lists them on UI / Log; another session's view has none |
 | `ui` | table | The UI's settings, shared by every job pair: `open` (bool, the HUD is shown now: false once `/sk hud`, `act.hud(false)`, `act.close()` or an error hid it), `settings` (bool, Sidekick Settings are shown now: `/sk` and `act.settings` switch them, apart from the HUD; this session only, closed at load and by an error), and any `ui.<name>` your UI saved. The standard HUD's, which yours may ignore: `hp_width`, `mp_width`, `tp_width` (80 to 600), `hp_height` (10 to 120), `mp_height`, `tp_height` (4 to 80), `name_size` (8 to 64), `text_size` (8 to 48), `gap` (0 to 40), all in pixels; `hide_mp` (bool, on by default: a card with no MP, a line or pet whose `uses_mp` is false, has no MP bar; a tracked player's, and another session's pet's while `pools` is false, stay: their MP is unknown, not none); `locked` (bool, it and the widget can't be dragged); `widget` (bool, the widget is shown, with the UI closed too: `/sk widget` switches it; a UI with no widget may ignore it); `widget_size` (10 to 48, the standard widget's text and icons' height in pixels); Sidekick Settings' `scale` (50 to 200, % of the size that suits the screen; nil for 100); `list_rows` (3 to 30, the most choices a standard drop-down's list, or the widget's profile menu, shows before it scrolls; nil for 8); `zone_stop` (bool, off by default: automation stops each time you zone, logging in and out too); `load_stopped` (bool, on by default: automation starts stopped at each load; off, it starts as it was left, kept in `running`, which Sidekick writes: not free for a UI's own use, nor the live state, which is `view.status.running`); `japanese` (bool, the client's language, as `view.japanese`: not free for a UI's own use) |
 | `sections` | list | Every setting, by section, below |
 | `remote` | list | The Sidekick Settings of other Sidekick sessions on this PC you have open (`act.watch`, or `/sk alt`), by name: `{ name, view, other }`. `view` is the view that session built and sent (nil until its first one comes, about a second): the same fields as yours but `pointer`, `others`, `ui`, `remote` and `sessions`, plus `session` (its name) and `version`. Draw it with `act.remote(name)` in place of `act`. `other` is true (and `view` nil) when that session runs another version of Sidekick, whose view this one can't draw |
@@ -191,6 +202,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `act.hud(on)` | Show the HUD (`on` true) or hide it, remembered, as `/sk hud` (the standard Sidekick Settings' Show the HUD switch) |
 | `act.close()` | Hide the HUD, as `act.hud(false)`; `/sk hud` shows it again. Sidekick Settings stay as they are, and a widget while `ui.widget` is on |
 | `act.settings(on)` | Show Sidekick Settings (`on` true) or hide them, as `/sk`. This session only |
+| `act.theme(key)` | Draw with another theme, a `view.themes.list[i].key`, as `/sk theme`: at once, from this frame's end, and on every character on this PC (not a setting: nothing in the settings changes). One that failed to load isn't taken. Never another session's (`act.remote` has none) |
 | `act.section(id, on)` | A section's switch: `'follow'`, `'heal'`, `'revive'`, `'wake'`, `'remove'`, `'buff'`, `'roll'`, `'song'`, `'geo'`, `'rune'`, `'pet'`, `'maneuver'`, `'recover'`, `'rest'` or `'afk'` |
 | `act.row(key, on)` | A row on or off |
 | `act.who(name, on)` | Removal runs on this player (`on` true) or leaves them alone, Doom too. `name` is a `who` chip's `name`. Nil toggles |
@@ -274,16 +286,17 @@ Sidekick saves after any `act` call that changes a setting, once no ImGui widget
 luajit tests/run.lua ui_window
 ```
 
-With `ui/custom.lua` present, this also draws it through a fake ImGui, running and stopped with its HUD and Sidekick Settings each shown and hidden, and fails on a Lua error or an ImGui scope left open. The fake answers `false` to calls it has no handler for; if your UI needs a number back (a width, say), add a handler in `tests/ui_window_test.lua`. It reports every popup open, so a drop-down's list is drawn and its choices can be clicked; for `ui/kit.lua`'s controls it steps `kit.clock` a second a frame (every eased value lands at once) and drags a slider through `kit.dragged`. In the game, `/addon reload sidekick` picks up each change.
+This also loads every theme in `ui/` (Classic, and yours) and draws each through a fake ImGui, running and stopped with its HUD and Sidekick Settings each shown and hidden, and fails on a theme that won't load, a Lua error or an ImGui scope left open. The fake answers `false` to calls it has no handler for; if your UI needs a number back (a width, say), add a handler in `tests/ui_window_test.lua`. It reports every popup open, so a drop-down's list is drawn and its choices can be clicked; for `ui/kit.lua`'s controls it steps `kit.clock` a second a frame (every eased value lands at once) and drags a slider through `kit.dragged`. In the game, `/addon reload sidekick` picks up each change.
 
 ## Example
 
-A compact window: Start/Stop, the status line, everyone's HP, and the behavior switches.
+A compact window: Start/Stop, the status line, everyone's HP, and the behavior switches. Saved as `ui/mini.lua`, it's listed as Mini.
 
 ```lua
 local imgui = require('imgui')
 
 local ui = {}
+ui.name = 'Mini'
 
 -- Ashita's Text takes a printf format: double any '%'.
 local function text(s) imgui.Text((tostring(s):gsub('%%', '%%%%'))) end
@@ -324,4 +337,4 @@ return ui
 
 ## Asking an AI to write one
 
-Give it this file and `ui/window.lua`, and say what you want: *"Using Sidekick's ui/README.md, write ui/custom.lua: a narrow window with the party's HP bars, a Start/Stop button and a checkbox per buff row."* Then run the test above and `/addon reload sidekick`.
+Give it this file and `ui/window.lua`, and say what you want: *"Using Sidekick's ui/README.md, write a theme, ui/narrow.lua: a narrow window with the party's HP bars, a Start/Stop button and a checkbox per buff row."* Then run the test above, open Sidekick Settings (`/sk`) and pick it under UI / Log's Theme, or `/sk theme narrow`.

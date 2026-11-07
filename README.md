@@ -60,6 +60,7 @@ Automation starts **off** after a load; turn off **Always load stopped** (Sideki
 | `/sk track` / `untrack` `[Name]` | Look after a player outside your alliance |
 | `/sk profile [Name]` | Load a profile, or list them |
 | `/sk widget` | Toggle the compact status widget |
+| `/sk theme` `[Name]` | List the themes, or draw Sidekick with one (`standard`, `Classic`...) on every character on this PC |
 | `/sk catalog` | What it can automate for your job |
 | `/sk help` | Full command list |
 
@@ -69,7 +70,9 @@ Automation starts **off** after a load; turn off **Always load stopped** (Sideki
 - **Widget**: a compact pill per character with run/stop and settings, handy beside another party list, and the same Add Tracked pill.
 - **Sidekick Settings** (`/sk`, or the cog on your card or the widget): one page per behavior (Heal, Remove, Buff, Pet, Recover, Follow, AFK...), with on/off switches per section. Point at a spell or ability to limit it to **Combat** (only while there's a battle target, and a few seconds after) or **Idle** (only out of combat); the one picked stays shown beside its name. Some come that way already, like Berserk (Combat) or Spectral Jig and Sneak (Idle).
 
-The UI is a single replaceable file; see [ui/README.md](ui/README.md) to build your own.
+- **Themes**: the windows above are Standard. **Classic** draws Sidekick 2.9.1's windows instead (Configuration, Widget and Party State). Pick one under Sidekick Settings' **UI / Log**, Theme, or with `/sk theme`; every character on the PC follows.
+
+A theme is a single `.lua` file in `ui/`; see [ui/README.md](ui/README.md) to build your own.
 
 ## Job logic
 

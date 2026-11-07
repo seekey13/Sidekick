@@ -7,7 +7,7 @@ for k, v in pairs(package.loaded) do saved_loaded[k] = v end
 local GLOBALS = { 'addon', 'ashita', 'AshitaCore', 'T', 'print' }
 local saved_globals = {}
 for _, k in ipairs(GLOBALS) do saved_globals[k] = rawget(_G, k) end
-local saved_clock, saved_searchpath, saved_args = os.clock, package.searchpath, rawget(string, 'args')
+local saved_clock, saved_args = os.clock, rawget(string, 'args')
 
 local function restore()
     for k in pairs(package.loaded) do
@@ -16,7 +16,6 @@ local function restore()
     for k, v in pairs(saved_loaded) do package.loaded[k] = v end
     for _, k in ipairs(GLOBALS) do rawset(_G, k, saved_globals[k]) end
     rawset(os, 'clock', saved_clock)
-    rawset(package, 'searchpath', saved_searchpath)
     rawset(string, 'args', saved_args)
 end
 
@@ -33,8 +32,11 @@ local function alt(name, sid)
              running = false }
 end
 
--- Sidekick.lua loaded afresh, `custom` with a ui/custom.lua: { sk(command) -> chat, frame() -> the view drawn or nil,
--- sessions, sent, loading(on), ui (the stub UI: its render can be replaced), act (the last frame's), party and over
+-- Sidekick.lua loaded afresh. `custom`: true for a ui/custom.lua; else the themes, { files = { the bare names in ui/ },
+-- uis = { [key] = its table (a stub's render added), or why it failed to load }, picked = the key in theme.txt }.
+-- Returns { sk(command) -> chat, frame() -> the view drawn or nil, by (the key of the theme that drew it), theme
+-- ({ files, picked, writes, unwritable }: ui/ and theme.txt, live), sessions, sent, loading(on), ui (Standard's stub:
+-- its render can be replaced), act (the last frame's), party and over
 -- (who the game reads besides you, and its snapshot's flags), queued (the commands sent to the game), files (the settings
 -- files, by alias), out (chat since the last command) }. With `spells`, you know every spell your job has (else none).
 -- `ui`: what the ui file was left holding, over its defaults. `login`: loaded before you're in, as at the title screen,
@@ -106,16 +108,35 @@ local function boot(custom, spells, ui, login)
         env.sent[#env.sent + 1] = to .. ' ' .. call[1] .. ' ' .. tostring(call[2])
         return true
     end
-    env.ui = { render = function (view, act) env.renders[#env.renders + 1], env.act = view, act end }
+    -- A stub UI for the theme `key`: each frame it draws, it keeps the view and act, and env.by its key.
+    local function stub(t, key)
+        t.render = t.render or function (view, act) env.renders[#env.renders + 1], env.act, env.by = view, act, key end
+        return t
+    end
+    env.ui = stub({}, 'window')
     package.loaded['ui.window'] = env.ui
-    package.loaded['ui.custom'] = env.ui
-    rawset(package, 'searchpath', function (name, path)  -- a ui/custom.lua of your own isn't taken
-        if name == 'ui.custom' then return custom and 'ui/custom.lua' or nil end
-        return saved_searchpath(name, path)
-    end)
+    -- ui/ holds `custom`'s themes (a ui/custom.lua of your own isn't taken), and theme.txt its `picked`.
+    local th = custom == true and { files = { 'custom.lua' } } or custom or {}
+    env.theme = { files = th.files or {}, picked = th.picked, writes = 0 }
+    local themes = require('core.themes')
+    themes.files = function () return env.theme.files end
+    themes.open = function (path)
+        local key = path:match('([^/\\]+)%.[Ll][Uu][Aa]$')
+        local found = (th.uis or {})[key]
+        if type(found) == 'string' then return nil, found end  -- why it failed
+        return stub(found or {}, key)
+    end
+    themes.read = function () return env.theme.picked end
+    themes.write = function (key)
+        env.theme.writes = env.theme.writes + 1
+        if env.theme.unwritable then return false end
+        env.theme.picked = key
+        return true
+    end
     local clock = 0
     rawset(os, 'clock', function () return clock end)
     dofile('Sidekick.lua')
+    handlers.load()  -- Ashita's load event, once the file has run
     function env.frame()
         clock = clock + 1
         env.renders = {}
@@ -474,6 +495,128 @@ local ok, err = pcall(function ()
             .. '(ui/README.md, Upgrading from 3.0.0).'
         eq({ c.sk('/sk'), c.frame().ui.settings }, { hint, true })
         eq({ c.sk('/sk'), c.sk('/sk') }, { '', '' })
+        local t = boot({ files = { 'custom.lua', 'classic.lua' }, uis = { classic = { name = 'Classic' } }, picked = 'classic' })
+        eq({ t.sk('/sk'), t.frame() and t.by }, { '', 'classic' })  -- a theme picked: no hint, ui/custom.lua or not
+    end)
+
+    -- ui/ with Sidekick's own files, a theme that names itself, one that failed to load and one that goes by its file's.
+    local UI = { 'classic.lua', 'kit.lua', 'model.lua', 'window.lua', 'broken.lua', 'Mine.LUA' }
+    local function themed(picked, uis, files)
+        local all = { classic = { name = 'Classic' }, broken = 'ui/broken.lua:3: unexpected symbol' }
+        for k, v in pairs(uis or {}) do all[k] = v end
+        return boot({ files = files or UI, uis = all, picked = picked })
+    end
+    local SAVED = '. /sk theme lists them all.'
+    -- The view's themes, Sidekick Settings opened for it (and closed after, a frame seeing them go): the one drawing, then
+    -- each 'key name' ('!' after one that failed to load).
+    local function shown(s)
+        s.sk('/sk')
+        local v = s.frame()
+        s.sk('/sk')
+        s.frame()
+        local out = { v.themes.current }
+        for _, it in ipairs(v.themes.list) do out[#out + 1] = it.key .. ' ' .. it.name .. (it.error and '!' or '') end
+        return out
+    end
+
+    test('with no theme picked, ui/custom.lua draws, as before themes; else Standard', function ()
+        local c = boot(true)
+        c.sk('/sk')
+        eq({ c.frame() ~= nil, c.by }, { true, 'custom' })
+        local s = themed()
+        s.sk('/sk')
+        eq({ s.frame() ~= nil, s.by }, { true, 'window' })
+    end)
+
+    test('/sk theme lists Standard, then each theme in ui/ by name, but Sidekick\'s own files; the one drawing marked',
+        function ()
+        eq(themed().sk('/sk theme'), 'Themes: Standard (in use), broken (failed to load), Classic, Mine. '
+            .. '/sk theme <name> switches every character on this PC.')
+        eq(shown(themed('classic')), { 'classic', 'window Standard', 'broken broken!', 'classic Classic', 'Mine Mine' })
+    end)
+
+    test('/sk theme <name> draws with it at once, saved for every character: by its name or its file\'s, any case',
+        function ()
+        local s = themed()
+        s.sk('/sk')
+        eq({ s.sk('/sk theme CLASSIC'), s.frame() ~= nil, s.by, s.theme.picked },
+           { 'Theme: Classic' .. SAVED, true, 'classic', 'classic' })
+        eq({ s.sk('/sk theme "standard"'), s.frame() ~= nil, s.by, s.theme.picked },
+           { 'Theme: Standard' .. SAVED, true, 'window', 'window' })
+        eq({ s.sk('/sk theme MINE'), s.frame() ~= nil, s.by, s.theme.picked }, { 'Theme: Mine' .. SAVED, true, 'Mine', 'Mine' })
+        eq({ s.sk('/sk theme broken'), s.theme.picked }, { 'Theme broken failed to load: ui/broken.lua:3: unexpected symbol', 'Mine' })
+        eq({ s.sk('/sk theme Nope'), s.theme.picked }, { 'No theme "Nope" in Sidekick\'s ui folder. /sk theme lists them.', 'Mine' })
+        s.loading(true)  -- needs no game: while you zone too
+        eq({ s.sk('/sk theme classic'), s.theme.picked }, { 'Theme: Classic' .. SAVED, 'classic' })
+    end)
+
+    test('act.theme picks one as /sk theme does; one that failed to load isn\'t taken', function ()
+        local s = themed()
+        s.sk('/sk')
+        s.frame()
+        s.act.theme('classic')
+        eq({ s.frame().themes.current, s.by, s.theme.picked }, { 'classic', 'classic', 'classic' })
+        s.act.theme('broken')
+        eq({ s.frame().themes.current, s.by, s.theme.writes }, { 'classic', 'classic', 1 })
+    end)
+
+    test('another session\'s pick is drawn here within a second; theme.txt unread, the theme stays', function ()
+        local s = themed('window')
+        s.sk('/sk')
+        s.frame()
+        s.theme.picked = 'classic'  -- written by another session
+        s.frame()
+        eq({ s.frame() ~= nil, s.by, s.out }, { true, 'classic', {} })
+        s.theme.picked = nil  -- caught while it rewrites it
+        s.frame()
+        eq({ s.frame() ~= nil, s.by }, { true, 'classic' })
+    end)
+
+    test('the theme picked draws from the load; one not in ui/, or failing to load, is said and Standard drawn', function ()
+        local s = themed('classic')
+        s.sk('/sk')
+        eq({ s.out, s.frame() ~= nil, s.by }, { {}, true, 'classic' })
+        local gone = themed('classic', nil, { 'window.lua' })
+        gone.sk('/sk')
+        eq({ gone.frame() ~= nil, gone.by }, { true, 'window' })
+        eq(themed('classic', nil, { 'window.lua' }).out, { 'No theme "classic" in Sidekick\'s ui folder: using Standard.' })
+        eq(themed('broken').out, { 'Theme broken failed to load, using Standard: ui/broken.lua:3: unexpected symbol' })
+        eq(boot({ files = { 'custom.lua' }, uis = { custom = 'boom' } }).out, { 'Theme custom failed to load, using Standard: boom' })
+    end)
+
+    test('a theme added to ui/ is found when Sidekick Settings open; the one drawing stays listed once its file goes',
+        function ()
+        local s = themed(nil, { new = { name = 'New' } }, {})
+        eq(shown(s), { 'window', 'window Standard' })
+        s.theme.files = { 'new.lua' }
+        eq(shown(s), { 'window', 'window Standard', 'new New' })
+        s.sk('/sk theme new')
+        s.theme.files = {}
+        eq(s.sk('/sk theme'), 'Themes: Standard, New (in use). /sk theme <name> switches every character on this PC.')
+        eq(shown(s), { 'new', 'window Standard', 'new New' })
+    end)
+
+    test('every theme\'s load runs at Ashita\'s load event, drawing or not; one found after says a reload finishes it',
+        function ()
+        local loads = {}
+        local function loader(name) return { load = function () loads[#loads + 1] = name end } end
+        local s = themed(nil, { fonts = loader('fonts'), later = loader('later'), bad = { load = function () error('no font', 0) end } },
+            { 'fonts.lua', 'bad.lua' })
+        eq({ loads, s.out }, { { 'fonts' }, { 'Theme bad failed at load: no font' } })
+        s.theme.files = { 'fonts.lua', 'bad.lua', 'later.lua' }
+        eq(s.sk('/sk theme later'), 'Theme: later' .. SAVED
+            .. ' | later finishes setting up at the next load: /addon reload sidekick.')
+        eq({ loads, s.sk('/sk theme fonts') }, { { 'fonts' }, 'Theme: fonts' .. SAVED })
+    end)
+
+    test('a pick theme.txt can\'t take still draws here, and says so; the file\'s theme isn\'t taken back', function ()
+        local s = themed('window')
+        s.theme.unwritable = true
+        eq(s.sk('/sk theme classic'), 'The theme couldn\'t be saved: the other sessions and the next load won\'t have it.'
+            .. ' | Theme: Classic' .. SAVED)
+        s.sk('/sk')
+        s.frame()
+        eq({ s.frame() ~= nil, s.by, s.theme.picked }, { true, 'classic', 'window' })
     end)
 end)
 restore()

@@ -1147,9 +1147,29 @@ local function ui_scale(ui) return util.clamp(math.floor(tonumber(ui and ui.scal
 -- The most choices a drop-down's list shows before it scrolls: view.ui.list_rows, held to its slider's range.
 local function list_rows(ui) return kit.rows(ui and ui.list_rows) end
 
+-- The themes in Sidekick's ui folder, Standard first, the one drawing lit: a click on another draws Sidekick with it,
+-- on every character on this PC. One that failed to load says so, why in its tooltip, and isn't taken.
+local function draw_themes(view, pg)
+    local th = view.themes
+    if not (th and th.list and th.list[1]) then return end
+    subheader(pg, 'THEME')
+    for _, it in ipairs(th.list) do
+        local name = it.standard and t('Standard') or it.name
+        local on = it.key == th.current
+        if profile_item(pg, '##sk_theme_' .. it.key, it.error and f('%s (failed to load)', name) or name, on,
+                it.error and f('Failed to load: %s', it.error) or it.file) and not on and not it.error then
+            act.theme(it.key)
+        end
+    end
+    pg.y = pg.y + S(6)
+    note(pg, t('Every character on this PC draws with the theme picked here. To add one, put its .lua file in '
+        .. 'Sidekick\'s ui folder (ui/README.md says how).'), P.faint)
+end
+
 -- Another session's shows only what it sent: its HUD is its own.
 local function draw_ui(view, pg)
     if view.session then return draw_recent(view, pg) end
+    draw_themes(view, pg)
     subheader(pg, 'HUD')
     switch(pg, 'Show the HUD', 'ui.open', view.ui.open == true,
         'The party\'s HP, MP and TP, apart from this window: closing either leaves the other. Also /sk hud.',
