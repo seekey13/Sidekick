@@ -59,6 +59,9 @@ local GAINS_029 = {
 local LOSES_029 = { [204] = true, [206] = true, [343] = true }  -- wears off / disappears
 
 local cast = { active = false, since = 0, finished = -math.huge, spell = false }
+-- Counts the server's spell (0x0AA) and ability (0x0AC) lists. A job change sends the new job's abilities after
+-- the job itself, so a catalog built on the job alone keeps the old job's: it is rebuilt on each list too.
+local lists = 0
 local zone = { out = nil, settle = -math.huge }  -- when you zoned out (nil once back); when that settles
 
 -- The 0x028 being read: its bytes, the next bit, and where it ends (0 once a read ran
@@ -239,6 +242,8 @@ function packets.handle(e, ctx, now)
         on_check(e)
     elseif e.id == 0x044 then
         on_extended_job(e)
+    elseif e.id == 0x0AA or e.id == 0x0AC then  -- your spells or abilities: the client's copy changes after this
+        lists = lists + 1
     elseif e.id == 0x00B then  -- zoning out: the client tears the zone down
         zone.out = now
     elseif e.id == 0x00A then  -- zoning: a cast in flight is cancelled with no packet
@@ -261,6 +266,11 @@ end
 function packets.zoning(now)
     if zone.out and now - zone.out > ZONE_TIMEOUT then zone.out = nil end
     return zone.out ~= nil or now < zone.settle
+end
+
+-- How many spell and ability lists the server has sent: a new one changes what HasSpell and HasAbility say.
+function packets.lists()
+    return lists
 end
 
 -- When your last action resolved, and whether it was a spell (longer lockout).
