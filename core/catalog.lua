@@ -171,10 +171,10 @@ function catalog.build(res, player, K)
     end
     -- The server lists some abilities only while they can be used: pet commands,
     -- blood pacts and Ready moves with the right pet out, stratagems under their
-    -- Arts. The catalog is rebuilt on a job or level change, not when a pet is
-    -- called or an Arts goes up, so those are listed by the levels knowledge
-    -- gives them (`learn`): settings show them from the start, and none goes
-    -- until the client lists it (a.hidden, can.use). Anything else waits on HasAbility.
+    -- Arts. So that settings show them while no pet is out or no Arts is up,
+    -- they are listed by the levels knowledge gives them (`learn`), and none
+    -- goes until the client lists it (a.hidden, can.use). Anything else waits
+    -- on HasAbility.
     local function learns(row, kind)
         local family, tier = catalog.split(row.en)
         for _, use in ipairs(uses(K, row.en, family, kind)) do

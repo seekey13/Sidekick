@@ -145,9 +145,9 @@ test('zoning: from the zone-out until the zone-in settles, or a minute without i
     eq({ packets.zoning(259), packets.zoning(261), packets.zoning(262) }, { true, false, false })
 end)
 
-test('the spell and ability lists are counted: a job change\'s abilities come after its job', function ()
+test('the spell and ability lists are counted, and no other packet', function ()
     local before = packets.lists()
-    for _, id in ipairs({ 0x0AC, 0x0AA, 0x044, 0x0AC }) do packets.handle({ id = id, data = '' }, ctx(), 0) end
+    for _, id in ipairs({ 0x0AC, 0x0AA, 0x0AB, 0x0AC }) do packets.handle({ id = id, data = '' }, ctx(), 0) end
     eq(packets.lists() - before, 3)
 end)
 

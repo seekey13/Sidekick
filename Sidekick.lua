@@ -69,9 +69,8 @@ local function abbr(job)
 end
 
 -- The catalog for the character as it is right now, rebuilt when job, level, the
--- blue magic set or the server's spell or ability list changes (or on demand). The
--- ability list comes after a job change's new job: built on the job alone, the
--- catalog kept the old job's abilities.
+-- blue magic set changes, or the server's spell or ability list arrives (a job
+-- change's abilities may trail the job: core/packets.lua), or on demand.
 local cat = { key = nil, list = {}, by_spell = {}, removers = {} }
 -- The blue magic set not known yet: said once, and only when loaded in game
 -- (on login the zone-in 0x044 may come a moment after the job level).
