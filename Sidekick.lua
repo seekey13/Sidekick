@@ -284,7 +284,8 @@ local function show_catalog(which)
         local role = a.role or 'unknown'
         if not by_role[role] then by_role[role] = {}; order[#order + 1] = role end
         local names = by_role[role]
-        names[#names + 1] = japanese() and named(a) or a.label or a.name
+        -- Each tier by its own name: a label ('Regen (keep up)') names a row, but a pick-one member's own.
+        names[#names + 1] = japanese() and named(a) or a.pick_one and a.label or a.name
     end
     table.sort(order)
     for _, role in ipairs(order) do

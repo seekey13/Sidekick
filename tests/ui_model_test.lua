@@ -205,6 +205,21 @@ test('a tier buff: off, Auto then each tier, targets on you by default', functio
     eq(r.targets[2].name, 'A')
 end)
 
+test('a labelled tier buff names each tier, not the row\'s label, in its choices', function ()
+    local r = row(build(whm), 'buff', 'Regen (keep up)')
+    eq(r.label, 'Regen (keep up)')
+    eq(keys(r.choices, 'label'), { 'Auto (best)', 'Regen', 'Regen II', 'Regen III' })
+    local cfg = settings.defaults()
+    cfg.rows['Regen (keep up)'] = { on = true, pick = 'Regen II' }
+    eq(row(build(whm, cfg), 'buff', 'Regen (keep up)').choice, 'Regen II')
+end)
+
+test('a labelled pick-one group keeps each member\'s label in its choices', function ()
+    local geo = fake.catalog(21, 99, 0, 0, { 'Lasting Emanation', 'Ecliptic Attrition' })
+    local r = row(build(geo), 'buff', 'geo_ja')
+    eq(keys(r.choices, 'label'), { 'Lasting Emanation (Duration)', 'Ecliptic Attrition (Effect)' })
+end)
+
 test('self-only buffs have no targets', function ()
     eq(row(build(whm), 'buff', 'Protectra').targets, nil)
 end)
@@ -918,7 +933,9 @@ test('in Japanese a row is named from the DAT, its choices and readiness in Japa
     eq({ protect.choices[2].name, protect.choice }, { 'Protect', '自動（最上位）' })
     local bar = row(v, 'buff', 'barelement')
     eq({ bar.label, bar.choice, bar.avail }, { 'バ系（属性）', '選択してください', '要選択' })
-    eq(row(v, 'buff', 'Regen (keep up)').label, 'リジェネ（維持）')
+    local regen = row(v, 'buff', 'Regen (keep up)')
+    eq(regen.label, 'リジェネ（維持）')
+    eq(keys(regen.choices, 'label'), { '自動（最上位）', 'リジェネ', 'リジェネII', 'リジェネIII' })
     eq(v.job, '白75/黒37')
 end)
 
