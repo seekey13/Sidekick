@@ -800,6 +800,10 @@ end
 
 local function draw_pet_settings(view, pg)
     slider(pg, 'Pet HP under', 'pet.heal', view.pet_heal, 'Heal your pet under this HP %.', '%')
+    if view.pet_sends then
+        switch(pg, 'Send at your target', 'pet.at_t', view.pet_at_t == true,
+            'Send your pet at your own target (<t>), and only while you are engaged, instead of the battle target.')
+    end
 end
 
 local function draw_follow(view, pg)

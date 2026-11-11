@@ -5,7 +5,8 @@
     A `free` one (Follow) runs through a pause and a mount too, and while
     automation is stopped (engine.free decides it alone then).
     Then each behavior, in priority order, may return an intent:
-        { action = catalog record, target = unit or nil (you / battle target), why = text }
+        { action = catalog record, target = unit or nil (you / battle target), why = text,
+          at = '<t>' or nil (aimed at your own target, not the battle target: can.command) }
     or, for what isn't a spell or ability (/heal, /follow, /equip):
         { command = text, action = { name = shown name }, why = text }
     The first intent wins. A behavior returning { hold = true } (a cure nearly off
@@ -182,7 +183,7 @@ end
 -- The second result is true when a Japanese client is sent an English name (can.command).
 function engine.command(intent, cfg, g)
     if intent.command then return intent.command, intent.english end  -- an equip may name its item in English
-    return can.command(intent.action, intent.target, cfg.ui.japanese, g and g.bt)
+    return can.command(intent.action, intent.target, cfg.ui.japanese, g and g.bt, intent.at)
 end
 
 -- The status of yours to cancel now for the intent last sent, or nil: once

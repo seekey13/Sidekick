@@ -33,6 +33,9 @@
     when it's a mob another party of the alliance claimed (the client has no <bt>), or
     any the alliance claimed while a trust is in another party (the client's isn't asked).
     `target` is your current target when it's another player: { tidx, sid, name }.
+    `t` (not `target`) is your current target (<t>) when it's a living mob nobody outside
+    the alliance claimed: an entity as `bt`'s, mob = true; looked for only when <bt> is
+    (not idle, not in a safe zone).
     Plus when your cast began (cast_at, while casting);
     what healing scores with: learned potency, the day and the weather;
     the item in your ammo slot and what's in your inventory (and `owned`, the ammo
@@ -274,6 +277,26 @@ local function player_target(mm, em)
     local i = t:GetTargetIndex(t:GetIsSubTargetActive() == 0 and 0 or 1)
     if i < PC_FIRST or i > PC_LAST or not present(em, i) then return nil end
     return player_at(em, i)
+end
+
+-- Your current target (not one being picked) when it's a living mob, as <t> names it,
+-- and one nobody outside the alliance (`listed`, by server id) claimed: the server
+-- refuses to send your pet at another party's mob, and the send would only repeat.
+-- Claims are compared on their low word, as claimed_target's.
+local function mob_target(mm, em, listed)
+    local t = mm:GetTarget()
+    local i = t:GetTargetIndex(t:GetIsSubTargetActive() == 0 and 0 or 1)
+    if not i or i == 0 or bit.band(em:GetSpawnFlags(i), MOB) == 0 or em:GetHPPercent(i) == 0
+        or not present(em, i) then return nil end
+    local c = bit.band(em:GetClaimStatus(i), 0xFFFF)
+    if c ~= 0 then
+        local ours = false
+        for sid in pairs(listed) do ours = ours or bit.band(sid, 0xFFFF) == c end
+        if not ours then return nil end
+    end
+    local e = entity(em, i)
+    if e then e.mob = true end
+    return e
 end
 
 -- Whether tracked player `t` is at the entity index they were last seen at.
@@ -586,6 +609,7 @@ function game.read(now, idle)
     local g = {
         finished = finished, spell_finish = spell_finish,
         now = now, zone = zone, me = me, units = units, tracks = tracks, bt = bt, target = player_target(mm, em),
+        t = not (idle or safe) and mob_target(mm, em, listed) or nil,
         pet = pet, ammo = ammo(), items = inventory(),
         main = jobs.main, main_lv = jobs.main_lv, sub = jobs.sub, sub_lv = jobs.sub_lv,
         casting = casting, cast_at = cast_at,

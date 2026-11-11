@@ -4,7 +4,7 @@
       can.reach(a, u)          can `a` land on unit `u` (target kind, alive, in range)
       can.in_party(u)          is `u` in your party: area effects from you land on no one else
       can.together(c, u)       does an area effect aimed at `c` land on `u` (the same party)
-      can.command(a, u, j, bt) the chat command that does it
+      can.command(a, u, j, bt, at) the chat command that does it
       can.spare_hp(a, g, cfg)  can you pay what `a` costs in HP
       can.tp(a, g)             the TP `a` needs from you now
       can.tools(a, g)          how many casts of `a` the tools you carry pay for
@@ -199,13 +199,14 @@ end
 -- party of the alliance claimed (`bt.claimed`, core/game.lua) has no <bt> and
 -- goes by server id too. In Japanese, the name is the DAT's Japanese one; the
 -- second result is true when there is none, so the English one went instead
--- (the Japanese client won't take it).
+-- (the Japanese client won't take it). `at` names the enemy instead (<t>: the
+-- pet sent at your own target, behaviors/pet.lua).
 -- ponytail: in game on 2026-11-02 under VanaCore the client refused every numeric target with "...A command error occurred.", a player's (/ma "Cure V" 2) and an NPC's long id alike (6561657); v2 aims by id under Ashita. Confirm ids land under VanaCore, judging by a command's first send (tools/gm.lua: the chat box refuses a line within ~1.5 s of the last, and a refused one is resent every 1.1 s).
-function can.command(a, u, japanese, bt)
+function can.command(a, u, japanese, bt, at)
     local name, english = util.spelled(a.name, a.jp, japanese)
     local target
     if can.at_enemy(a) then
-        target = bt and bt.claimed and tostring(bt.sid) or '<bt>'
+        target = at or bt and bt.claimed and tostring(bt.sid) or '<bt>'
     elseif u == nil or u.kind == 'self' and can.self_only(a) then
         target = '<me>'
     elseif (u.sid or 0) > 0 then

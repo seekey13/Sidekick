@@ -152,6 +152,7 @@ local TIP = {
         .. '3 picked elements applied, stacking duplicates\nif you pick one twice. Held off while Overload\nis up.',
     maneuver = 'Keep the 3 maneuvers picked up while your\nautomaton is out. The same element twice keeps\ntwo up.',
     pet_hp = 'When your pet\'s HP falls below this %,\nSidekick uses the checked pet-healing ability.',
+    pet_at_t = 'Send your pet at your own target (<t>),\nonly while you are engaged. Off: at the\nbattle target (<bt>), engaged or not.',
     focus = 'Gives one party/tracked/alliance member their\nown HP% healing lines (usually higher),\n'
         .. 'checked before the Group lines.\nChecked while a Focus Target is picked.',
     focus_target = 'The member healed on the Focus lines below.',
@@ -925,6 +926,11 @@ local function pet_body(c)
     if c.sections.maneuver then maneuver_row(c, pet ~= nil) end
     if pet then
         slider(c, 'Pet (HP%)', 'pet.heal', c.view.pet_heal, TIP.pet_hp)
+        if c.view.pet_sends then
+            local changed, on = check('Send at your target##sk_pet_at_t', c.view.pet_at_t == true)
+            if changed then c.act.set('pet.at_t', on) end
+            tip(TIP.pet_at_t)
+        end
         section_rows(c, 'pet', pet)
     end
 end

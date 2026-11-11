@@ -149,6 +149,28 @@ test('one who joins your party is a member, marked tracked, while they stay; tra
     eq({ #g.units, unit(g, OUT).kind }, { 2, 'tracked' })
 end)
 
+test('t: your target when it is a living mob, unclaimed or the alliance\'s; never another party\'s', function ()
+    reset()
+    world.ents[0x100] = { sid = 0x1000010, name = 'Crab', hpp = 80, dist = 10, flags = 0x10 }
+    world.target = 0x100
+    eq(read().t and read().t.name, 'Crab')                 -- unclaimed
+    eq(read(nil, true).t, nil)                              -- idle: not looked for, as <bt>
+    world.ents[0x100].claim = ME
+    eq(read().t.name, 'Crab')                               -- yours
+    world.ents[0x100].claim = 600
+    eq(read().t, nil)                                       -- another party's: the server would refuse
+    world.ents[0x100].claim, world.ents[0x100].hpp = nil, 0
+    eq(read().t, nil)                                       -- dead
+    world.ents[0x100].hpp, world.ents[0x100].shown = 80, false
+    eq(read().t, nil)                                       -- not drawn
+    world.ents[0x100].shown, world.ents[0x100].flags = nil, 0
+    eq(read().t, nil)                                       -- an NPC
+    world.ents[0x100].flags, world.sub = 0x10, 0x480        -- picking a sub-target: your target is still the Crab
+    eq(read().t.name, 'Crab')
+    world.sub, world.target = nil, 0
+    eq(read().t, nil)
+end)
+
 test('your target, when it is another player drawn near you, also while you pick a sub-target', function ()
     world.ents[0x480] = { sid = STRANGER, name = 'Stranger', dist = 3 }
     world.ents[0x100] = { sid = 0x1000100, name = 'Crab', dist = 3 }
