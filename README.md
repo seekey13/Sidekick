@@ -22,7 +22,7 @@ Sidekick v3 is a ground-up rewrite of Sidekick v2. Instead of hand-written job f
 - **Status removal**: -na spells, Erase, Esuna, waltzes and (opt-in) items, with per-player, per-debuff control.
 - **Wake, raise and buff**: wakes sleepers, raises the KO'd and keeps up the buffs you choose on the targets you choose.
 - **Recovery**: MP and TP through Convert, Devotion, Aspir, Chivalry, Meditate, resting and more.
-- **Pet care**: Repair, Spirit Link, Reward, sending your pet in, and auto-equipping oils and pet food.
+- **Pet care**: Repair, Spirit Link, Reward, sending your pet in (at the battle target, or at your own target while engaged), and auto-equipping oils and pet food.
 - **Follow, rest and AFK sleep**: follows a leader, rests when MP runs low, and pauses itself if the party goes quiet.
 - **Alliance and tracked players**: looks after all three parties, plus players outside your alliance.
 - **Multiboxing**: every Sidekick session on one PC sees the others (your alts) and can start, stop and configure them.

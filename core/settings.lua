@@ -43,7 +43,8 @@ local DEFAULTS = {
     wake = { on = true },                  -- wake sleeping members with a heal that wakes
     recover = { on = true, mp = 30, tp = 1000,    -- under your MP% (a member's, for Devotion), your TP
                 min_tp = 3000 },                   -- Chivalry from this much TP
-    pet = { on = true, heal = 50 },        -- heal your pet under this HP%
+    pet = { on = true, heal = 50,          -- heal your pet under this HP%
+            at_t = false },                -- send it in at your own target (<t>) while engaged, not <bt>
     -- The job modules' sections (roll, song, geo, rune, maneuver) come from their
     -- `settings` (core/jobs.lua).
     buff = { on = true,

@@ -491,6 +491,16 @@ test('the pointer: with a pet out, its care and sending it in are for its card; 
     eq(build(whm, nil, g, status({ intent = e })).pointer, { text = 'Heal:Cure IV', member = 2, live = false })
 end)
 
+test('the Pet page offers sending at <t> only to a job that sends its pet in', function ()
+    eq({ build(whm).pet_sends, build(whm).pet_at_t }, { false, nil })
+    local pup = fake.catalog(18, 75, nil, 0, { 'Deploy' })
+    local cfg = settings.defaults()
+    eq({ build(pup, cfg).pet_sends, build(pup, cfg).pet_at_t }, { true, nil })
+    cfg.pet.at_t = true
+    eq(build(pup, cfg).pet_at_t, true)
+    eq(model.REMOTE_SET['pet.at_t'], 'bool')
+end)
+
 test('a long status list is cut short, the whole list kept for the tooltip', function ()
     local buffs = {}
     for id = 40, 47 do buffs[id] = true end

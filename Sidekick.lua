@@ -316,7 +316,7 @@ local function show_state(g)
             out and (u.main_lv and ('%s%d'):format(abbr(u.main), u.main_lv) or 'lv ?') or ('MP %3d%%'):format(u.mpp),
             u.in_zone and ('%.1fy'):format(u.dist or 0) or 'away', table.concat(names, ', '))
     end
-    for _, t in ipairs({ { 'bt', g.bt }, { 'pet', g.pet } }) do
+    for _, t in ipairs({ { 'bt', g.bt }, { 't', g.t }, { 'pet', g.pet } }) do
         local e = t[2]
         if e then printf('  %-5s %-14s HP %3d%%  %.1fy%s', t[1], e.name, e.hpp, e.dist, e.mob and ' (mob)' or '') end
     end

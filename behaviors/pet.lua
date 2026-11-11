@@ -1,8 +1,10 @@
 --[[
     Your pet: heal it under the pet HP line and clear what ails it (care), and
     send it at your battle target when it isn't fighting (send, opt-in per row:
-    Assault, Fight, Deploy). Both go out as /ja or /pet on <me> or <bt>, never
-    while you're Invisible (core/engine.lua).
+    Assault, Fight, Deploy). With pet.at_t, sending goes at your own target (<t>)
+    instead, and only while you're engaged, so a cursor passing over a mob nobody
+    is fighting never sends it. Both go out as /ja or /pet on <me>, <bt> or <t>,
+    never while you're Invisible (core/engine.lua).
     A care row that needs ammo worn (Repair's and Maintenance's oil, Reward's pet
     food) and would go with it first equips it (core/ammo.lua), and the next row
     waits while it goes on.
@@ -13,7 +15,7 @@ local can = require('core.can')
 local settings = require('core.settings')
 local util = require('core.util')
 
-local ENGAGED = 1  -- entity status
+local ENGAGED = 1  -- entity status, yours and your pet's
 
 local pet = {}
 
@@ -51,10 +53,16 @@ function pet.care(g, cat, cfg, mem)
 end
 
 function pet.send(g, cat, cfg)
-    local p, bt = g.pet, g.bt
-    if not p or p.hpp == 0 or p.status == ENGAGED or not (bt and bt.mob and bt.hpp > 0) then return nil end
+    local p = g.pet
+    if not p or p.hpp == 0 or p.status == ENGAGED then return nil end
+    local at_t = cfg.pet.at_t == true
+    local mob = at_t and g.me.status == ENGAGED and g.t or not at_t and g.bt
+    if not (mob and mob.mob and mob.hpp > 0) then return nil end
+    -- can.use measures an enemy action's range from g.bt, and holds it to combat:
+    -- at <t>, that's your target, and being engaged is combat.
+    local seen = at_t and util.overlay(g, { bt = mob, combat = true }) or g
     for _, a in ipairs(settings.enabled(cat, cfg, 'pet_send')) do
-        if can.use(a, g) then return { action = a, why = ('%s at %s'):format(p.name, bt.name) } end
+        if can.use(a, seen) then return { action = a, at = at_t and '<t>' or nil, why = ('%s at %s'):format(p.name, mob.name) } end
     end
 end
 
