@@ -137,7 +137,9 @@ local function row_label(key, acts, note)
 end
 
 -- A buff row's choices { label, name }: tiers after "Auto (best)" (name nil), or
--- a pick-one group's actions, each with its own note when the row has none.
+-- a pick-one group's actions, each with its own note when the row has none. A tier
+-- shows its own name: a labelled row's label ('Regen (keep up)') names the row, not
+-- each tier in it.
 local function choices(acts, note)
     local names = distinct(acts, 'name')
     if not acts[1].pick_one and #names < 2 then return nil end
@@ -145,7 +147,7 @@ local function choices(acts, note)
     for _, name in ipairs(names) do
         local a
         for _, x in ipairs(acts) do if x.name == name then a = x; break end end
-        local label = a.label and label_of(a) or lang.name(a.name, a.jp)
+        local label = a.label and a.pick_one and label_of(a) or lang.name(a.name, a.jp)
         if a.note and not note then label = lang.f('%s (%s)', label, lang.t(a.note)) end
         out[#out + 1] = { label = label, name = name }
     end
