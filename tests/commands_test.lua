@@ -38,7 +38,8 @@ end
 -- ({ files, picked, writes, unwritable }: ui/ and theme.txt, live), sessions, sent, loading(on), ui (Standard's stub:
 -- its render can be replaced), act (the last frame's), party and over
 -- (who the game reads besides you, and its snapshot's flags), queued (the commands sent to the game), files (the settings
--- files, by alias), out (chat since the last command) }. With `spells`, you know every spell your job has (else none).
+-- files, by alias), out (chat since the last command), player (the game's, its functions replaceable), packet(id) (one
+-- arrives) }. With `spells`, you know every spell your job has (else none).
 -- `ui`: what the ui file was left holding, over its defaults. `login`: loaded before you're in, as at the title screen,
 -- so the game reads loading till env.loading(false).
 local function boot(custom, spells, ui, login)
@@ -62,6 +63,7 @@ local function boot(custom, spells, ui, login)
     local player = { GetMainJobLevel = function () return 75 end, GetMainJob = function () return 3 end,
         GetSubJob = function () return 0 end, GetSubJobLevel = function () return 0 end,
         HasSpell = function () return spells == true end, HasAbility = function () return false end }
+    env.player = player
     rawset(_G, 'AshitaCore', {
         GetMemoryManager = function () return { GetPlayer = function () return player end } end,
         GetResourceManager = function () return { GetString = function () return 'WHM' end } end,
@@ -143,6 +145,7 @@ local function boot(custom, spells, ui, login)
         handlers.d3d_present()
         return env.renders[1]
     end
+    function env.packet(id) handlers.packet_in({ id = id, data = '' }) end
     function env.sk(command)
         env.out = {}
         handlers.command({ command = command })
@@ -157,6 +160,18 @@ local function remote(v)
     local out = {}
     for _, r in ipairs(v and v.remote or {}) do out[#out + 1] = r.name end
     return out
+end
+
+-- Whether `name` is any string in the view.
+local function mentions(v, name, seen)
+    seen = seen or {}
+    if v == name then return true end
+    if type(v) ~= 'table' or seen[v] then return false end
+    seen[v] = true
+    for k, x in pairs(v) do
+        if mentions(k, name, seen) or mentions(x, name, seen) then return true end
+    end
+    return false
 end
 
 local ok, err = pcall(function ()
@@ -661,6 +676,24 @@ local ok, err = pcall(function ()
         s.sk('/sk')
         s.frame()
         eq({ s.frame() ~= nil, s.by, s.theme.picked }, { true, 'classic', 'window' })
+    end)
+
+    test('a job change\'s abilities, listed once the server\'s ability list comes after the job', function ()
+        local e = boot(false)
+        local p, has = e.player, { [757] = true }  -- Afflatus Solace, WHM's
+        p.HasAbility = function (_, id) return has[id] == true end
+        e.packet(0x0AC)  -- WHM's list, as at login
+        e.sk('/sk')
+        e.frame()
+        local v = e.frame()
+        eq({ mentions(v, 'Afflatus Solace'), mentions(v, 'Berserk') }, { true, false })
+        p.GetMainJob = function () return 1 end  -- WAR: the client still lists WHM's abilities
+        v = e.frame()
+        eq({ mentions(v, 'Afflatus Solace'), mentions(v, 'Berserk') }, { true, false })
+        has = { [543] = true }  -- then the server's list: Berserk
+        e.packet(0x0AC)
+        v = e.frame()
+        eq({ mentions(v, 'Afflatus Solace'), mentions(v, 'Berserk') }, { false, true })
     end)
 end)
 restore()
