@@ -170,7 +170,7 @@ local TIP = {
         .. 'Debuffs to Remove picks which debuffs are\nworth removing, for everyone or one player.',
     remove_target = '\nUntick to never clear debuffs on them, Doom\ntoo: someone else sees to them.',
     shared = 'It heals too: unchecked here, it is unchecked\nunder Group Healing.',
-    whose = 'Everyone without a set of their own, and\nwhoever joins. A player\'s first change gives\nthem their own.',
+    whose = 'Everyone without a set of their own, and\nwhoever joins. A player\'s first change gives\nthem their own. Everyone\'s and yours are\nsaved; another player\'s lasts this session only.',
     rest = 'While idle and your MP falls below Rest\n(MP%), Sidekick sends /heal on. Nothing\n'
         .. 'Sidekick does interrupts a rest: it stands\nat full MP, or when the Follow Target passes\nDistance.',
     rest_mp = 'Rest when your MP falls under this %,\nuntil it is full.',

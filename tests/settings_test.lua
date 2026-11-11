@@ -131,3 +131,26 @@ test('a buff is named by its spell, family or row key, or in Japanese by its spe
     eq(settings.buff_named(cat, 'barelement').pick_one, 'barelement')
     eq(settings.buff_named(cat, 'nothing'), nil)
 end)
+
+test('debuff removal: everyone\'s and your own set are saved; another player\'s lasts this session only', function ()
+    with_lib({ WHM_BLM = { remove = { own = { Old = { set = true, skip = { poison = true } } } } } }, function (settings, lib)
+        local cfg = settings.load('WHM_BLM', 'Me')
+        eq(cfg.remove.own.Old, nil, 'a set saved before is dropped')
+        cfg.remove.skip.poison = true
+        cfg.remove.own.Me = { set = true, skip = { paralysis = true } }
+        cfg.remove.own.Kupipi = { set = true, skip = { silence = true } }
+        settings.save()
+        local own = lib.files.WHM_BLM.remove.own
+        eq({ lib.files.WHM_BLM.remove.skip.poison, own.Me.skip.paralysis, own.Kupipi }, { true, true, nil })
+        eq(cfg.remove.own.Kupipi.skip.silence, true, 'still on this session')
+        -- A job change keeps this session's, each pair keeps its own set of yours.
+        cfg = settings.load('WHM_SCH', 'Me')
+        eq({ cfg.remove.own.Kupipi.skip.silence, cfg.remove.own.Me }, { true, nil })
+        cfg = settings.load('WHM_BLM', 'Me')
+        eq({ cfg.remove.own.Kupipi.skip.silence, cfg.remove.own.Me.skip.paralysis }, { true, true })
+        -- The library's own save at a logout writes them, but the next load drops them; another character starts over.
+        lib.relog()
+        cfg = settings.load('WHM_BLM', 'Other')
+        eq({ cfg.remove.own.Kupipi, cfg.remove.own.Me }, { nil, nil })
+    end)
+end)

@@ -1431,7 +1431,7 @@ end
 local function debuff_panel(pg, pane, debuffs, who)
     local everyone = t('Everyone')
     local tabs = { { label = everyone, id = '*', w = kit.chip_width(everyone),
-                     tip = t('Everyone without a set of their own, and whoever joins. A player\'s first change gives them their own.') } }
+                     tip = t('Everyone without a set of their own, and whoever joins. A player\'s first change gives them their own. Everyone\'s and yours are saved; another player\'s lasts this session only.') } }
     for _, tg in ipairs(who or {}) do
         if tg.on and tg.name then
             tabs[#tabs + 1] = { label = tg.label, id = tg.slot, name = tg.name, w = S(CHIP_W), tip = game_text(tg.name) }

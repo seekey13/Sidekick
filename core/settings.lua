@@ -39,6 +39,7 @@ local DEFAULTS = {
     -- skip = { [status name] = true }: debuffs left on everyone without a set of their own.
     -- off = { [name] = true }: removal leaves that player alone, Doom too.
     -- own = { [name] = { set = true, skip = { [status] = true } } }: that player's debuffs, instead of skip.
+    -- skip and your own set are saved; another player's set lasts this session only (settings.load/save).
     remove = { on = true, skip = {}, off = {}, own = {} },
     wake = { on = true },                  -- wake sleeping members with a heal that wakes
     recover = { on = true, mp = 30, tp = 1000,    -- under your MP% (a member's, for Devotion), your TP
@@ -200,9 +201,35 @@ end
 -- Ashita's settings library, loaded only in game. The job pair's file holds
 -- everything but `ui`, which loads from and saves to its own file.
 local lib, alias, loaded
-function settings.load(job_pair)
+
+-- Debuff removal's sets of other players (cfg.remove.own, by name) last this
+-- session only: never written to a file, and carried from job pair to job pair.
+-- Yours (`me`) and everyone's (cfg.remove.skip) are saved with the pair.
+local me, others = nil, {}
+
+-- The players' sets in `cfg` other than yours, taken out of it into `others`;
+-- returns them, to put back once saved. Nothing while your name isn't known.
+local function take_others(cfg)
+    local own = me and type(cfg) == 'table' and type(cfg.remove) == 'table' and cfg.remove.own
+    local out = {}
+    if type(own) ~= 'table' then return out end
+    for name, set in pairs(own) do
+        if name ~= me then out[name] = set end
+    end
+    for name, set in pairs(out) do
+        own[name] = nil
+        others[name] = set
+    end
+    return out
+end
+
+-- `name`: your character's, so their own debuff set is the one saved. Another
+-- character's name starts the other players' sets over.
+function settings.load(job_pair, name)
     lib = lib or require('settings')
-    alias = job_pair
+    if loaded and not settings.switched() then take_others(loaded) end  -- this session's, from the pair left
+    if name ~= me then others = {} end
+    me, alias = name, job_pair
     local d = T_(settings.defaults())
     local ui = d.ui
     d.ui = nil
@@ -210,6 +237,18 @@ function settings.load(job_pair)
     detach(d)
     loaded.ui = lib.load(ui, UI_FILE)
     detach(ui)
+    -- Other players' sets in the file (saved before they were for the session, or by
+    -- the library at a logout) are dropped; this session's take their place.
+    if me and type(loaded.remove) == 'table' then
+        local own = type(loaded.remove.own) == 'table' and loaded.remove.own or {}
+        local stale = {}
+        for who in pairs(own) do
+            if who ~= me then stale[#stale + 1] = who end
+        end
+        for _, who in ipairs(stale) do own[who] = nil end
+        for who, set in pairs(others) do own[who] = set end
+        loaded.remove.own = own
+    end
     -- A pair's own Japanese client from before it moved to `ui`: carried over when
     -- on, and saved at once so the pair's file no longer holds it.
     local old = loaded.japanese
@@ -223,10 +262,11 @@ end
 
 function settings.save()
     if not lib then return end
-    local ui = loaded.ui
-    loaded.ui = nil  -- kept out of the job pair's file
+    local ui, theirs = loaded.ui, take_others(loaded)
+    loaded.ui = nil  -- kept out of the job pair's file, as other players' debuff sets
     lib.save(alias)
     loaded.ui = ui
+    for who, set in pairs(theirs) do loaded.remove.own[who] = set end
     lib.save(UI_FILE)
 end
 

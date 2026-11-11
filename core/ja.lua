@@ -391,8 +391,9 @@ ja.words = {
     ['Untick to leave it on: worth it for what doesn\'t matter to your job (MP Down on a Warrior).'] =
         'オフにすると回復しません。ジョブに関係のない弱体（戦士のMPmaxダウンなど）に。',
     ['All'] = 'すべて', ['Everyone'] = '全員',
-    ['Everyone without a set of their own, and whoever joins. A player\'s first change gives them their own.'] =
-        '個別の設定がない全員と、新しく入った人。プレイヤーのチップを変えると、その人だけの設定になります。',
+    ['Everyone without a set of their own, and whoever joins. A player\'s first change gives them their own. Everyone\'s and yours are saved; another player\'s lasts this session only.'] =
+        '個別の設定がない全員と、新しく入った人。プレイヤーのチップを変えると、その人だけの設定になります。'
+            .. '全員とあなたの設定は保存され、ほかのプレイヤーの設定はこのセッションのみです。',
     ['Remove all of these debuffs.'] = 'これらの弱体をすべて回復します。',
     ['Leave all of these debuffs on.'] = 'これらの弱体はすべてそのままにします。',
     ['Untick to never clear debuffs on them, Doom too: someone else sees to them.'] =

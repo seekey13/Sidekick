@@ -166,7 +166,7 @@ local function refresh(now)
         local pair = abbr(snap.main) .. '_' .. abbr(snap.sub)
         if pair ~= cfg_pair then brd.clear() end  -- your songs go with the job
         local relog = settings.switched()  -- logged out and in: the library has loaded every file afresh
-        if pair ~= cfg_pair or relog then cfg, cfg_pair, mem = settings.load(pair), pair, {} end
+        if pair ~= cfg_pair or relog then cfg, cfg_pair, mem = settings.load(pair, snap.me.name), pair, {} end
         -- The first settings load: the HUD as it was left. It stays as it is across a job change and a relog; only
         -- /sk hud and its close button move it.
         local first = status.open == nil
