@@ -52,17 +52,26 @@ function pet.care(g, cat, cfg, mem)
     end
 end
 
+-- Where sending the pet in aims: the mob (nil for none) and `g` as can.use should
+-- see it. can.use measures an enemy action's range from g.bt and holds it to combat:
+-- with pet.at_t, that's your own target, only while you're engaged (being engaged is
+-- combat), never your pet itself. The Settings rows show their readiness from it too
+-- (ui/model.lua), so they say what sending will do.
+function pet.aim(g, cfg)
+    if cfg.pet.at_t ~= true then return g.bt, g end
+    local t = g.me.status == ENGAGED and g.t or nil
+    if t and g.pet and t.tidx ~= nil and t.tidx == g.pet.tidx then t = nil end
+    return t, util.overlay(g, { bt = t or false, combat = t ~= nil or g.combat })
+end
+
 function pet.send(g, cat, cfg)
     local p = g.pet
     if not p or p.hpp == 0 or p.status == ENGAGED then return nil end
-    local at_t = cfg.pet.at_t == true
-    local mob = at_t and g.me.status == ENGAGED and g.t or not at_t and g.bt
+    local mob, seen = pet.aim(g, cfg)
     if not (mob and mob.mob and mob.hpp > 0) then return nil end
-    -- can.use measures an enemy action's range from g.bt, and holds it to combat:
-    -- at <t>, that's your target, and being engaged is combat.
-    local seen = at_t and util.overlay(g, { bt = mob, combat = true }) or g
+    local at = cfg.pet.at_t == true and '<t>' or nil
     for _, a in ipairs(settings.enabled(cat, cfg, 'pet_send')) do
-        if can.use(a, seen) then return { action = a, at = at_t and '<t>' or nil, why = ('%s at %s'):format(p.name, mob.name) } end
+        if can.use(a, seen) then return { action = a, at = at, why = ('%s at %s'):format(p.name, mob.name) } end
     end
 end
 

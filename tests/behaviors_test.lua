@@ -176,6 +176,15 @@ test('pet: sent at your own target (<t>) only while you are engaged, with pet.at
     end
     g = snap(nil, { pet = automaton({ status = 1 }), t = crab }); g.me.status = 1
     eq({ decide(g, cfg, pup) }, { nil, 'nothing to do' })
+    -- Range is from your target, not the battle target, and a claimed <bt> still goes as <t>.
+    g = snap(nil, { pet = automaton(), t = crab, combat = true,
+                    bt = { name = 'Far', mob = true, dist = 99, hpp = 100, claimed = true, sid = 9 } })
+    g.me.status = 1
+    eq(decide(g, cfg, pup), '/pet "Deploy" <t>')
+    -- Your own pet as your target: never sent at itself.
+    g = snap(nil, { pet = automaton({ tidx = 0x700 }), t = { name = 'Automaton', mob = true, dist = 2, hpp = 100, tidx = 0x700 } })
+    g.me.status = 1
+    eq({ decide(g, cfg, pup) }, { nil, 'nothing to do' })
     -- Off again: back to the battle target.
     cfg.pet.at_t = false
     eq(decide(snap(nil, { pet = automaton(), bt = crab, t = crab, combat = true }), cfg, pup), '/pet "Deploy" <bt>')

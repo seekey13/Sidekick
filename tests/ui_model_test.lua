@@ -501,6 +501,19 @@ test('the Pet page offers sending at <t> only to a job that sends its pet in', f
     eq(model.REMOTE_SET['pet.at_t'], 'bool')
 end)
 
+test('the Deploy row says what sending will do: at <t>, ready while engaged with no battle target', function ()
+    local pup = fake.catalog(18, 75, nil, 0, { 'Deploy' })
+    local cfg = settings.defaults()
+    cfg.rows.Deploy, cfg.pet.at_t = { on = true }, true
+    local g = fake.snap({}, { pet = { name = 'Automaton', hpp = 100, dist = 2, buffs = {} },
+                             t = { name = 'Crab', mob = true, hpp = 100, dist = 5 } })
+    eq(row(build(pup, cfg, g), 'pet', 'Deploy').ready, false)  -- not engaged
+    g.me.status = 1
+    eq(row(build(pup, cfg, g), 'pet', 'Deploy').ready, true)
+    cfg.pet.at_t = false
+    eq(row(build(pup, cfg, g), 'pet', 'Deploy').ready, false)  -- at <bt>, and there's none
+end)
+
 test('a long status list is cut short, the whole list kept for the tooltip', function ()
     local buffs = {}
     for id = 40, 47 do buffs[id] = true end

@@ -28,6 +28,7 @@ local ammo = require('core.ammo')
 local can = require('core.can')
 local job_modules = require('core.jobs')
 local lang = require('core.lang')
+local pet_behavior = require('behaviors.pet')
 local profiles = require('core.profiles')
 local settings = require('core.settings')
 local util = require('core.util')
@@ -296,7 +297,8 @@ local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
         if not settings.never_heal(cfg, a) then live[#live + 1] = a end
     end
     if live[1] then
-        row.ready, row.avail, row.action = availability(live, r, g)
+        -- Sending the pet in aims where pet.at_t says (behaviors/pet.lua): the row's readiness too.
+        row.ready, row.avail, row.action = availability(live, r, acts[1].role == 'pet_send' and select(2, pet_behavior.aim(g, cfg)) or g)
     else
         row.ready, row.avail = false, lang.t('every tier unticked')
     end
