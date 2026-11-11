@@ -205,6 +205,21 @@ test('a tier buff: off, Auto then each tier, targets on you by default', functio
     eq(r.targets[2].name, 'A')
 end)
 
+test('a labelled tier buff names each tier, not the row\'s label, in its choices', function ()
+    local r = row(build(whm), 'buff', 'Regen (keep up)')
+    eq(r.label, 'Regen (keep up)')
+    eq(keys(r.choices, 'label'), { 'Auto (best)', 'Regen', 'Regen II', 'Regen III' })
+    local cfg = settings.defaults()
+    cfg.rows['Regen (keep up)'] = { on = true, pick = 'Regen II' }
+    eq(row(build(whm, cfg), 'buff', 'Regen (keep up)').choice, 'Regen II')
+end)
+
+test('a labelled pick-one group keeps each member\'s label in its choices', function ()
+    local geo = fake.catalog(21, 99, 0, 0, { 'Lasting Emanation', 'Ecliptic Attrition' })
+    local r = row(build(geo), 'buff', 'geo_ja')
+    eq(keys(r.choices, 'label'), { 'Lasting Emanation (Duration)', 'Ecliptic Attrition (Effect)' })
+end)
+
 test('self-only buffs have no targets', function ()
     eq(row(build(whm), 'buff', 'Protectra').targets, nil)
 end)
@@ -489,6 +504,29 @@ test('the pointer: with a pet out, its care and sending it in are for its card; 
     end
     local e = { at = 990, action = 'Cure IV', target = 'A', behavior = 'heal', why = 'A at 62%' }
     eq(build(whm, nil, g, status({ intent = e })).pointer, { text = 'Heal:Cure IV', member = 2, live = false })
+end)
+
+test('the Pet page offers sending at <t> only to a job that sends its pet in', function ()
+    eq({ build(whm).pet_sends, build(whm).pet_at_t }, { false, nil })
+    local pup = fake.catalog(18, 75, nil, 0, { 'Deploy' })
+    local cfg = settings.defaults()
+    eq({ build(pup, cfg).pet_sends, build(pup, cfg).pet_at_t }, { true, nil })
+    cfg.pet.at_t = true
+    eq(build(pup, cfg).pet_at_t, true)
+    eq(model.REMOTE_SET['pet.at_t'], 'bool')
+end)
+
+test('the Deploy row says what sending will do: at <t>, ready while engaged with no battle target', function ()
+    local pup = fake.catalog(18, 75, nil, 0, { 'Deploy' })
+    local cfg = settings.defaults()
+    cfg.rows.Deploy, cfg.pet.at_t = { on = true }, true
+    local g = fake.snap({}, { pet = { name = 'Automaton', hpp = 100, dist = 2, buffs = {} },
+                             t = { name = 'Crab', mob = true, hpp = 100, dist = 5 } })
+    eq(row(build(pup, cfg, g), 'pet', 'Deploy').ready, false)  -- not engaged
+    g.me.status = 1
+    eq(row(build(pup, cfg, g), 'pet', 'Deploy').ready, true)
+    cfg.pet.at_t = false
+    eq(row(build(pup, cfg, g), 'pet', 'Deploy').ready, false)  -- at <bt>, and there's none
 end)
 
 test('a long status list is cut short, the whole list kept for the tooltip', function ()
@@ -918,7 +956,9 @@ test('in Japanese a row is named from the DAT, its choices and readiness in Japa
     eq({ protect.choices[2].name, protect.choice }, { 'Protect', '自動（最上位）' })
     local bar = row(v, 'buff', 'barelement')
     eq({ bar.label, bar.choice, bar.avail }, { 'バ系（属性）', '選択してください', '要選択' })
-    eq(row(v, 'buff', 'Regen (keep up)').label, 'リジェネ（維持）')
+    local regen = row(v, 'buff', 'Regen (keep up)')
+    eq(regen.label, 'リジェネ（維持）')
+    eq(keys(regen.choices, 'label'), { '自動（最上位）', 'リジェネ', 'リジェネII', 'リジェネIII' })
     eq(v.job, '白75/黒37')
 end)
 

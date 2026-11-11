@@ -28,6 +28,7 @@ local ammo = require('core.ammo')
 local can = require('core.can')
 local job_modules = require('core.jobs')
 local lang = require('core.lang')
+local pet_behavior = require('behaviors.pet')
 local profiles = require('core.profiles')
 local settings = require('core.settings')
 local util = require('core.util')
@@ -137,7 +138,10 @@ local function row_label(key, acts, note)
 end
 
 -- A buff row's choices { label, name }: tiers after "Auto (best)" (name nil), or
--- a pick-one group's actions, each with its own note when the row has none.
+-- a pick-one group's actions, each with its own note when the row has none. A tier
+-- shows its own name: a labelled row's label ('Regen (keep up)') names the row, not
+-- each tier in it. A pick-one member, one action each, keeps its label
+-- ('Lasting Emanation (Duration)').
 local function choices(acts, note)
     local names = distinct(acts, 'name')
     if not acts[1].pick_one and #names < 2 then return nil end
@@ -145,7 +149,7 @@ local function choices(acts, note)
     for _, name in ipairs(names) do
         local a
         for _, x in ipairs(acts) do if x.name == name then a = x; break end end
-        local label = a.label and label_of(a) or lang.name(a.name, a.jp)
+        local label = a.label and a.pick_one and label_of(a) or lang.name(a.name, a.jp)
         if a.note and not note then label = lang.f('%s (%s)', label, lang.t(a.note)) end
         out[#out + 1] = { label = label, name = name }
     end
@@ -296,7 +300,8 @@ local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
         if not settings.never_heal(cfg, a) then live[#live + 1] = a end
     end
     if live[1] then
-        row.ready, row.avail, row.action = availability(live, r, g)
+        -- Sending the pet in aims where pet.at_t says (behaviors/pet.lua): the row's readiness too.
+        row.ready, row.avail, row.action = availability(live, r, acts[1].role == 'pet_send' and select(2, pet_behavior.aim(g, cfg)) or g)
     else
         row.ready, row.avail = false, lang.t('every tier unticked')
     end
@@ -679,9 +684,11 @@ function model.build(g, cat, cfg, status, names)
     local spends_tp, wakes = false, false  -- Chivalry: its TP line is worth showing; a heal can wake
     local stratagems = false               -- what heal.reserve keeps (SCH's charges): the reserve is worth showing
     local shadows = false                  -- NIN: Utsusemi, so recasting at one shadow is worth showing
+    local sends = false                    -- Assault, Fight, Deploy: where the pet is sent is worth showing
     for _, a in ipairs(cat) do
         stratagems = stratagems or reserved(a)
         shadows = shadows or a.last_shadow ~= nil
+        sends = sends or a.role == 'pet_send'
         spends_tp = spends_tp or a.role == 'recover' and a.spends_tp == true
         wakes = wakes or a.role == 'heal' and a.wakes == true and not a.pet
     end
@@ -703,6 +710,7 @@ function model.build(g, cat, cfg, status, names)
                  focus_names = focus_names, targets = heal_targets },
         recover = { mp = cfg.recover.mp, tp = cfg.recover.tp, min_tp = cfg.recover.min_tp, spends_tp = spends_tp },
         pet_heal = cfg.pet.heal,
+        pet_at_t = sends and cfg.pet.at_t == true or nil, pet_sends = sends,  -- send it at <t> while engaged
         follow = { on = cfg.follow.on, target = cfg.follow.target, distance = cfg.follow.distance, names = focus_names },
         rest = { on = cfg.rest.on, mp = cfg.rest.mp, distance = cfg.rest.distance },
         afk = { minutes = cfg.afk.minutes, asleep = g.afk == true, left = g.afk_in },
@@ -802,7 +810,7 @@ model.REMOTE_SET = {
     ['heal.threshold'] = { 1, 99 }, ['heal.danger'] = { 1, 99 }, ['heal.critical'] = { 1, 99 },
     ['heal.focus_threshold'] = { 1, 99 }, ['heal.focus_danger'] = { 1, 99 }, ['heal.focus_critical'] = { 1, 99 }, ['heal.cure_potency'] = { 0, 50 }, ['heal.waltz_potency'] = { 0, 50 },
     ['heal.regen_potency'] = { 0, 30 }, ['heal.focus'] = 'name', ['heal.reserve'] = 'bool',
-    ['recover.mp'] = { 1, 99 }, ['recover.tp'] = { 0, 3000 }, ['recover.min_tp'] = { 0, 3000 }, ['pet.heal'] = { 1, 99 },
+    ['recover.mp'] = { 1, 99 }, ['recover.tp'] = { 0, 3000 }, ['recover.min_tp'] = { 0, 3000 }, ['pet.heal'] = { 1, 99 }, ['pet.at_t'] = 'bool',
     ['follow.on'] = 'bool', ['follow.target'] = 'name', ['follow.distance'] = { 1, 15 },
     ['rest.on'] = 'bool', ['rest.mp'] = { 1, 99 }, ['rest.distance'] = { 1, 15 },
     ['afk.on'] = 'bool', ['afk.minutes'] = { afk.MIN, afk.MAX },

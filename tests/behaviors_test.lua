@@ -156,6 +156,40 @@ test('pet: sent at the battle target when idle, opt-in', function ()
     eq({ decide(snap(nil, { pet = automaton({ hpp = 0 }), bt = bt, combat = true }), cfg, pup) }, { nil, 'nothing to do' })
 end)
 
+test('pet: sent at your own target (<t>) only while you are engaged, with pet.at_t', function ()
+    local crab = { name = 'Crab', mob = true, dist = 5, hpp = 100 }
+    local cfg = settings.defaults()
+    cfg.rows.Deploy, cfg.pet.at_t = { on = true }, true
+    -- No battle target needed (a mob not yet claimed), nor combat: being engaged is.
+    local g = snap(nil, { pet = automaton(), t = crab })
+    eq({ decide(g, cfg, pup) }, { nil, 'nothing to do' })  -- not engaged: a passing cursor sends nothing
+    g.me.status = 1
+    local cmd, intent = decide(g, cfg, pup)
+    eq({ cmd, intent.behavior, intent.why }, { '/pet "Deploy" <t>', 'pet_send', 'Automaton at Crab' })
+    -- The battle target alone doesn't do: it's <t> or nothing.
+    eq({ decide(snap(nil, { pet = automaton(), bt = crab, combat = true }), cfg, pup) }, { nil, 'nothing to do' })
+    -- Your target a player, dead, out of range, or the pet already fighting: not sent.
+    for _, t in ipairs({ { name = 'A', hpp = 100, dist = 5 }, { name = 'Crab', mob = true, hpp = 0, dist = 5 },
+                        { name = 'Crab', mob = true, hpp = 100, dist = 99 } }) do
+        g = snap(nil, { pet = automaton(), t = t }); g.me.status = 1
+        eq({ decide(g, cfg, pup) }, { nil, 'nothing to do' })
+    end
+    g = snap(nil, { pet = automaton({ status = 1 }), t = crab }); g.me.status = 1
+    eq({ decide(g, cfg, pup) }, { nil, 'nothing to do' })
+    -- Range is from your target, not the battle target, and a claimed <bt> still goes as <t>.
+    g = snap(nil, { pet = automaton(), t = crab, combat = true,
+                    bt = { name = 'Far', mob = true, dist = 99, hpp = 100, claimed = true, sid = 9 } })
+    g.me.status = 1
+    eq(decide(g, cfg, pup), '/pet "Deploy" <t>')
+    -- Your own pet as your target: never sent at itself.
+    g = snap(nil, { pet = automaton({ tidx = 0x700 }), t = { name = 'Automaton', mob = true, dist = 2, hpp = 100, tidx = 0x700 } })
+    g.me.status = 1
+    eq({ decide(g, cfg, pup) }, { nil, 'nothing to do' })
+    -- Off again: back to the battle target.
+    cfg.pet.at_t = false
+    eq(decide(snap(nil, { pet = automaton(), bt = crab, t = crab, combat = true }), cfg, pup), '/pet "Deploy" <bt>')
+end)
+
 test('pet: Spirit Link waits while you are in danger yourself', function ()
     local drg = fake.catalog(DRG, 75, nil, 0, { 'Spirit Link' })
     local g = snap(nil, { pet = automaton({ name = 'Wyvern', hpp = 30 }) })

@@ -185,6 +185,9 @@ ja.words = {
     ['Spend TP from'] = 'TP消費の下限', ['Chivalry turns all your TP into MP: only from this much.'] =
         'シバルリーは全TPをMPに変えます。このTP以上のときだけ使います。',
     ['Pet HP under'] = 'ペットHPライン', ['Heal your pet under this HP %.'] = 'ペットのHPがこの%未満なら回復します。',
+    ['Send at your target'] = '自分のターゲットへ',
+    ['Send your pet at your own target (<t>), and only while you are engaged, instead of the battle target.'] =
+        'ペットをバトルターゲットではなく自分のターゲット（<t>）へ向かわせます。自分が戦闘中のときだけです。',
     ['Leader'] = 'リーダー', ['Who to follow; resting stands up when they leave too.'] =
         '追従する相手。この人が離れたらヒーリングもやめて立ちます。',
     ['Follow past'] = '追従する距離', ['Yalms.'] = 'ヤルム。',

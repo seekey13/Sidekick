@@ -14,7 +14,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 addon.name    = 'Sidekick'
 addon.author  = 'Seekey'
-addon.version = '3.1.0'
+addon.version = '3.1.1'
 addon.desc    = 'Support Job Automation Framework'
 addon.link    = 'https://github.com/seekey13/Sidekick'
 
@@ -286,7 +286,8 @@ local function show_catalog(which)
         local role = a.role or 'unknown'
         if not by_role[role] then by_role[role] = {}; order[#order + 1] = role end
         local names = by_role[role]
-        names[#names + 1] = japanese() and named(a) or a.label or a.name
+        -- Each tier by its own name: a label ('Regen (keep up)') names a row, but a pick-one member's own.
+        names[#names + 1] = japanese() and named(a) or a.pick_one and a.label or a.name
     end
     table.sort(order)
     for _, role in ipairs(order) do
@@ -318,7 +319,7 @@ local function show_state(g)
             out and (u.main_lv and ('%s%d'):format(abbr(u.main), u.main_lv) or 'lv ?') or ('MP %3d%%'):format(u.mpp),
             u.in_zone and ('%.1fy'):format(u.dist or 0) or 'away', table.concat(names, ', '))
     end
-    for _, t in ipairs({ { 'bt', g.bt }, { 'pet', g.pet } }) do
+    for _, t in ipairs({ { 'bt', g.bt }, { 't', g.t }, { 'pet', g.pet } }) do
         local e = t[2]
         if e then printf('  %-5s %-14s HP %3d%%  %.1fy%s', t[1], e.name, e.hpp, e.dist, e.mob and ' (mob)' or '') end
     end
