@@ -209,6 +209,15 @@ test('a labelled tier buff names each tier, not the row\'s label, in its choices
     local r = row(build(whm), 'buff', 'Regen (keep up)')
     eq(r.label, 'Regen (keep up)')
     eq(keys(r.choices, 'label'), { 'Auto (best)', 'Regen', 'Regen II', 'Regen III' })
+    local cfg = settings.defaults()
+    cfg.rows['Regen (keep up)'] = { on = true, pick = 'Regen II' }
+    eq(row(build(whm, cfg), 'buff', 'Regen (keep up)').choice, 'Regen II')
+end)
+
+test('a labelled pick-one group keeps each member\'s label in its choices', function ()
+    local geo = fake.catalog(21, 99, 0, 0, { 'Lasting Emanation', 'Ecliptic Attrition' })
+    local r = row(build(geo), 'buff', 'geo_ja')
+    eq(keys(r.choices, 'label'), { 'Lasting Emanation (Duration)', 'Ecliptic Attrition (Effect)' })
 end)
 
 test('self-only buffs have no targets', function ()

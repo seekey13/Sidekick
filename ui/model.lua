@@ -139,7 +139,8 @@ end
 -- A buff row's choices { label, name }: tiers after "Auto (best)" (name nil), or
 -- a pick-one group's actions, each with its own note when the row has none. A tier
 -- shows its own name: a labelled row's label ('Regen (keep up)') names the row, not
--- each tier in it.
+-- each tier in it. A pick-one member, one action each, keeps its label
+-- ('Lasting Emanation (Duration)').
 local function choices(acts, note)
     local names = distinct(acts, 'name')
     if not acts[1].pick_one and #names < 2 then return nil end
