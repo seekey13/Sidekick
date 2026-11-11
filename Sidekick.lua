@@ -68,15 +68,17 @@ local function abbr(job)
     return job > 0 and AshitaCore:GetResourceManager():GetString('jobs.names_abbr', job) or 'none'
 end
 
--- The catalog for the character as it is right now, rebuilt when job, level or
--- the blue magic set changes (or on demand: a newly learned spell changes none).
+-- The catalog for the character as it is right now, rebuilt when job, level, the
+-- blue magic set changes, or the server's spell or ability list arrives (a job
+-- change's abilities may trail the job: core/packets.lua), or on demand.
 local cat = { key = nil, list = {}, by_spell = {}, removers = {} }
 -- The blue magic set not known yet: said once, and only when loaded in game
 -- (on login the zone-in 0x044 may come a moment after the job level).
 local said_unset = AshitaCore:GetMemoryManager():GetPlayer():GetMainJobLevel() == 0
 local function current_catalog(force)
     local p = AshitaCore:GetMemoryManager():GetPlayer()
-    local key = ('%d/%d/%d/%d/%d'):format(p:GetMainJob(), p:GetMainJobLevel(), p:GetSubJob(), p:GetSubJobLevel(), blu.version())
+    local key = ('%d/%d/%d/%d/%d/%d'):format(p:GetMainJob(), p:GetMainJobLevel(), p:GetSubJob(), p:GetSubJobLevel(),
+                                         blu.version(), packets.lists())
     if force or key ~= cat.key then
         cat.key, cat.by_spell, cat.removers = key, {}, {}
         local blue = p:GetMainJob() == blu.JOB or p:GetSubJob() == blu.JOB
