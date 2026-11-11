@@ -927,7 +927,7 @@ local function pet_body(c)
     if pet then
         slider(c, 'Pet (HP%)', 'pet.heal', c.view.pet_heal, TIP.pet_hp)
         if c.view.pet_sends then
-            local changed, on = check('Send at <t>##sk_pet_at_t', c.view.pet_at_t == true)
+            local changed, on = check('Send at your target##sk_pet_at_t', c.view.pet_at_t == true)
             if changed then c.act.set('pet.at_t', on) end
             tip(TIP.pet_at_t)
         end
