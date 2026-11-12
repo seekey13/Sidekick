@@ -144,7 +144,8 @@ end
 -- for units whose statuses come from packets, duration = function(spell id) -> seconds or nil,
 -- spell = function(spell id) -> your spell's catalog record or nil, buffs = yours, slots = your songs per target
 -- (jobs/brd.lua), removes = function(observed.key) -> the status ids your remover clears and whether it's Esuna's
--- kind (cast on you, clearing on those near only what you have too), or nil }
+-- kind (cast on you, clearing on those near only what you have too), or nil, doom_misses = function() -> Cursna
+-- misses on a Doom before it's taken as gone (cfg.remove.doom_retries + 1), or nil for removal.DOOM_MISSES }
 function packets.action(p, ctx, now)
     if p.actor == ctx.me and p.category ~= MELEE then
         if (p.category == CAST_BEGIN or p.category == ITEM_BEGIN) and p.param ~= INTERRUPT then
@@ -213,7 +214,8 @@ function packets.action(p, ctx, now)
         end
         -- Your Cursna landed and the Doom stayed: after DOOM_MISSES of those it's taken as
         -- gone, its wearing off (or their death) unseen. Yours and your party's show in the client.
-        if doomed and t.results[1] and removal.doom_missed(t.id) >= removal.DOOM_MISSES then
+        local most = ctx.doom_misses and ctx.doom_misses() or removal.DOOM_MISSES
+        if doomed and t.results[1] and removal.doom_missed(t.id) >= most then
             buffs.lose(t.id, status.DOOM)
             removal.doom_reset(t.id)
         end

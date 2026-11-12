@@ -113,6 +113,11 @@ test('Doom on a trust: three Cursnas that leave it and it\'s taken as gone; a ne
     buffs.gain(TRUST, CURSE, 12)
     packets.action(action(ME, SPELL, 20, { { TRUST, 83, CURSE } }), c, 13)
     eq(buffs.of(TRUST, 14), {})
+    -- Doom retries 0 (cfg.remove.doom_retries): the first miss is the last.
+    c.doom_misses = function () return 1 end
+    packets.action(action(MOB, MOB_SKILL, 1234, { { TRUST, 242, DOOM } }), c, 15)
+    packets.action(action(ME, SPELL, 20, { { TRUST, 75, 0 } }), c, 16)
+    eq(buffs.of(TRUST, 17), {})
 end)
 
 test('your remover with no effect on you or your party: what it clears is futile there while shown, but Doom', function ()

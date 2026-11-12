@@ -141,6 +141,10 @@ local packet_ctx = {
         local a = cat.removers[key]
         if a then return a.removes, can.self_only(a) and a.area > 0 end
     end,
+    doom_misses = function ()  -- Cursna misses on a Doom read from packets before it's taken as gone
+        local n = cfg and cfg.remove and tonumber(cfg.remove.doom_retries)
+        return n and math.max(0, math.floor(n)) + 1 or nil
+    end,
 }
 
 -- Latest game snapshot, at most 10 a second: plenty for a 1.1s action throttle.
