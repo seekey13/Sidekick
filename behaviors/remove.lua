@@ -9,10 +9,13 @@
     player has cfg.remove.own[name]). Items go by what they'd clear on you now: Doom first, then Silence if you cast,
     then the most of your statuses in one use; then cheap and specific first. An
     /item the server never answers (a locked or bazaar stack) holds items back
-    ITEM_WAIT seconds.
+    ITEM_WAIT seconds. A remover that just had no effect on a status (someone else took
+    it off, or it can't) leaves it be while the client still shows it (unit.futile,
+    core/removal.lua); another remover may still try it.
 ]]--
 
 local can = require('core.can')
+local observed = require('core.observed')
 local settings = require('core.settings')
 local status = require('core.status')
 
@@ -39,9 +42,11 @@ local function rank(a)
     return #a.removes > 6 and 1 or 0
 end
 
--- Whether `a` clears status `id` and it's one to remove on `u`.
+-- Whether `a` clears status `id` and it's one to remove on `u`: not one `a` just had
+-- no effect on there (u.futile: the client still shows it, core/removal.lua).
 local function wanted(a, id, u, skip)
-    return u.buffs[id] and not skip[a.debuffs[id]]
+    local futile = u.futile and u.futile[observed.key(a)]
+    return u.buffs[id] and not skip[a.debuffs[id]] and not (futile and futile[id])
 end
 
 -- Whether `a` clears something on `u` that's to be removed. Esuna clears on those
