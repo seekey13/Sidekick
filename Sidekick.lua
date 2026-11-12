@@ -31,6 +31,7 @@ local lang = require('core.lang')
 local observed = require('core.observed')
 local packets = require('core.packets')
 local profiles = require('core.profiles')
+local removal = require('core.removal')
 local resources = require('core.resources')
 local settings = require('core.settings')
 local share = require('core.share')
@@ -142,8 +143,7 @@ local packet_ctx = {
         if a then return a.removes, can.self_only(a) and a.area > 0 end
     end,
     doom_misses = function ()  -- Cursna misses on a Doom read from packets before it's taken as gone
-        local n = cfg and cfg.remove and tonumber(cfg.remove.doom_retries)
-        return n and math.max(0, math.floor(n)) + 1 or nil
+        return removal.retries(cfg and cfg.remove and cfg.remove.doom_retries) + 1
     end,
 }
 

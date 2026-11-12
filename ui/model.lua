@@ -397,7 +397,7 @@ local function build_rows(s, g, cat, cfg, units, outsiders, statuses)
             end
             for _, a in ipairs(acts_of[key]) do  -- Cursna: its retries on a Doom it missed, drawn under it
                 if util.contains(a.removes or {}, status_ids.DOOM) then
-                    row.doom_retries = cfg.remove.doom_retries or removal.DOOM_MISSES - 1
+                    row.doom_retries = removal.retries(cfg.remove.doom_retries)
                 end
             end
         end
@@ -822,7 +822,7 @@ model.REMOTE_SET = {
     ['rest.on'] = 'bool', ['rest.mp'] = { 1, 99 }, ['rest.distance'] = { 1, 15 },
     ['afk.on'] = 'bool', ['afk.minutes'] = { afk.MIN, afk.MAX },
     ['buff.hold_aoe'] = 'bool', ['buff.gather'] = 'bool', ['buff.one_shadow'] = 'bool',
-    ['remove.doom_retries'] = { 0, 10 },
+    ['remove.doom_retries'] = { 0, removal.MAX_RETRIES },
 }
 for _, spec in job_modules.each('ui') do
     for path, want in pairs(spec.set or {}) do

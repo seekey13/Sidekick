@@ -131,6 +131,7 @@ test('your remover with no effect on you or your party: what it clears is futile
     end
     removal.clear()
     local shown = { [SLOW] = true, [DOOM] = true, [CURSE] = true }
+    removal.futile(PARTY, shown, 0)  -- the read before: what it showed
     packets.action(action(ME, SPELL, 143, { { PARTY, 75, 0 } }), c, 1)  -- Erase: no effect
     packets.action(action(ME, SPELL, 20, { { PARTY, 75, 0 } }), c, 1)   -- Cursna: no effect
     eq(removal.futile(PARTY, shown, 2), { [SLOW] = true, [CURSE] = true })
@@ -140,8 +141,26 @@ test('your remover with no effect on you or your party: what it clears is futile
     -- And it holds no longer than HOLD while shown.
     eq(removal.futile(PARTY, shown, 1 + removal.HOLD + 1), {})
     -- Your Esuna's no effect says you had nothing to share: nothing is marked.
+    removal.futile(PARTY, { [PARALYSIS] = true }, 99)
     packets.action(action(ME, SPELL, 95, { { PARTY, 75, 0 } }), c, 100)
     eq(removal.futile(PARTY, { [PARALYSIS] = true }, 101), {})
+    -- A status that lands with the no effect, not shown at the read before, is new: not marked.
+    removal.clear()
+    removal.futile(PARTY, {}, 200)
+    packets.action(action(ME, SPELL, 143, { { PARTY, 75, 0 } }), c, 201)
+    eq(removal.futile(PARTY, { [SLOW] = true }, 202), {})
+    -- One never read yet: nothing is marked.
+    removal.clear()
+    packets.action(action(ME, SPELL, 143, { { PARTY, 75, 0 } }), c, 300)
+    eq(removal.futile(PARTY, shown, 301), {})
+end)
+
+test('Doom retries: a whole number in 0..MAX_RETRIES, the default for one missing or not a number', function ()
+    local removal = require('core.removal')
+    local d = removal.DOOM_MISSES - 1
+    eq({ removal.retries(nil), removal.retries('two'), removal.retries(0 / 0), removal.retries(-3),
+         removal.retries(2.7), removal.retries(1e9), removal.retries('4') },
+       { d, d, d, 0, 2, removal.MAX_RETRIES, 4 })
 end)
 
 test('your item in use locks like a cast, until it finishes or is cut off', function ()
