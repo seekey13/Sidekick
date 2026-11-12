@@ -1618,6 +1618,34 @@ test('SCH: a buff row\'s stratagem chips follow its targets and each toggles', f
     eq({ button('Penury##buff_Protect_mod_Penury'), button('Hold##buff_Protect_hold') }, { false, false })  -- WHM: no stratagems
 end)
 
+test('SCH: the storm row\'s Weather chip beside its pick toggles Match; a row that can\'t match has none', function ()
+    open_settings()
+    local sch = fake.catalog(20, 75, 5, 37, { 'Light Arts' })
+    local cfg, st = settings.defaults(), status()
+    local function view() return model.build(snap(), sch, cfg, st, NAMES) end
+    eq(render(cfg, st, on('Buff', { ['Match##buff_storm_match'] = true }), view()), 1)
+    eq({ cfg.rows.storm, tipped('Cast the storm matching the zone\'s weather.') }, { { on = false, match = true }, true })
+    eq(render(cfg, st, on('Buff', { ['Match##buff_storm_match'] = true }), view()), 1)
+    eq(cfg.rows.storm, { on = false })
+    eq({ button('Match##buff_enspell_match'), button('Match##buff_barelement_match') }, { true, false })  -- RDM sub
+end)
+
+test('Classic: Match is in an enspell or storm row\'s right-click menu', function ()
+    local classic = themes.get('classic')
+    local was_shown = settings_shown
+    local sch = fake.catalog(20, 75, 5, 37, { 'Light Arts' })
+    local cfg = settings.defaults()
+    local st = status({ settings = true })
+    handlers.CollapsingHeader = function () return true end  -- the fake's headers are shut: open them, here alone
+    local err = draw(classic.ui, cfg, st, { mouse1 = true, ['Match Weather##sk_match_buff_storm'] = true },
+        model.build(snap(), sch, cfg, st, NAMES))
+    handlers.CollapsingHeader = nil
+    local enspell = has(frame.args.Checkbox, 'Match Weather/Day##sk_match_buff_enspell')
+    local bar = has(frame.args.Checkbox, 'Match Weather##sk_match_buff_barelement')
+    render(settings.defaults(), status({ settings = was_shown }))
+    eq({ err, cfg.rows.storm and cfg.rows.storm.match, enspell, bar }, { nil, true, true, false })
+end)
+
 test('SCH: Keep a stratagem for healing, under Heal, only for a job with stratagems', function ()
     open_settings()
     local sch = fake.catalog(20, 75, 5, 37, { 'Light Arts', 'Penury', 'Accession' })

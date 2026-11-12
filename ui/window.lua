@@ -1225,6 +1225,9 @@ end
 local HOLD_TIP = 'Wait while a modifier picked here can\'t go with the spell (on recast, too few charges, the wrong Arts, '
     .. 'Accession unable to spread it, or short of MP for it); otherwise the spell goes without it.'
 
+local MATCH_WEATHER_TIP = 'Cast the storm matching the zone\'s weather. With no elemental weather, the one picked goes.'
+local MATCH_ELEMENT_TIP = 'Cast the tier matching your weather (a storm on you first), else the day\'s element. '
+    .. 'With no match (Lightsday, say: there is no light one), the one picked goes.'
 local TIER_TIP = 'Untick to never heal with it; the other tiers still go.'
 local WAKE_TIP = 'Untick to never heal with it; the other tiers still go, and it still wakes a sleeper.'
 
@@ -1372,6 +1375,15 @@ local function family_row(pg, sid, r)
                 if kit.selectable(c.label, c.name == r.pick) then act.pick(r.key, c.name) end
             end
         end)
+        -- Enspells, storms: Match beside the pick, which it stands in for while the sky matches a tier.
+        if r.match ~= nil then
+            local label = t(r.match_rule == 'weather' and 'Weather' or 'Weather/Day')
+            if kit.chip('Match##' .. id .. '_match', pg.lx + S(PICK_W) + S(8), top, kit.chip_width(label), label,
+                r.match and 'on' or 'off', true, pg.alpha) then
+                act.match(r.key, not r.match)
+            end
+            kit.tip(t(r.match_rule == 'weather' and MATCH_WEATHER_TIP or MATCH_ELEMENT_TIP))
+        end
     end
     for _, g in ipairs(laid) do
         for _, it in ipairs(g.items) do

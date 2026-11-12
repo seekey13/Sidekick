@@ -32,6 +32,7 @@ local pet_behavior = require('behaviors.pet')
 local profiles = require('core.profiles')
 local removal = require('core.removal')
 local settings = require('core.settings')
+local sky = require('core.sky')
 local status_ids = require('core.status')
 local util = require('core.util')
 
@@ -296,6 +297,17 @@ local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
             if c.name == r.pick then row.choice = c.label end
         end
     end
+    -- Match: the tier the sky picks stands in for the pick while one does, and the choice says why.
+    local matched, why
+    if modifiers and sky.can(acts) then
+        row.match = r.match == true
+        row.match_rule = acts[1].match
+        matched, why = sky.pick(r, acts, g)
+        if matched then
+            row.matched = matched
+            row.choice = lang.f('%s (%s)', lang.name(matched), lang.t(why))
+        end
+    end
     -- Only the heals left ticked (heal.never) can go.
     local live = {}
     for _, a in ipairs(acts) do
@@ -303,7 +315,8 @@ local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
     end
     if live[1] then
         -- Sending the pet in aims where pet.at_t says (behaviors/pet.lua): the row's readiness too.
-        row.ready, row.avail, row.action = availability(live, r, acts[1].role == 'pet_send' and select(2, pet_behavior.aim(g, cfg)) or g)
+        local rr = matched and util.overlay(r, { pick = matched }) or r
+        row.ready, row.avail, row.action = availability(live, rr, acts[1].role == 'pet_send' and select(2, pet_behavior.aim(g, cfg)) or g)
     else
         row.ready, row.avail = false, lang.t('every tier unticked')
     end
@@ -803,7 +816,8 @@ local REMOTE = {
     who = { 'string', 'boolean' }, debuff = { 'string', 'boolean', 'string|nil' },
     debuffs = { 'table', 'boolean', 'string|nil' },
     pick = { 'string', 'string|nil' }, target = { 'string', 'number|string', 'boolean' },
-    mod = { 'string', 'string', 'boolean' }, hold = { 'string', 'boolean' }, gate = { 'string', 'string|nil' },
+    mod = { 'string', 'string', 'boolean' }, hold = { 'string', 'boolean' }, match = { 'string', 'boolean' },
+    gate = { 'string', 'string|nil' },
     profile = { 'string|nil' }, save_profile = { 'string', 'boolean|nil' },
     new_profile = {}, delete_profile = { 'string' }, track = { 'string' }, untrack = { 'string' },
     skip = { 'string', 'boolean' }, heal_spell = { 'string', 'boolean' }, set = { 'string', 'boolean|number|string' },
@@ -856,7 +870,7 @@ end
 
 -- The calls that set a chip on a row: only for a buff or luopan row this job has,
 -- since one never saved is made off (a default-on row like Cure would be turned off).
-local CHIPS = { hold = true, mod = true, target = true }
+local CHIPS = { hold = true, match = true, mod = true, target = true }
 
 local function chipped(cat, key)
     for _, a in ipairs(cat or {}) do
@@ -1013,6 +1027,8 @@ function model.actions(cfg, status, changed, tracking, send, theme)
     end)
     -- Whether a row's spell waits while one of its modifiers can't go with it (Hold), or goes without (the default).
     act.hold = saving(function (key, on) saved_row(cfg, key, false).hold = on or nil end)
+    -- Whether an enspell or storm row follows the sky (Match), its pick only when nothing matches (core/sky.lua).
+    act.match = saving(function (key, on) saved_row(cfg, key, false).match = on or nil end)
     -- A row's gate: 'combat' (it goes only in combat), 'idle' (only out of it) or nil (any time); setting one clears
     -- the other. Kept in cfg.gates, so a row is never made here (core/settings.lua).
     act.gate = saving(function (key, gate)

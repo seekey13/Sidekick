@@ -42,6 +42,9 @@
     gate       'combat' | 'idle' (enemy-targeted actions are combat-only anyway); built in: a row's
                own Combat or Idle (cfg.gates, can.gate) can't change it
     pick_one   families sharing a key keep one selection (enspells, storms, bar-elements)
+    match      'weather' | 'element': the row can follow the sky, picking the tier whose DAT
+               element matches the zone's weather (storms), or your weather then the day
+               (enspells) while its Match is on (core/sky.lua)
     blocked_by skip while you have any of these statuses
     trance     no TP needed under Trance (waltzes, Aspir Samba: jobs/dnc.lua)
     requires   needs any of these statuses on you
@@ -329,13 +332,15 @@ local K = {
 }
 
 -- Pick-one groups whose members each show the status named like them: the key, then its members.
+-- Enspells and storms can follow the sky (`match`, core/sky.lua).
+local MATCH = { enspell = 'element', storm = 'weather' }
 for key, names in pairs({
     enspell = { 'Enfire', 'Enblizzard', 'Enaero', 'Enstone', 'Enthunder', 'Enwater' },
     spikes = { 'Blaze Spikes', 'Ice Spikes', 'Shock Spikes' },
     storm = { 'Sandstorm', 'Rainstorm', 'Windstorm', 'Firestorm', 'Hailstorm', 'Thunderstorm', 'Voidstorm', 'Aurorastorm' },
 }) do
     for _, name in ipairs(names) do
-        K[name] = { role = 'buff', pick_one = key, duration = key == 'storm' and 180 or nil }
+        K[name] = { role = 'buff', pick_one = key, duration = key == 'storm' and 180 or nil, match = MATCH[key] }
     end
 end
 
