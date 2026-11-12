@@ -384,13 +384,17 @@ test('removal: a player switched off is skipped, and their own debuffs replace e
     eq({ decide(snap({ { name = 'C', buffs = { [PARALYSIS] = true } } }), cfg, whm) }, { nil, 'nothing to do' })
 end)
 
-test('removal: a status your remover just had no effect on is left be while the client shows it', function ()
+test('removal: a remover leaves be a status it just had no effect on while the client shows it; another may try', function ()
     local cfg = settings.defaults()
-    local g = snap({ { name = 'A', buffs = { [PARALYSIS] = true }, futile = { [PARALYSIS] = true } },
+    local PARALYNA, ERASE = 'ma15', 'ma143'  -- observed.key
+    local g = snap({ { name = 'A', buffs = { [PARALYSIS] = true }, futile = { [PARALYNA] = { [PARALYSIS] = true } } },
                      { name = 'B', buffs = { [PARALYSIS] = true } } })
     eq(decide(g, cfg, whm), '/ma "Paralyna" 102')
-    g.units[3].futile = { [PARALYSIS] = true }
+    g.units[3].futile = { [PARALYNA] = { [PARALYSIS] = true } }
     eq({ decide(g, cfg, whm) }, { nil, 'nothing to do' })
+    -- Another remover's no effect leaves Paralyna free to try it.
+    g.units[2].futile = { [ERASE] = { [PARALYSIS] = true } }
+    eq(decide(g, cfg, whm), '/ma "Paralyna" 101')
 end)
 
 test('items: a status left on still makes the Ointment a gamble', function ()

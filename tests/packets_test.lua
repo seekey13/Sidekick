@@ -88,11 +88,12 @@ test('another\'s Esuna clears on a trust the status it names', function ()
     eq(buffs.of(TRUST, 2), {})
 end)
 
-test('Doom on a trust: three Cursnas that leave it and it\'s taken as gone; a new Doom starts over', function ()
+test('Doom on a trust: past its retries, Cursnas that leave it and it\'s taken as gone; a new Doom starts over', function ()
     local removal = require('core.removal')
     local CURSE, DOOM = 9, 15
     local c = ctx()
     c.removes = function (key) if key == 'ma20' then return { CURSE, DOOM } end end
+    c.doom_misses = function () return 3 end  -- Doom retries 2
     buffs.clear(); removal.clear()
     packets.action(action(MOB, MOB_SKILL, 1234, { { TRUST, 242, DOOM } }), c, 0)
     packets.action(action(ME, SPELL, 20, { { TRUST, 75, 0 } }), c, 1)
@@ -118,9 +119,26 @@ test('Doom on a trust: three Cursnas that leave it and it\'s taken as gone; a ne
     packets.action(action(MOB, MOB_SKILL, 1234, { { TRUST, 242, DOOM } }), c, 15)
     packets.action(action(ME, SPELL, 20, { { TRUST, 75, 0 } }), c, 16)
     eq(buffs.of(TRUST, 17), {})
+    -- No retries set: removal.DOOM_MISSES.
+    c.doom_misses = nil
+    packets.action(action(MOB, MOB_SKILL, 1234, { { TRUST, 242, DOOM } }), c, 18)
+    for i = 1, removal.DOOM_MISSES - 1 do packets.action(action(ME, SPELL, 20, { { TRUST, 75, 0 } }), c, 18 + i) end
+    eq(buffs.of(TRUST, 25), { [DOOM] = true })
+    packets.action(action(ME, SPELL, 20, { { TRUST, 75, 0 } }), c, 25)
+    eq(buffs.of(TRUST, 26), {})
 end)
 
-test('your remover with no effect on you or your party: what it clears is futile there while shown, but Doom', function ()
+test('a Doom read from packets lasts DOOM_SECONDS at most: one whose end went unseen draws Cursna no longer', function ()
+    local DOOM = 15
+    buffs.clear()
+    packets.action(action(MOB, MOB_SKILL, 1234, { { TRUST, 242, DOOM } }), ctx(), 0)
+    eq(buffs.of(TRUST, buffs.DOOM_SECONDS - 1), { [DOOM] = true })
+    eq(buffs.of(TRUST, buffs.DOOM_SECONDS), {})
+    buffs.gain(TRUST, DOOM, 0, 600)  -- a longer catalog duration is capped too
+    eq(buffs.of(TRUST, buffs.DOOM_SECONDS), {})
+end)
+
+test('your remover with no effect on you or your party: what it clears is futile there for it while shown, but Doom', function ()
     local removal = require('core.removal')
     local PARTY, PARALYSIS, SLOW, DOOM, CURSE = 0x100, 4, 13, 15, 9
     local c = ctx()
@@ -134,10 +152,11 @@ test('your remover with no effect on you or your party: what it clears is futile
     removal.futile(PARTY, shown, 0)  -- the read before: what it showed
     packets.action(action(ME, SPELL, 143, { { PARTY, 75, 0 } }), c, 1)  -- Erase: no effect
     packets.action(action(ME, SPELL, 20, { { PARTY, 75, 0 } }), c, 1)   -- Cursna: no effect
-    eq(removal.futile(PARTY, shown, 2), { [SLOW] = true, [CURSE] = true })
+    -- Each remover's marks are its own: another that clears SLOW may still try it.
+    eq(removal.futile(PARTY, shown, 2), { ma143 = { [SLOW] = true }, ma20 = { [CURSE] = true } })
     -- Seen gone, a mark goes: one put back is cleared again.
-    eq(removal.futile(PARTY, { [CURSE] = true }, 3), { [CURSE] = true })
-    eq(removal.futile(PARTY, shown, 4), { [CURSE] = true })
+    eq(removal.futile(PARTY, { [CURSE] = true }, 3), { ma20 = { [CURSE] = true } })
+    eq(removal.futile(PARTY, shown, 4), { ma20 = { [CURSE] = true } })
     -- And it holds no longer than HOLD while shown.
     eq(removal.futile(PARTY, shown, 1 + removal.HOLD + 1), {})
     -- Your Esuna's no effect says you had nothing to share: nothing is marked.

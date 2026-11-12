@@ -41,7 +41,7 @@ local DEFAULTS = {
     -- own = { [name] = { set = true, skip = { [status] = true } } }: that player's debuffs, instead of skip.
     -- doom_retries: Cursnas sent again after one misses a Doom read from packets (a trust's, the alliance's, a
     -- tracked player's); past them the Doom is taken as gone (core/removal.lua).
-    remove = { on = true, skip = {}, off = {}, own = {}, doom_retries = 2 },
+    remove = { on = true, skip = {}, off = {}, own = {}, doom_retries = 5 },
     wake = { on = true },                  -- wake sleeping members with a heal that wakes
     recover = { on = true, mp = 30, tp = 1000,    -- under your MP% (a member's, for Devotion), your TP
                 min_tp = 3000 },                   -- Chivalry from this much TP

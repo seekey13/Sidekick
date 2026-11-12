@@ -207,9 +207,9 @@ function packets.action(p, ctx, now)
                 end
             elseif clears and not shared and NO_EFFECT[r.message] then
                 -- The same on you or your party: the client may show it a while yet, or show one
-                -- your remover can't take; it's left be while it shows (core/removal.lua). Not
+                -- your remover can't take; that remover leaves it be while it shows (core/removal.lua). Not
                 -- Esuna: its no effect says you had nothing to share.
-                removal.no_effect(t.id, clears, now)
+                removal.no_effect(t.id, key, clears, now)
             end
         end
         -- Your Cursna landed and the Doom stayed: after DOOM_MISSES of those it's taken as

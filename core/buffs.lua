@@ -10,13 +10,18 @@ local buffs = {}
 -- Wear-off packets go missing (out of range, zoning), so every status expires on
 -- its own: after its known duration, else after this long.
 buffs.DEFAULT_SECONDS = 300
+-- Doom ends by then however it came (taken off, or its count runs out and kills):
+-- one whose end went unseen draws Cursna no longer.
+buffs.DOOM_SECONDS = 45
 
+local DOOM = 15
 local store = {}  -- [server id] = { [status id] = expires at (os.clock seconds) }
 
 -- `stacks`: several of it can stand at once (your songs: two Marches are one id),
 -- so it lasts as long as the one that wears last.
 function buffs.gain(sid, status, now, seconds, stacks)
     store[sid] = store[sid] or {}
+    if status == DOOM then seconds = math.min(seconds or buffs.DOOM_SECONDS, buffs.DOOM_SECONDS) end
     local expires = now + (seconds or buffs.DEFAULT_SECONDS)
     store[sid][status] = stacks and math.max(store[sid][status] or expires, expires) or expires
 end

@@ -18,7 +18,7 @@
              and songs of one kind stack; nil for a player the client's list has no entry for yet),
              moving (others: moved in the last half second),
              hot = HP still to come from your Regen, nil if none,
-             futile = { [id] = true }: statuses it shows that your remover just had no effect on
+             futile = { [remover's observed.key] = { [id] = true } }: statuses it shows that remover just had no effect on
              (core/removal.lua), left be by behaviors/remove.lua,
              pet (a party member's or a tracked player's, while the client draws both: an entity as
              `bt`'s, { sid, tidx, name, hpp, dist, pos, status }, its HP % alone; never one at 0%) }
