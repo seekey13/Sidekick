@@ -384,6 +384,15 @@ test('removal: a player switched off is skipped, and their own debuffs replace e
     eq({ decide(snap({ { name = 'C', buffs = { [PARALYSIS] = true } } }), cfg, whm) }, { nil, 'nothing to do' })
 end)
 
+test('removal: a status your remover just had no effect on is left be while the client shows it', function ()
+    local cfg = settings.defaults()
+    local g = snap({ { name = 'A', buffs = { [PARALYSIS] = true }, futile = { [PARALYSIS] = true } },
+                     { name = 'B', buffs = { [PARALYSIS] = true } } })
+    eq(decide(g, cfg, whm), '/ma "Paralyna" 102')
+    g.units[3].futile = { [PARALYSIS] = true }
+    eq({ decide(g, cfg, whm) }, { nil, 'nothing to do' })
+end)
+
 test('items: a status left on still makes the Ointment a gamble', function ()
     local blm, cfg = fake.catalog(BLM, 75, nil, 0), settings.defaults()
     for _, k in ipairs({ 'Remedy Ointment', 'Remedy' }) do cfg.rows[k] = { on = true } end

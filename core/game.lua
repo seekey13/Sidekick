@@ -18,6 +18,8 @@
              and songs of one kind stack; nil for a player the client's list has no entry for yet),
              moving (others: moved in the last half second),
              hot = HP still to come from your Regen, nil if none,
+             futile = { [id] = true }: statuses it shows that your remover just had no effect on
+             (core/removal.lua), left be by behaviors/remove.lua,
              pet (a party member's or a tracked player's, while the client draws both: an entity as
              `bt`'s, { sid, tidx, name, hpp, dist, pos, status }, its HP % alone; never one at 0%) }
     Slots: 0 you, 1-5 your party, 6-11 and 12-17 the alliance's other parties
@@ -52,6 +54,7 @@ local can = require('core.can')
 local job_modules = require('core.jobs')
 local observed = require('core.observed')
 local packets = require('core.packets')
+local removal = require('core.removal')
 local status = require('core.status')
 local tracked = require('core.tracked')
 local util = require('core.util')
@@ -603,6 +606,7 @@ function game.read(now, idle)
         if not tracks[sid] then buffs.forget(sid) end
     end
     fed = tracks
+    for _, u in ipairs(units) do u.futile = removal.futile(u.sid, u.buffs, now) end
     local finished, spell_finish = packets.last_finish()
     local casting, cast_at = packets.casting(now)
 

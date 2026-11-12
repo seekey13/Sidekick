@@ -19,6 +19,7 @@ local buffs = require('core.buffs')
 local jobs = require('core.jobs')
 local observed = require('core.observed')
 local players = require('core.tracked')  -- the players you track
+local removal = require('core.removal')
 local status = require('core.status')
 
 local packets = {}
@@ -43,6 +44,9 @@ local GAINS_028 = { [186] = true, [230] = true, [236] = true, [237] = true, [242
 local LOSES_028 = { [83] = true, [123] = true, [159] = true, [341] = true, [359] = true }
 -- Cursna's 83 names one curse, but it takes every one there.
 local CURSES = { [9] = true, [20] = true, [30] = true }  -- Curse, Curse II, Bane
+-- No effect: a spell's (75), an ability's (156, 283).
+local NO_EFFECT = { [75] = true, [156] = true, [283] = true }
+local ESUNA = 95  -- spell id: its success names the status in a message 0, whoever casts it
 -- Recovers HP, param = HP: cures, waltzes, Chakra, blood pacts and their area variants.
 local HEALS_028 = { [7] = true, [24] = true, [102] = true, [238] = true, [263] = true, [318] = true, [367] = true }
 -- Categories whose heals are yours: 4 spell, 6/14/15 job ability; 11/13 your pet's moves.
@@ -160,8 +164,12 @@ function packets.action(p, ctx, now)
     local clears, shared
     if key and kind ~= 'pet' and ctx.removes then clears, shared = ctx.removes(key) end  -- your remover's
     local landed = {}  -- who your spell landed on
+    local esuna = p.category == SPELL_FINISH and p.param == ESUNA
+    local cursna = false  -- your remover takes Doom off: its landing on a Doom that stays is a miss
+    for _, id in ipairs(clears or {}) do if id == status.DOOM then cursna = true end end
     for _, t in ipairs(p.targets) do
         local tracked = ctx.tracks[t.id]
+        local doomed = cursna and tracked and buffs.of(t.id, now)[status.DOOM] == true
         for _, r in ipairs(t.results) do
             if kind == 'ja' and p.actor == ctx.me and t.id == ctx.me then
                 for _, f in jobs.each('ability') do f(p.param + ABILITY_BASE, r.param, r.message, now, r.info) end
@@ -177,24 +185,37 @@ function packets.action(p, ctx, now)
                 -- Your song lasts twice as long under Troubadour (jobs/brd.lua).
                 local lasts = mine and lasting(mine, ctx) or spell and ctx.duration(p.param) or nil
                 if tracked then buffs.gain(t.id, r.param, now, lasts, mine and mine.role == 'song') end
+                if r.param == status.DOOM then removal.doom_reset(t.id) end  -- a new Doom: no misses yet
                 if key and spell then observed.landed(key, t.id, now) end
                 if mine then landed[#landed + 1] = t.id end
             elseif LOSES_028[r.message] and tracked then
                 buffs.lose(t.id, r.param)
+                if r.param == status.DOOM then removal.doom_reset(t.id); doomed = false end
                 if r.message == 83 and CURSES[r.param] then
                     for id in pairs(CURSES) do buffs.lose(t.id, id) end
                 end
-            elseif shared and tracked then
-                -- Esuna's success has no message, param = the status; its no effect says
-                -- you had nothing to share, not what's on them.
+            elseif (shared or esuna) and tracked then
+                -- Esuna's success (yours or another's) has no message, param = the status; its
+                -- no effect says the caster had nothing to share, not what's on them.
                 if r.message == 0 and r.param > 0 then buffs.lose(t.id, r.param) end
             elseif clears and tracked then
-                -- Your remover landed without naming a status (no effect: it was gone already,
-                -- its wear-off unseen), so what it removes is gone. Not Doom: Cursna can fail on it.
+                -- Your remover landed without naming a status (no effect: someone else took it
+                -- off, or it wore off unseen), so what it removes is gone. Not Doom: Cursna can fail on it.
                 for _, id in ipairs(clears) do
                     if id ~= status.DOOM then buffs.lose(t.id, id) end
                 end
+            elseif clears and not shared and NO_EFFECT[r.message] then
+                -- The same on you or your party: the client may show it a while yet, or show one
+                -- your remover can't take; it's left be while it shows (core/removal.lua). Not
+                -- Esuna: its no effect says you had nothing to share.
+                removal.no_effect(t.id, clears, now)
             end
+        end
+        -- Your Cursna landed and the Doom stayed: after DOOM_MISSES of those it's taken as
+        -- gone, its wearing off (or their death) unseen. Yours and your party's show in the client.
+        if doomed and t.results[1] and removal.doom_missed(t.id) >= removal.DOOM_MISSES then
+            buffs.lose(t.id, status.DOOM)
+            removal.doom_reset(t.id)
         end
     end
     if key then observed.done(key) end
@@ -210,7 +231,9 @@ local function on_message(e, ctx, now)
     local message = struct.unpack('H', e.data, 0x18 + 1) % 0x8000
     if not ctx.tracks[target] or id <= 0 or id == 255 then return end
     if GAINS_029[message] then buffs.gain(target, id, now)
-    elseif LOSES_029[message] then buffs.lose(target, id) end
+    elseif LOSES_029[message] then buffs.lose(target, id)
+    else return end
+    if id == status.DOOM then removal.doom_reset(target) end  -- a new Doom, or one gone: no misses
 end
 
 -- 0x0C9 comes twice per /check: equipment (flag 3), then the general part
@@ -251,6 +274,7 @@ function packets.handle(e, ctx, now)
         cast.active = false
         buffs.clear()
         observed.clear()
+        removal.clear()
         for _, f in jobs.each('zone') do f() end
     end
 end
