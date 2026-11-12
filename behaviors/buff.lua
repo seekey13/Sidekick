@@ -1,8 +1,9 @@
 --[[
     Keep the buffs you turned on up on the targets you picked. A row's action is its
     picked tier, else the best tier you can cast now; a pick_one group (bar-elements,
-    enspells...) needs a pick. With its Match on, an enspell or storm row goes with
-    the tier matching the sky instead, its pick only when none does (core/sky.lua).A row's targets are party and alliance slots (0-17)
+    enspells...) needs a pick. With Auto (Match) on, an enspell or storm row goes with
+    the tier matching the sky instead, its pick only when none does (core/sky.lua).
+    A row's targets are party and alliance slots (0-17)
     and tracked players' names; a self-only buff goes on you, and an area self-cast
     (Protectra) is recast when anyone in your party near you lacks it. A status that
     can't be read (Boost) is recast whenever it's off recast.

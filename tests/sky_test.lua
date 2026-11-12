@@ -8,7 +8,7 @@ local fake = require('tests.fake')
 local RDM, SCH, WHM = 5, 20, 3
 local FIRE, ICE, WIND, EARTH, THUNDER, WATER, LIGHT, DARK = 0, 1, 2, 3, 4, 5, 6, 7
 -- Weather ids: 0 Clear, 4/5 Hot Spell / Heat Wave .. 16 Auras, 18 Gloom.
-local CLEAR, HOT_SPELL, HEAT_WAVE, RAIN, SNOW, AURORAS, GLOOM = 0, 4, 5, 6, 12, 16, 18
+local CLEAR, HOT_SPELL, HEAT_WAVE, RAIN, WINDY, SNOW, AURORAS, GLOOM = 0, 4, 5, 6, 10, 12, 16, 18
 -- Days: 0 Firesday .. 5 Lightningday, 6 Lightsday, 7 Darksday.
 local FIRESDAY, WATERSDAY, ICEDAY, LIGHTSDAY = 0, 2, 4, 6
 local FIRESTORM, HAILSTORM, AURORASTORM, THUNDERSTORM_II = 178, 179, 184, 593
@@ -63,9 +63,31 @@ test('storms: the zone\'s weather alone, never a storm on you or the day; Match 
     eq({ sky.pick(ON, storms, snap({ weather = CLEAR, day = FIRESDAY }, { FIRESTORM }, SCH)) }, {})
 end)
 
-test('enspells: a storm on you, else the weather, then the day; Light and Dark have none', function ()
+test('your weather under a storm, as LandSandBoat\'s GetWeather: stacks, outlasted, or replaced', function ()
+    eq({ sky.yours(HOT_SPELL, nil), sky.yours(HOT_SPELL, FIRE), sky.yours(HEAT_WAVE, FIRE), sky.yours(HEAT_WAVE, ICE),
+         sky.yours(CLEAR, WATER), sky.yours(nil, FIRE) },
+       { HOT_SPELL, HEAT_WAVE, HEAT_WAVE, SNOW, RAIN, HOT_SPELL })
+end)
+
+test('the enspell bonus: weather +10 / +25 double, the day +10, less for the element that beats it', function ()
+    eq({ sky.bonus(FIRE, HOT_SPELL, FIRESDAY), sky.bonus(FIRE, HEAT_WAVE, nil), sky.bonus(FIRE, HOT_SPELL, WATERSDAY),
+         sky.bonus(FIRE, HEAT_WAVE, WATERSDAY), sky.bonus(FIRE, RAIN + 1, nil), sky.bonus(ICE, HOT_SPELL, FIRESDAY),
+         sky.bonus(LIGHT, AURORAS, LIGHTSDAY), sky.bonus(WATER, CLEAR, nil) },
+       { 20, 25, 0, 15, -25, -20, 20, 0 })
+end)
+
+test('enspells: what your weather (a storm on you) and the day favor most; a tie, the weather', function ()
     local en = acts(rdm, 'enspell')
-    eq({ sky.pick(ON, en, snap({ weather = HOT_SPELL, day = WATERSDAY })) }, { 'Enfire II', 'weather' })
+    eq({ sky.pick(ON, en, snap({ weather = HOT_SPELL })) }, { 'Enfire II', 'weather' })
+    -- Watersday cancels Hot Spell's +10 on fire: Enwater's +10 is ahead. Heat Wave's +25 isn't cancelled.
+    eq({ sky.pick(ON, en, snap({ weather = HOT_SPELL, day = WATERSDAY })) }, { 'Enwater II', 'day' })
+    eq({ sky.pick(ON, en, snap({ weather = HEAT_WAVE, day = WATERSDAY })) }, { 'Enfire II', 'weather' })
+    eq({ sky.pick(ON, en, snap({ weather = SNOW, day = FIRESDAY })) }, { 'Enfire II', 'day' })
+    -- A Firestorm on you doubles Hot Spell: +25 over the day's -10.
+    eq({ sky.pick(ON, en, snap({ weather = HOT_SPELL, day = WATERSDAY }, { FIRESTORM })) }, { 'Enfire II', 'storm' })
+    -- Wind on Firesday: +10 each, so the weather.
+    eq({ sky.pick(ON, en, snap({ weather = WINDY, day = FIRESDAY })) }, { 'Enaero II', 'weather' })
+    -- A Hailstorm replaces Hot Spell with Snow: +10 ice, tied with Watersday's water.
     eq({ sky.pick(ON, en, snap({ weather = HOT_SPELL, day = WATERSDAY }, { HAILSTORM })) }, { 'Enblizzard II', 'storm' })
     eq({ sky.pick(ON, en, snap({ weather = CLEAR, day = WATERSDAY })) }, { 'Enwater II', 'day' })
     eq({ sky.pick(ON, en, snap({ weather = AURORAS, day = ICEDAY })) }, { 'Enblizzard II', 'day' })
@@ -105,21 +127,31 @@ test('buffs: a pick-one row with Match on and nothing picked goes only while the
 end)
 
 -- The UI model's view.
-local function row_of(cat, cfg, g)
+local function row_of(cat, cfg, g, key)
     local view = model.build(g, cat, cfg, { running = false, log = true, sent = {} },
         { job = function () return 'RDM' end, statuses = fake.res.statuses })
     for _, s in ipairs(view.sections) do
-        for _, r in ipairs(s.rows or {}) do if r.key == 'enspell' then return r end end
+        for _, r in ipairs(s.rows or {}) do if r.key == (key or 'enspell') then return r end end
     end
 end
 
-test('ui: an enspell row has Match and says what it matched; a bar-element row has none', function ()
+test('ui: an enspell row has Auto first in its list and says what it matched; a bar-element row has none', function ()
     local r = row_of(rdm, enspell_cfg(false), snap({ weather = HOT_SPELL }))
     eq({ r.match, r.match_rule, r.matched, r.choice, r.action }, { false, 'element', nil, 'Enblizzard', 'Enblizzard' })
+    eq({ r.choices[1], r.choices[2].name }, { { label = 'Auto (weather/day)', match = true }, 'Enfire' })
     r = row_of(rdm, enspell_cfg(true), snap({ weather = HOT_SPELL }))
-    eq({ r.match, r.matched, r.pick, r.choice, r.ready, r.action }, { true, 'Enfire II', 'Enblizzard', 'Enfire II (weather)', true, 'Enfire II' })
+    eq({ r.match, r.matched, r.pick, r.choice, r.ready, r.action },
+       { true, 'Enfire II', 'Enblizzard', 'Auto: Enfire II (weather)', true, 'Enfire II' })
     r = row_of(rdm, enspell_cfg(true), snap({ weather = AURORAS, day = LIGHTSDAY }))
-    eq({ r.matched, r.choice }, { nil, 'Enblizzard' })
+    eq({ r.matched, r.choice, r.action }, { nil, 'Auto: Enblizzard', 'Enblizzard' })
+    -- Nothing picked: off, pick one; Auto with nothing matching, nothing goes.
+    local cfg = settings.defaults()
+    cfg.rows.enspell = { on = true }
+    eq(row_of(rdm, cfg, snap({ weather = HOT_SPELL })).choice, 'Pick one')
+    cfg.rows.enspell.match = true
+    r = row_of(rdm, cfg, snap({ weather = AURORAS, day = LIGHTSDAY }))
+    eq({ r.choice, r.ready, r.avail }, { 'Auto (weather/day)', false, 'no match' })
+    eq(row_of(sch, settings.defaults(), snap({}, nil, SCH), 'storm').choices[1], { label = 'Auto (weather)', match = true })
     local view = model.build(snap({}), rdm, settings.defaults(), { running = false, log = true, sent = {} },
         { job = function () return 'RDM' end, statuses = fake.res.statuses })
     for _, s in ipairs(view.sections) do
@@ -138,5 +170,15 @@ test('ui: act.match sets and clears it, here and from another session (only on a
     eq(cfg.rows.enspell.match, nil)
     eq(model.apply(act, cfg, { 'match', 'enspell', true, n = 2 }, rdm), true)
     eq(cfg.rows.enspell.match, true)
+    -- A tier picked leaves Auto, here or from another session.
+    act.pick('enspell', 'Enfire')
+    eq(cfg.rows.enspell.match, nil)
+    act.match('enspell', true)
+    eq(model.apply(act, cfg, { 'pick', 'enspell', 'Enaero', n = 2 }, rdm), true)
+    eq({ cfg.rows.enspell.pick, cfg.rows.enspell.match }, { 'Enaero', nil })
     eq(model.apply(act, cfg, { 'match', 'Cure', true, n = 2 }, rdm), false)
+    -- Buff rows that can't follow the sky are refused too.
+    eq({ model.apply(act, cfg, { 'match', 'Protect', true, n = 2 }, rdm),
+         model.apply(act, cfg, { 'match', 'barelement', true, n = 2 }, rdm) }, { false, false })
+    eq({ cfg.rows.Protect, cfg.rows.barelement }, { nil, nil })
 end)

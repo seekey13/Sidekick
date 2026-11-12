@@ -387,7 +387,7 @@ local function buff_command(args)
     local key = settings.key(a)
     local row = cfg.rows[key] or { targets = { [0] = true } }
     row.on = not off
-    if spell and (a.pick_one or a.tier > 1) then row.pick = a.name end
+    if spell and (a.pick_one or a.tier > 1) then row.pick, row.match = a.name, nil end  -- a tier picked leaves Auto
     if next(slots) then row.targets = slots end
     cfg.rows[key] = row
     settings.save()

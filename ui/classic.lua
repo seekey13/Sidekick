@@ -547,7 +547,7 @@ end
 -- 2.9.1's right-click on a row: Favorite, then Combat Only / Idle Only (none for a gate that's built in).
 local function row_menu(c, r, id, no_favorite)
     local gates = not r.gate_fixed
-    if no_favorite and not gates and r.match == nil then return end
+    if no_favorite and not gates then return end
     if begin_item_menu('##sk_menu_' .. id) then
         if not no_favorite then
             local changed, on = check('Favorite##sk_fav_' .. id, c.favs[r.key] == true)
@@ -562,15 +562,6 @@ local function row_menu(c, r, id, no_favorite)
             changed, on = check('Idle Only##sk_idle_' .. id, r.gate == 'idle')
             if changed then c.act.gate(r.key, on and 'idle' or nil) end
             tip('Only fire when out of combat (e.g. Boost on cooldown).')
-        end
-        -- Enspells, storms: follow the sky, the pick only when nothing matches (core/sky.lua).
-        if r.match ~= nil then
-            imgui.Separator()
-            local weather = r.match_rule == 'weather'
-            local changed, on = check((weather and 'Match Weather' or 'Match Weather/Day') .. '##sk_match_' .. id, r.match)
-            if changed then c.act.match(r.key, on) end
-            tip(weather and 'Cast the storm matching the zone\'s weather.\nNo elemental weather: the one picked goes.'
-                or 'Cast the tier matching your weather\n(a storm on you first), else the day.\nNo match: the one picked goes.')
         end
         if r.also then
             imgui.Separator()
@@ -779,8 +770,15 @@ local function buff_row(c, sid, r, has_mods, no_favorite)
         width(DROPDOWN_W)
         if begin_combo('##sk_pick_' .. id, r.choice or '') then
             for _, ch in ipairs(r.choices) do
-                local selected = ch.name == r.pick
-                if imgui.Selectable(ch.label .. '##sk_pick_' .. id .. '_' .. (ch.name or 'auto'), selected) then c.act.pick(r.key, ch.name) end
+                -- Enspells, storms: Auto first, following the sky (Match); a tier picked leaves it.
+                local selected = ch.match and r.match or not ch.match and not r.match and ch.name == r.pick
+                if imgui.Selectable(ch.label .. '##sk_pick_' .. id .. '_' .. (ch.match and 'match' or ch.name or 'auto'), selected) then
+                    if ch.match then c.act.match(r.key, true) else c.act.pick(r.key, ch.name) end
+                end
+                if ch.match then
+                    tip(r.match_rule == 'weather' and 'Cast the storm matching the zone\'s weather.\nNo elemental weather: the last one you picked goes.'
+                        or 'Cast the one your weather (a storm on you counts)\nand the day favor most. Neither on its side:\nthe last one you picked goes.')
+                end
                 if selected then imgui.SetItemDefaultFocus() end
             end
             end_combo()

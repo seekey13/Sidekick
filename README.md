@@ -135,13 +135,13 @@ Keeps your chosen **runes** up with separate sets for idle, **Vallation**, **Val
 <details>
 <summary><b>Scholar</b></summary>
 
-Handles **Light/Dark Arts** and Addendum automatically, fires **stratagems** (Penury, Celerity, Perpetuance, Accession...) just before the spells you tag, and can save the last charge for emergency healing. Turn on **Weather** beside your storm's pick and it casts the storm matching the zone's weather, going back to your pick when there's no elemental weather.
+Handles **Light/Dark Arts** and Addendum automatically, fires **stratagems** (Penury, Celerity, Perpetuance, Accession...) just before the spells you tag, and can save the last charge for emergency healing. Choose **Auto** at the top of your storm's list and it casts the storm matching the zone's weather, going back to the last storm you picked when there's no elemental weather.
 </details>
 
 <details>
 <summary><b>Red Mage</b></summary>
 
-Turn on **Weather/Day** beside your enspell's pick and it casts the enspell matching your weather (a storm on you counts first), else the day's element, at the best tier you have. There's no light or dark enspell, so when neither your weather nor the day has one (light weather on Lightsday, say), your pick goes.
+Choose **Auto** at the top of your enspell's list and it casts the enspell your weather (a storm on you counts) and the day favor most, at the best tier you have: Enfire under Hot Spell, but Enwater under Hot Spell on Watersday, where the day cancels the weather's bonus. There's no light or dark enspell, so when neither your weather nor the day helps one (Lightsday under clear skies, say), the last enspell you picked goes. Convert and the rest come from the shared engine, as for the jobs below.
 </details>
 
 <details>

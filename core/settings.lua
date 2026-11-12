@@ -8,7 +8,7 @@
                       targets = { [party or alliance slot] = true, [tracked name] = true },  -- buffs only
                       mods = { [modifier name] = true },  -- buffs only: stratagems, Embolden fired first
                       hold = true,  -- buffs only: the spell waits while one of its mods can't go
-                      match = true }  -- enspells, storms: the tier matching the sky, `pick` when none does (core/sky.lua)
+                      match = true }  -- enspells, storms: Auto, the tier matching the sky, `pick` when none does (core/sky.lua)
     A tracked player's name stays on the row after they're untracked, so tracking
     them again brings their buffs back. A row never saved uses its default: on, but
     for buffs (a luopan's Geo- spells too), sending the pet in and items.

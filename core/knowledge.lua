@@ -42,9 +42,9 @@
     gate       'combat' | 'idle' (enemy-targeted actions are combat-only anyway); built in: a row's
                own Combat or Idle (cfg.gates, can.gate) can't change it
     pick_one   families sharing a key keep one selection (enspells, storms, bar-elements)
-    match      'weather' | 'element': the row can follow the sky, picking the tier whose DAT
-               element matches the zone's weather (storms), or your weather then the day
-               (enspells) while its Match is on (core/sky.lua)
+    match      'weather' | 'element': the row can follow the sky (Auto, first in its list),
+               picking the tier whose DAT element matches the zone's weather (storms), or the
+               one your weather and the day favor most (enspells) (core/sky.lua)
     blocked_by skip while you have any of these statuses
     trance     no TP needed under Trance (waltzes, Aspir Samba: jobs/dnc.lua)
     requires   needs any of these statuses on you
