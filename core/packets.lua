@@ -148,7 +148,8 @@ end
 -- for units whose statuses come from packets, duration = function(spell id) -> seconds or nil,
 -- spell = function(spell id) -> your spell's catalog record or nil, buffs = yours, slots = your songs per target
 -- (jobs/brd.lua), removes = function(observed.key) -> the status ids your remover clears and whether it's Esuna's
--- kind (cast on you, clearing on those near only what you have too), or nil }
+-- kind (cast on you, clearing on those near only what you have too), or nil, missing = function(server id) -> HP a
+-- party or alliance member is missing now, or nil (core/observed.lua) }
 function packets.action(p, ctx, now)
     if p.actor == ctx.me and p.category ~= MELEE then
         if (p.category == CAST_BEGIN or p.category == ITEM_BEGIN) and p.param ~= INTERRUPT then
@@ -177,7 +178,7 @@ function packets.action(p, ctx, now)
             end
             if HEALS_028[r.message] then
                 if key then
-                    observed.healed(key, t.id, r.param, now)
+                    observed.healed(key, t.id, r.param, now, ctx.missing and ctx.missing(t.id))
                     if tracked then for _, s in ipairs(status.SLEEP) do buffs.lose(t.id, s) end end
                 end
             elseif GAINS_028[r.message] then

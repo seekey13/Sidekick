@@ -141,6 +141,7 @@ local packet_ctx = {
         local a = cat.removers[key]
         if a then return a.removes, can.self_only(a) and a.area > 0 end
     end,
+    missing = game.missing,  -- HP missing as a heal lands: a top-up since the send caps it
 }
 
 -- Latest game snapshot, at most 10 a second: plenty for a 1.1s action throttle.
