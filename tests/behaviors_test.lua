@@ -81,6 +81,21 @@ test('recover: Devotion on the member lowest on MP, never one with no MP', funct
     eq(decide(g, nil, cat), '/ja "Devotion" 101')
 end)
 
+test('recover: Devotion with a target goes only on them, under the MP line, and on no one while they are away', function ()
+    local cat = fake.catalog(WHM, 75, nil, 0, { 'Devotion' })
+    local cfg = cfg_with({ ['recover.target'] = 'A' })
+    local g = snap({ { name = 'A', mpp = 25 }, { name = 'B', mpp = 10 } })
+    local cmd, intent = decide(g, cfg, cat)
+    eq({ cmd, intent.why }, { '/ja "Devotion" 101', 'A MP 25%' })  -- B is lower, but not the target
+    g.units[2].mpp = 40  -- A
+    eq({ decide(g, cfg, cat) }, { nil, 'nothing to do' })  -- over the line: B under it is still left alone
+    cfg.recover.target = 'Gone'
+    g.units[2].mpp = 25
+    eq({ decide(g, cfg, cat) }, { nil, 'nothing to do' })  -- not in the party: no one else gets it
+    cfg.recover.target = ''
+    eq(decide(g, cfg, cat), '/ja "Devotion" 102')  -- back to whoever is lowest: B
+end)
+
 test('recover: Meditate in combat under the TP line; Chivalry from its own TP line', function ()
     local sam = fake.catalog(SAM, 75, nil, 0, { 'Meditate' })
     eq(decide(snap(nil, { combat = true }), nil, sam), '/ja "Meditate" <me>')

@@ -182,10 +182,13 @@ local TIP = {
     rest_distance = 'Max distance (yalms) from the Follow Target\nbefore resting is stopped or blocked from\nstarting.',
     recover = 'Self Recover (TP/MP%) uses the checked\nabilities when your TP/MP drops below the\n'
         .. 'set value (TP in combat). Chivalry Min TP\nholds back TP-cost MP recovery until your TP\n'
-        .. 'reaches that amount. Devotion is used on a\nmember when THEIR MP drops below Self\nRecover (MP%).',
+        .. 'reaches that amount. Devotion is used on a\nmember when THEIR MP drops below Self\nRecover (MP%): '
+        .. 'the Devotion Target, or\nwhoever is lowest on MP.',
     recover_tp = 'In combat, get TP back under this.',
     recover_mp = 'Recover MP under this MP% (yours; a\nmember\'s for Devotion).',
     min_tp = 'Chivalry turns all your TP into MP: only\nfrom this much.',
+    devotion_target = 'Party member Devotion goes on, once their\nMP drops below Self Recover (MP%). Lowest\n'
+        .. 'MP: whoever in your party is lowest.',
     rolls = 'Corsair automation: keeps the two rolls below\nactive and uses Double-Up on each until it is\n'
         .. 'good enough. While Bust is up only one roll slot\nis used, so Sidekick holds off recasting the other.',
     roll_slot = 'Roll cast in this slot. Set to None to leave\nthe slot unused.',
@@ -427,9 +430,11 @@ local function int_field(c, label, path, value, w, help)
     if changed then c.act.set(path, util.clamp(math.floor(num(v[1], lo)), lo, hi)) end
 end
 
--- 2.9.1's member drop-down: None, then `names`; one not there now reads None and is kept.
-local function name_pick(c, label, path, current, names, help)
-    local shown = 'None'
+-- 2.9.1's member drop-down: None for '', then `names`; one not there now reads None and is kept. With `none`,
+-- '' reads that instead (Lowest MP), and a name not there now reads as itself: `none` isn't what it does then.
+local function name_pick(c, label, path, current, names, help, none)
+    local shown = none and current ~= '' and game_text(current) or none or 'None'
+    none = none or 'None'
     for _, n in ipairs(names or {}) do
         if n == current then shown = game_text(n) end
     end
@@ -437,7 +442,7 @@ local function name_pick(c, label, path, current, names, help)
     width(NAME_W)
     tint(NAME_FRAME)
     if begin_combo(label .. '##sk_' .. id, shown) then
-        if imgui.Selectable('None##sk_' .. id .. '_none', shown == 'None') then c.act.set(path, '') end
+        if imgui.Selectable(none .. '##sk_' .. id .. '_none', shown == none) then c.act.set(path, '') end
         for _, n in ipairs(names or {}) do
             local selected = n == current
             if imgui.Selectable(game_text(n) .. '##sk_' .. id .. '_' .. n, selected) then c.act.set(path, n) end
@@ -1070,6 +1075,7 @@ local function recover_body(c)
     local me = self_line(c.view)
     if me and me.uses_mp then slider(c, 'Self Recover (MP%)', 'recover.mp', r.mp, TIP.recover_mp) end
     if r.spends_tp then slider(c, 'Chivalry Min TP', 'recover.min_tp', r.min_tp, TIP.min_tp) end
+    if r.devotion then name_pick(c, 'Devotion Target', 'recover.target', r.target or '', r.names, TIP.devotion_target, 'Lowest MP') end
     section_rows(c, 'recover', c.sections.recover)
 end
 

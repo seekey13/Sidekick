@@ -184,6 +184,9 @@ ja.words = {
     ['TP under'] = 'TP回復ライン', ['In combat, get TP back under this.'] = '戦闘中、TPがこれ未満なら回復します。',
     ['Spend TP from'] = 'TP消費の下限', ['Chivalry turns all your TP into MP: only from this much.'] =
         'シバルリーは全TPをMPに変えます。このTP以上のときだけ使います。',
+    ['Devotion on'] = 'デヴォーション対象', ['Lowest MP'] = 'MPが最も低い人',
+    ['Devotion goes only on this member, once their MP is under MP under. Lowest MP: the member lowest on MP.'] =
+        'このメンバーのMPがMP回復ライン未満のときだけデヴォーションを使います。「MPが最も低い人」はMPが最も低いメンバーに使います。',
     ['Pet HP under'] = 'ペットHPライン', ['Heal your pet under this HP %.'] = 'ペットのHPがこの%未満なら回復します。',
     ['Send at your target'] = '自分のターゲットへ',
     ['Send your pet at your own target (<t>), and only while you are engaged, instead of the battle target.'] =
@@ -503,6 +506,9 @@ ja.words = {
     ['Settings view for another session failed: %s'] = '他のセッション用の設定画面の作成に失敗しました: %s',
     ['Action log %s.'] = 'アクションログ: %s', ['on'] = 'オン',
     ['off'] = 'オフ', ['Widget %s.'] = 'ウィジェット: %s', ['Focus off.'] = 'フォーカス: オフ', ['Focus: %s.'] = 'フォーカス: %s',
+    ['Devotion on whoever is lowest on MP.'] = 'デヴォーション: MPが最も低いメンバーに使います。',
+    ['Devotion only on %s.'] = 'デヴォーション: %sにだけ使います。',
+    ['That\'s you: Devotion goes on another member.'] = 'それはあなたです: デヴォーションは他のメンバーに使います。',
     ['Follow off.'] = '追従: オフ', ['Following %s past %d yalms.'] = '%sを追従します（%dヤルムより離れたら）。',
     ['Follow on, but no leader yet: /sk follow <name>.'] = '追従: オン。ただしリーダーが未設定です: /sk follow <名前>',
     ['That\'s you: /sk follow <name> follows someone on the Leader list.'] =
@@ -524,12 +530,12 @@ ja.words = {
     ['No roll "%s". /sk help lists the commands.'] = 'ファントムロール「%s」はありません。/sk help でコマンド一覧。',
     ['/sk (or /sidekick) opens or closes Sidekick Settings. Commands: hud, alt [name|all], alt start|stop [name|all], widget, '
         .. 'start [name|all], stop [name|all], toggle, plan, state, '
-        .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow [name|on|off], rest [on|off], '
+        .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, devotion <name|off>, follow [name|on|off], rest [on|off], '
         .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], theme [name], catalog [unknown], '
         .. 'log, help. A Phantom Roll\'s name (Bolter\'s Roll) rolls it now, then Double-Ups at Lowest'] =
         '/sk（または /sidekick）でSidekick設定を開閉します。コマンド: hud、alt [名前|all]、alt start|stop [名前|all]、widget、'
         .. 'start [名前|all]、stop [名前|all]、toggle、plan、state、'
-        .. 'buff [名前] [me p1..p5 b0..c5 <追跡>|off]、focus <名前|off>、follow [名前|on|off]、rest [on|off]、'
+        .. 'buff [名前] [me p1..p5 b0..c5 <追跡>|off]、focus <名前|off>、devotion <名前|off>、follow [名前|on|off]、rest [on|off]、'
         .. 'track [名前]、untrack <名前|all>、profile [名前|default]、afk [on|off|分数]、theme [名前]、catalog [unknown]、log、help。'
         .. 'ファントムロールの名前（ボルターズロール）で今すぐロールし、最低リスクでダブルアップします',
 }

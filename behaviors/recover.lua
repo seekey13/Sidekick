@@ -1,8 +1,8 @@
 --[[
     Get MP and TP back with the recovery rows that are on: under your MP line,
     Convert, Aspir, Sublimation, Chivalry (once you have recover.min_tp TP)...;
-    under it for a member, Devotion on the lowest; under your TP line in combat,
-    Meditate or Reverse Flourish.
+    under it for a member, Devotion on the lowest, or only on recover.target when
+    one is named; under your TP line in combat, Meditate or Reverse Flourish.
     Highest priority first, then the best tier. Whatever costs HP waits while
     you're under your danger line. A row with its own `decide` (Radial Arcana,
     which spends the luopan) says itself when and what to send.
@@ -12,11 +12,13 @@ local can = require('core.can')
 local settings = require('core.settings')
 local util = require('core.util')
 
--- The member under the MP line with the least, that `a` can reach.
-local function drained(a, g, line)
+-- The member under the MP line with the least, that `a` can reach: only `only` when
+-- it names one ('' for anyone).
+local function drained(a, g, line, only)
     local pick
     for _, u in ipairs(g.units) do
-        if u.kind ~= 'self' and u.uses_mp and u.mpp < line and can.reach(a, u) and (not pick or u.mpp < pick.mpp) then
+        if u.kind ~= 'self' and (only == '' or u.name == only) and u.uses_mp and u.mpp < line and can.reach(a, u)
+            and (not pick or u.mpp < pick.mpp) then
             pick = u
         end
     end
@@ -39,7 +41,7 @@ return function (g, cat, cfg, mem)
                     return { action = a, why = ('MP %d%%'):format(g.me.mpp) }
                 end
             else
-                local u = drained(a, g, r.mp)
+                local u = drained(a, g, r.mp, r.target or '')
                 if u then return { action = a, target = u, why = ('%s MP %d%%'):format(u.name, u.mpp) } end
             end
         end

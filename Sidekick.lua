@@ -817,7 +817,7 @@ end)
 
 local HELP = '/sk (or /sidekick) opens or closes Sidekick Settings. Commands: hud, alt [name|all], alt start|stop [name|all], widget, '
     .. 'start [name|all], stop [name|all], toggle, plan, state, '
-    .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow [name|on|off], rest [on|off], '
+    .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, devotion <name|off>, follow [name|on|off], rest [on|off], '
     .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], theme [name], catalog [unknown], '
     .. 'log, help. A Phantom Roll\'s name (Bolter\'s Roll) rolls it now, then Double-Ups at Lowest'
 
@@ -894,6 +894,20 @@ local COMMANDS = {
         cfg.heal.focus = name
         settings.save()
         if name == '' then printf('Focus off.') else printf('Focus: %s.', name) end
+    end,
+    -- Devotion only on that member, spelled as the game does while they're in your party; off, on whoever is lowest.
+    devotion = function (args, g)
+        local name = name_or_off(args)
+        if name ~= '' and name:lower() == g.me.name:lower() then
+            printf('That\'s you: Devotion goes on another member.')
+            return
+        end
+        for _, u in ipairs(g.units) do
+            if u.kind ~= 'self' and u.name:lower() == name:lower() then name = u.name end
+        end
+        cfg.recover.target = name
+        settings.save()
+        if name == '' then printf('Devotion on whoever is lowest on MP.') else printf('Devotion only on %s.', name) end
     end,
     follow = function (args, g) follow_command(args[3], g) end,
     track = function (args, g)

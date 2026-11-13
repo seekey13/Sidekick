@@ -18,10 +18,12 @@ test('save keeps the settings as they are now; later changes stay out of it', fu
     eq(cfg.profiles.Dynamis.heal.danger, 40)
 end)
 
-test('a profile never holds the profiles, the HUD, the language, following, the focus, who is skipped or Entrust\'s member', function ()
+test('a profile never holds the profiles, the HUD, the language, following, the focus, who is skipped or Entrust\'s '
+    .. 'or Devotion\'s member', function ()
     local cfg = cfg_with(function (c)
         c.ui.japanese, c.follow.on, c.follow.target, c.heal.focus, c.heal.skip.Kupipi = true, true, 'A', 'B', true
         c.geo.entrust, c.geo.entrust_spell = 'Tank', 'Indi-Fury'
+        c.recover.target, c.recover.mp = 'Mage', 40
         c.rows.Haste = { on = true, targets = { [0] = true, [3] = true } }
         c.remove.off.Kupipi, c.remove.own.A, c.remove.skip.slow = true, { set = true, skip = { poison = true } }, true
     end)
@@ -33,6 +35,7 @@ test('a profile never holds the profiles, the HUD, the language, following, the 
     eq({ snap.remove.off, snap.remove.own, snap.remove.skip }, { nil, nil, { slow = true } })  -- who, not which debuffs
     eq(snap.rows.Haste, { on = true, targets = { [0] = true, [3] = true } })
     eq({ snap.geo.entrust, snap.geo.entrust_spell }, { nil, 'Indi-Fury' })
+    eq({ snap.recover.target, snap.recover.mp }, { nil, 40 })
     eq(snap.heal.danger, 50)
     profiles.new(cfg)
     eq({ cfg.remove.off, cfg.remove.own.A, cfg.remove.skip }, { { Kupipi = true }, { set = true, skip = { poison = true } }, {} })

@@ -1355,6 +1355,23 @@ test('recovery, pet, follow and rest settings write through act', function ()
     eq({ cfg.rest.mp, cfg.rest.distance }, { 60, 12 })
 end)
 
+test('recovery aims Devotion: a drop-down only for a job with it, Lowest MP for no one in particular', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    render(cfg, st, on('Recover'))
+    eq(drew('Devotion on'), false)  -- no Devotion here
+    local whm = model.build(snap(), fake.catalog(3, 75, nil, 0, { 'Devotion' }), cfg, st, NAMES)
+    render(cfg, st, on('Recover'), whm)
+    eq({ drew('Devotion on'), drew('Lowest MP') }, { true, true })
+    eq(render(cfg, st, on('Recover', { ['A##sk_recover_target_A'] = true }), whm), 1)
+    eq(cfg.recover.target, 'A')
+    eq(render(cfg, st, on('Recover', { ['Lowest MP##sk_recover_target_none'] = true }), whm), 1)
+    eq(cfg.recover.target, '')
+    cfg.recover.target = 'Gone'  -- not in the party now: shown by name, not as Lowest MP
+    render(cfg, st, on('Recover'), model.build(snap(), fake.catalog(3, 75, nil, 0, { 'Devotion' }), cfg, st, NAMES))
+    eq({ drew('Gone'), drew('Lowest MP') }, { true, false })
+end)
+
 test('resting shows Follow\'s leader and sets it too', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
@@ -1647,6 +1664,25 @@ test('Classic: an enspell or storm row\'s list has Auto first; picking a tier le
     handlers.CollapsingHeader = nil
     render(settings.defaults(), status({ settings = was_shown }))
     eq({ err, err2, matched, enspell, bar, cfg.rows.storm }, { nil, nil, true, true, false, { on = false, pick = 'Hailstorm' } })
+end)
+
+test('Classic: Resource Recovery aims Devotion, Lowest MP for no one in particular, only for a job with it', function ()
+    local classic = themes.get('classic')
+    local was_shown = settings_shown
+    local whm = fake.catalog(3, 75, nil, 0, { 'Devotion' })
+    local cfg = settings.defaults()
+    local st = status({ settings = true })
+    handlers.CollapsingHeader = function () return true end  -- the fake's headers are shut: open them, here alone
+    local err = draw(classic.ui, cfg, st, { ['A##sk_recover_target_A'] = true }, model.build(snap(), whm, cfg, st, NAMES))
+    local picked = cfg.recover.target
+    local listed = has(frame.args.Selectable, 'Lowest MP##sk_recover_target_none')
+    local err2 = draw(classic.ui, cfg, st, { ['Lowest MP##sk_recover_target_none'] = true },
+        model.build(snap(), whm, cfg, st, NAMES))
+    local err3 = draw(classic.ui, cfg, st, {}, model.build(snap(), cat, cfg, st, NAMES))  -- no Devotion
+    local without = has(frame.args.BeginCombo, 'Devotion Target##sk_recover_target')
+    handlers.CollapsingHeader = nil
+    render(settings.defaults(), status({ settings = was_shown }))
+    eq({ err, err2, err3, picked, listed, cfg.recover.target, without }, { nil, nil, nil, 'A', true, '', false })
 end)
 
 test('SCH: Keep a stratagem for healing, under Heal, only for a job with stratagems', function ()
@@ -2186,6 +2222,7 @@ test('on a Japanese client every page, tooltip and list is in Japanese, every jo
     lang.misses = {}
     local jobs = {
         { cat },
+        { fake.catalog(3, 75, 4, 37, { 'Devotion' }) },
         { fake.catalog(10, 75, 3, 37, { 'Pianissimo', 'Nightingale', 'Troubadour' }), 10, 3 },
         { fake.catalog(17, 75, 13, 37, { 'Corsair\'s Roll', 'Chaos Roll', 'Double-Up', 'Fold', 'Snake Eye' }), 17, 13 },
         { fake.catalog(20, 75, 3, 37, { 'Light Arts', 'Dark Arts', 'Penury', 'Celerity', 'Accession', 'Addendum: White',

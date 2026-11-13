@@ -362,6 +362,17 @@ local ok, err = pcall(function ()
         e.sk('/sk follow B')
     end)
 
+    test('/sk devotion <name> aims Devotion at that member, spelled as the game does; off at the lowest; never you', function ()
+        local r
+        for _, file in pairs(e.files) do r = r or file.recover end
+        eq(r.target, '')
+        eq({ e.sk('/sk devotion b'), r.target }, { 'Devotion only on B.', 'B' })
+        eq({ e.sk('/sk devotion me'), r.target }, { 'That\'s you: Devotion goes on another member.', 'B' })
+        eq({ e.sk('/sk devotion Later'), r.target }, { 'Devotion only on Later.', 'Later' })  -- not here yet: kept
+        eq({ e.sk('/sk devotion OFF'), r.target }, { 'Devotion on whoever is lowest on MP.', '' })
+        eq({ e.sk('/sk devotion'), r.target }, { 'Devotion on whoever is lowest on MP.', '' })
+    end)
+
     test('Follow goes on with automation stopped, mounted or in a safe zone too; never while you move', function ()
         e.party, e.queued = { { name = 'B', dist = 9 } }, {}
         e.frame()
