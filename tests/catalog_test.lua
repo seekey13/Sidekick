@@ -102,10 +102,23 @@ test('heal fields: cast seconds, Regen ticks, boosts with their status', functio
         { kind = 'healing', factor = 1, area = 10, mp = 2, tiers = 4 })
 end)
 
-test('a Regen tier past the table (a 99 WHM\'s Regen IV) has no tick nor duration, not the whole list', function ()
-    local cat = build(WHM, 99)
+test('a tier past the table has no tick nor duration, not the whole list', function ()
+    local k = setmetatable({ Regen = { role = 'heal', status = 'Regen', tick = { 5, 12, 20 }, duration = { 75, 60, 60 } } },
+        { __index = K })
+    local cat = catalog.build(res, { main = WHM, main_lv = 99, sub_lv = 0,
+        has_spell = function () return true end, has_ability = function () return false end }, k)
     local iii, iv = find(cat, 'Regen III', 'heal'), find(cat, 'Regen IV', 'heal')
     eq({ iii.tick, iii.duration, iv.tick, iv.duration }, { 20, 60, 0, nil })
+end)
+
+test('the tiers past 75 have their values: Cure VI, Curaga V, Regen IV and V, Curing Waltz V', function ()
+    local DNC = 19
+    local whm, sch = build(WHM, 99), build(SCH, 99)
+    local iv, v = find(whm, 'Regen IV', 'heal'), find(sch, 'Regen V', 'heal')
+    eq({ find(whm, 'Cure VI').potency, find(whm, 'Curaga V').potency, iv.tick, iv.duration, v.tick, v.duration,
+         find(sch, 'Regen V', 'buff').duration },
+       { 890, 600, 30, 60, 40, 60, 60 })
+    eq(find(build(DNC, 99, nil, 0, { 'Curing Waltz V' }), 'Curing Waltz V').potency, 787)
 end)
 
 test('items: last, used on you, specific first, spelled as the client does', function ()

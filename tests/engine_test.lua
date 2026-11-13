@@ -127,6 +127,39 @@ test('danger: an instant waltz before a slower, bigger cure', function ()
     eq({ cmd, intent.why }, { '/ja "Curing Waltz II" 101', 'danger: A 45%' })
 end)
 
+-- At 99, 2000 MP: the tiers past 75 (Cure VI, Regen IV and V, Curing Waltz V).
+local function at99(others, main, sub)
+    local g = snap(others, { main = main, main_lv = 99, sub = sub, sub_lv = sub and 49 or 0 })
+    g.me.mp = 2000
+    return g
+end
+
+test('danger at 99: the cheapest Cure that covers the need, Cure VI only past Cure V', function ()
+    local whm = fake.catalog(3, 99, 4, 49, { 'Divine Seal', 'Martyr' })
+    local function pick(max_hp) return (decide(at99({ { name = 'A', hpp = 45, max_hp = max_hp } }, 3, 4), nil, nil, whm)) end
+    -- 165, 440, 550 and 1100 missing: Cure VI (1112.5) is the faster cast, but III, IV and V cover theirs for less
+    eq({ pick(300), pick(800), pick(1000), pick(2000) },
+       { '/ma "Cure III" 101', '/ma "Cure IV" 101', '/ma "Cure V" 101', '/ma "Cure VI" 101' })
+end)
+
+test('efficient at 99: Regen IV and V heal, the biggest whose whole total lands', function ()
+    local member = { { name = 'A', hpp = 55, max_hp = 2000 } }    -- 900 missing
+    eq(decide(at99(member, 3, 4), nil, nil, fake.catalog(3, 99, 4, 49)), '/ma "Regen IV" 101')    -- 600 for 82 MP
+    member = { { name = 'A', hpp = 55, max_hp = 2000 } }
+    eq(decide(at99(member, SCH), nil, nil, fake.catalog(SCH, 99, nil, 0)), '/ma "Regen V" 101')  -- 800 for 100 MP
+end)
+
+test('danger at 99: Curing Waltz V for a need past IV, IV for one it covers', function ()
+    local dnc99 = fake.catalog(DNC, 99, nil, 0,
+        { 'Curing Waltz', 'Curing Waltz II', 'Curing Waltz III', 'Curing Waltz IV', 'Curing Waltz V' })
+    local function pick(max_hp)
+        local g = at99({ { name = 'A', hpp = 45, max_hp = max_hp } }, DNC)
+        g.me.mp, g.me.tp = 0, 1000
+        return (decide(g, nil, nil, dnc99))
+    end
+    eq({ pick(2000), pick(1000) }, { '/ja "Curing Waltz V" 101', '/ja "Curing Waltz IV" 101' })  -- 1100 and 550 missing
+end)
+
 test('critical: Divine Seal, then the boosted cure that does the job cheapest', function ()
     local g = snap({ { name = 'A', hpp = 20 } })
     eq(decide(g), '/ja "Divine Seal" <me>')

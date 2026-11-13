@@ -5,8 +5,9 @@
     through, so a unit out of reach never stalls the rest.
       critical   under heal.critical: a boost first (Divine Seal...), then an aimed
                  save (Martyr), then the danger score over critical units
-      danger     under heal.danger: HP% restored per second locked out; holds for a
-                 heal nearly off recast
+      danger     under heal.danger: HP% restored per second locked out, the cheaper
+                 of heals restoring the same (a faster Cure VI doesn't take a Cure
+                 III's need); holds for a heal nearly off recast
       efficient  from the danger line to heal.threshold: HP that lands where it's
                  needed, per share of the MP or TP you have; Regen allowed, and
                  counted while it ticks; never a Ready move, whose charges are kept
@@ -187,9 +188,16 @@ local function regen_for(u, ctx)
     return pick
 end
 
--- Higher score; on a tie the cheaper, then the one covering the focus member.
+-- Higher score; on a tie the cheaper, then the one covering the focus member. In
+-- critical and danger the score is HP per second, so of two heals restoring the
+-- same HP the cheaper wins first: speed decides only between different amounts.
+local function close(x, y) return math.abs(x - y) <= EPS * math.max(1, math.abs(y)) end
+
 local function better(c, best)
     if not best then return true end
+    if c.band ~= 'efficient' and close(c.points, best.points) and not close(c.share, best.share) then
+        return c.share < best.share
+    end
     if math.abs(c.score - best.score) > EPS * math.max(1, best.score) then return c.score > best.score end
     if math.abs(c.share - best.share) > EPS then return c.share < best.share end
     return c.focus and not best.focus
