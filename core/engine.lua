@@ -113,13 +113,18 @@ local function expecting(g, mem)
     end
     if not extra then return g end
     local me = util.overlay(g.me, { buffs = util.overlay(g.me.buffs, extra) })
-    local units = {}
-    for i, u in ipairs(g.units) do units[i] = u == g.me and me or u end
-    return util.overlay(g, { me = me, units = units })
+    local function swap(list)
+        local out = {}
+        for i, u in ipairs(list) do out[i] = u == g.me and me or u end
+        return out
+    end
+    return util.overlay(g, { me = me, units = swap(g.units), everyone = swap(g.everyone) })
 end
 
 -- `units` without the trusts that can't be hurt (core/game.lua: `immune`): no
--- behavior heals, buffs, cleanses, recovers or counts them. The HUD still lists them.
+-- behavior heals, buffs, cleanses, wakes, raises, recovers or counts them, nor
+-- places a luopan on them or Entrusts them. Follow goes by `everyone`, the whole
+-- list, and so do the HUD, /sk state and AFK (the snapshot as read).
 local function supported(units)
     local out
     for i, u in ipairs(units) do
@@ -136,7 +141,7 @@ end
 -- The intent for now, or nil and why not; with `only_free`, the free behaviors' alone.
 local function decide(g, cat, cfg, mem, only_free)
     mem.gather, mem.waiting = nil, nil
-    g = expecting(util.overlay(g, { gates = cfg.gates, units = supported(g.units) }), mem)  -- the rows' Combat and Idle, for can.gate
+    g = expecting(util.overlay(g, { gates = cfg.gates, units = supported(g.units), everyone = g.units }), mem)  -- the rows' Combat and Idle, for can.gate
     -- A mount, else the first of a town or AFK sleep: the reason given, over any gate after it.
     local mounted, pause
     for _, gate in ipairs(GATES) do
