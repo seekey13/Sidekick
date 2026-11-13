@@ -394,7 +394,7 @@ function brd.ui.view(cat, cfg, g, help)
                     picks = slots.names(cfg.song, set.key, brd.SLOTS) }
         if set.slot then
             local u = help.units[set.slot]
-            e.name, e.present = u and u.name, u ~= nil
+            e.name, e.present, e.immune = u and u.name, u ~= nil, u and u.immune or nil
         end
         out.sets[#out.sets + 1] = e
     end

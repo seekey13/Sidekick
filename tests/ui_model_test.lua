@@ -221,6 +221,13 @@ test('a tier buff: off, Auto then each tier, targets on you by default', functio
     eq(r.targets[2].name, 'A')
 end)
 
+test('a trust that can\'t be hurt: its chips are marked immune on buff, heal and removal rows', function ()
+    local g = fake.snap({ { name = 'Moogle', kind = 'trust', immune = true }, { name = 'B' } })
+    local view = build(whm, settings.defaults(), g)
+    eq({ row(view, 'buff', 'Protect').targets[2].immune, row(view, 'buff', 'Protect').targets[3].immune,
+         view.heal.targets[2].immune, section(view, 'remove').who[2].immune }, { true, nil, true, true })
+end)
+
 test('a labelled tier buff names each tier, not the row\'s label, in its choices', function ()
     local r = row(build(whm), 'buff', 'Regen (keep up)')
     eq(r.label, 'Regen (keep up)')

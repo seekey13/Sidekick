@@ -76,6 +76,14 @@ test('the Geo row: a target on the move waits; one with the aura is passed over;
     eq({ decide(snap({ TANK }), cfg_with({ geo = { on = false, pick = 'Geo-Haste' } }), {}) }, { nil, 'nothing to do' })
 end)
 
+test('a trust that can\'t be hurt (Moogle) anchors a luopan and keeps it; Entrust passes it over', function ()
+    local MOOGLE = { name = 'Moogle', kind = 'trust', immune = true, pos = { 2, 0, 0 } }
+    local cfg, mem = cfg_with({ geo = HASTE_ROW, ['Blaze of Glory'] = { on = false } }), {}
+    eq(step(snap({ MOOGLE }), cfg, mem), '/ma "Geo-Haste" 101')
+    eq({ decide(snap({ MOOGLE }, { now = 1003 }, nil, 2), cfg, mem) }, { nil, 'nothing to do' })  -- not "gone"
+    eq(decide(snap({ MOOGLE }), cfg_with({}, { entrust = 'Moogle', entrust_spell = 'Indi-Fury' }), {}), nil)
+end)
+
 test('drift: once who it went on is past geo.distance from it, Full Circle; then it goes down by them', function ()
     local cfg, mem = cfg_with({ geo = HASTE_ROW, ['Blaze of Glory'] = { on = false } }), {}
     step(snap({ TANK }), cfg, mem)
@@ -269,6 +277,13 @@ test('model: Geomancy under Buff for a GEO main job, its rows with picks and the
     for _, r in ipairs(s.rows) do rows[r.key] = r end
     eq({ rows.geo.label, rows.geo.on, rows.geo.choice, #rows.geo.targets, rows.geo_debuff.label, rows.geo_debuff.targets },
        { 'Geo', false, 'Pick one', 6, 'Geo debuff', nil })
+    -- A luopan can stand on a trust that can't be hurt: its Geo chip stays live.
+    local moogle = model.build(snap({ { name = 'Moogle', kind = 'trust', immune = true } }), cat, cfg, { sent = {} }, names())
+    for _, x in ipairs(moogle.sections) do
+        for _, r in ipairs(x.id == 'geo' and x.rows or {}) do
+            if r.key == 'geo' then eq({ r.targets[2].name, r.targets[2].immune }, { 'Moogle', nil }) end
+        end
+    end
     eq({ rows['Full Circle'].on, rows['Full Circle'].avail, rows['Blaze of Glory'].on, rows.Entrust.on },
        { true, 'no pet', true, true })
     local recovery

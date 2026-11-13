@@ -123,8 +123,8 @@ end
 
 -- `units` without the trusts that can't be hurt (core/game.lua: `immune`): no
 -- behavior heals, buffs, cleanses, wakes, raises, recovers or counts them, nor
--- places a luopan on them or Entrusts them. Follow goes by `everyone`, the whole
--- list, and so do the HUD, /sk state and AFK (the snapshot as read).
+-- Entrusts them. Follow and a Geo- luopan's anchor (jobs/geo.lua) go by `everyone`,
+-- the whole list, and so do the HUD, /sk state and AFK (the snapshot as read).
 local function supported(units)
     local out
     for i, u in ipairs(units) do
