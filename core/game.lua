@@ -8,6 +8,7 @@
     decides from this snapshot alone, so tests can hand it a fake one.
 
     unit = { slot, sid, tidx, name, kind = 'self'|'party'|'trust'|'alliance'|'tracked', hpp, hp, max_hp,
+             immune (a trust that can't be hurt: Moogle, Sakura, Kupofried...; core/engine.lua hides it from behaviors),
              mpp, mp, tp, uses_mp (yours: max MP > 0; your party's: a job with MP, main or
              sub, or seen with MP on these jobs; the alliance's: seen with MP),
              max_known (max_hp is real: yours, or seen at full HP),
@@ -62,6 +63,24 @@ local util = require('core.util')
 local game = {}
 
 local TRUST = 0x1000000  -- server ids from here up are NPCs; in a party slot, a trust
+-- CatsEyeXI trusts that take no damage and no status (they stay at full HP), so
+-- healing, buffing, cleansing or recovering them is wasted (v2's EXCLUDED_TRUSTS).
+-- Matched by name and an NPC's id, so a player of the same name is never left out.
+-- A trust's party name has no spaces on this server (docs/e2e.md: StarSibyl), so
+-- spaces are dropped before matching; on a Japanese client it is the DAT's
+-- Japanese name in Shift-JIS (tests/data/spells.lua). Cornelia has two trust
+-- spells: 1002 (コーネリア) and 950, whose Japanese name is クイン・ハスデンナ.
+local IMMUNE = {}
+for _, name in ipairs({
+    'Moogle', 'Sakura', 'Kupofried', 'StarSibyl', 'Brygid', 'Cornelia',
+    '\131\130\129[\131O\131\138',                        -- モーグリ
+    '\131T\131N\131\137',                                  -- サクラ
+    '\131N\131|\131t\131\138\129[\131g',                  -- クポフリート
+    '\144\175\130\204\144_\142q',                          -- 星の神子
+    '\131u\131\138\131W\131b\131h',                        -- ブリジッド
+    '\131R\129[\131l\131\138\131A',                        -- コーネリア
+    '\131N\131C\131\147\129E\131n\131X\131f\131\147\131i',  -- クイン・ハスデンナ (spell 950)
+}) do IMMUNE[name] = true end
 -- The jobs with MP of their own: WHM, BLM, RDM, PLD, DRK, SMN, BLU, SCH, GEO, RUN.
 local MP_JOBS = { [3] = true, [4] = true, [5] = true, [7] = true, [8] = true, [15] = true, [16] = true, [20] = true,
                   [21] = true, [22] = true }
@@ -485,6 +504,7 @@ local function member(party, player, em, i, zone, now)
         mpp = party:GetMemberMPPercent(i), mp = party:GetMemberMP(i), tp = party:GetMemberTP(i),
         in_zone = party:GetMemberZone(i) == zone,
     }
+    u.immune = sid >= TRUST and IMMUNE[(u.name:gsub(' ', ''))] or nil
     if u.hpp == 100 and u.hp > 0 then max_hp[sid] = u.hp end
     if i == 0 and player:GetHPMax() > 0 then max_hp[sid] = player:GetHPMax() end
     u.max_known = max_hp[sid] ~= nil

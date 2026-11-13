@@ -92,10 +92,14 @@ local function put(st, a, u, kind)
     end
 end
 
+-- Who a luopan can go on: anyone in reach, a trust the engine leaves out of support
+-- included (`everyone`, core/engine.lua: Moogle takes no aura, but the luopan stands where they do).
+local function anchors(g) return g.everyone or g.units end
+
 -- Who the luopan is for: who it went on (nil once they're gone), else (not sent here)
 -- the first of the row's targets.
 local function holder(l, g, targets)
-    for _, u in ipairs(g.units) do
+    for _, u in ipairs(anchors(g)) do
         if l.sid then
             if u.sid == l.sid then return u end
         elseif targets and targets[u.slot] and u.in_zone then
@@ -109,7 +113,7 @@ local function place(g, cat, cfg, st, mods)
     local a, row = picked(cat, cfg, 'geo')
     if not (a and can.use(a, g)) then return nil end
     local targets = row.targets or { [0] = true }
-    for _, u in ipairs(g.units) do
+    for _, u in ipairs(anchors(g)) do
         if targets[u.slot] and can.reach(a, u) and lacks(a, u) then
             if u.moving then return nil end
             return { action = a, target = u, mods = mods, why = u.name, sent = put(st, a, u) }

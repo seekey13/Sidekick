@@ -13,8 +13,9 @@ local util = require('core.util')
 
 local follow = {}
 
--- The unit named `name` (any case), not you; nil when there's none.
-function follow.leader(g, name) return util.named(g.units, name, g.me) end
+-- The unit named `name` (any case), not you; nil when there's none. Anyone in
+-- the snapshot: a trust the engine leaves out of support (`everyone`, core/engine.lua) can still lead.
+function follow.leader(g, name) return util.named(g.everyone or g.units, name, g.me) end
 
 function follow.want(g, _, cfg)
     local f = cfg.follow

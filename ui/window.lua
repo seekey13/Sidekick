@@ -730,7 +730,14 @@ local function slot_groups(chips)
     return out
 end
 
-local function slot_look(tg) return tg.on and 'on' or 'off' end
+local function slot_look(tg) return tg.immune and 'empty' or tg.on and 'on' or 'off' end
+
+-- A trust that can't be hurt (core/game.lua: immune) is never healed, buffed or cleansed: its chip is greyed and dead.
+local IMMUNE_TIP = 'This trust can\'t be hurt: Sidekick never heals, buffs or cleanses it.'
+local function slot_tip(tg, tip)
+    if tg.immune then return game_text(tg.name) .. '\n' .. t(IMMUNE_TIP) end
+    return tip
+end
 
 -- `chips` in their rows, from pg.lx. `make_id`, `tip_of` and `on_click` take the chip.
 local function draw_slot_rows(pg, chips, make_id, tip_of, on_click)
@@ -748,10 +755,11 @@ local function draw_slot_rows(pg, chips, make_id, tip_of, on_click)
     for _, g in ipairs(laid) do
         for _, it in ipairs(g.items) do
             local tg = it.t
-            if kit.chip(make_id(tg), it.x, y + (g.at + it.line - 0.5) * S(CHIP_LINE), it.w, tg.label, slot_look(tg), true, pg.alpha) then
+            if kit.chip(make_id(tg), it.x, y + (g.at + it.line - 0.5) * S(CHIP_LINE), it.w, tg.label, slot_look(tg),
+                    not tg.immune, pg.alpha) then
                 on_click(tg)
             end
-            kit.tip(tip_of(tg))
+            kit.tip(slot_tip(tg, tip_of(tg)))
         end
     end
 end
@@ -915,7 +923,7 @@ local function draw_songs(view, pg)
         local picked = false
         for i = 1, m.slots do picked = picked or set.picks[i] ~= '' end
         if set.key == 'area' or set.present or picked then
-            local dim = set.key ~= 'area' and not (set.present and m.pianissimo)
+            local dim = set.key ~= 'area' and not (set.present and m.pianissimo and not set.immune)
             local name = set.key ~= 'area' and (set.name and game_text(set.name) or t('no one')) or nil
             local items = {}
             for i = 1, m.slots do items[i] = { w = box, i = i } end
@@ -924,6 +932,7 @@ local function draw_songs(view, pg)
             local h = S(ROW_H) + (lines - (name and 0 or 1)) * S(CHIP_LINE)
             local help = SONG_HELP[set.key] and t(SONG_HELP[set.key]) or f('Sung on %s alone, through Pianissimo, whenever they lack one.',
                 set.name and game_text(set.name) or t('whoever is in this party slot'))
+            if set.immune then help = slot_tip(set) end
             local cy = line(pg, set.label, help, h, dim and P.dim or P.text)
             for _, it in ipairs(items) do
                 local icy = cy + (it.line - (name and 0 or 1)) * S(CHIP_LINE)
@@ -1393,10 +1402,10 @@ local function family_row(pg, sid, r)
         for _, it in ipairs(g.items) do
             local tg = it.t
             local icy = top + (line_i + g.at + it.line - 1) * S(CHIP_LINE)
-            if kit.chip(tg.label .. '##' .. id .. tg.slot, it.x, icy, it.w, tg.label, slot_look(tg), true, pg.alpha) then
+            if kit.chip(tg.label .. '##' .. id .. tg.slot, it.x, icy, it.w, tg.label, slot_look(tg), not tg.immune, pg.alpha) then
                 act.target(r.key, tg.slot, not tg.on)
             end
-            kit.tip(tg.name and game_text(tg.name) or t('empty slot'))
+            kit.tip(slot_tip(tg, tg.name and game_text(tg.name) or t('empty slot')))
         end
     end
     line_i = line_i + tlines

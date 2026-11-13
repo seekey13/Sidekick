@@ -253,6 +253,28 @@ test('a trust\'s and the pet\'s statuses last across reads; a trust dismissed is
     eq({ unit(read(), TRUST).buffs, read().pet.buffs }, { {}, { [PROTECT] = true } })
 end)
 
+test('a trust that can\'t be hurt (Moogle) is marked immune; a player of that name is not', function ()
+    reset()
+    world.party[2], world.ents[0x100] = { sid = TRUST, tidx = 0x100, name = 'Moogle', hpp = 100, hp = 900, mpp = 100, mp = 500 },
+        { sid = TRUST, name = 'Moogle', hpp = 100, dist = 3 }
+    world.party[3], world.ents[0x101] = { sid = 700, tidx = 0x101, name = 'Kupofried', hpp = 100, hp = 900, mpp = 100, mp = 500 },
+        { sid = 700, name = 'Kupofried', hpp = 100, dist = 3 }
+    local g = read()
+    eq({ unit(g, TRUST).immune, unit(g, 700).immune }, { true, nil })
+end)
+
+test('immune trusts by their party name: no space, or with one; Japanese (Shift-JIS); in the alliance', function ()
+    local function immune(name, slot)
+        reset()
+        world.party[slot or 2] = { sid = TRUST, tidx = 0x100, name = name, hpp = 100, hp = 900, mpp = 100, mp = 500 }
+        world.ents[0x100] = { sid = TRUST, name = name, hpp = 100, dist = 3 }
+        return unit(read(), TRUST).immune
+    end
+    eq({ immune('StarSibyl'), immune('Star Sibyl'), immune('\131\130\129[\131O\131\138'),  -- モーグリ
+         immune('\131R\129[\131l\131\138\131A'), immune('Kupofried', 8), immune('Kupipi') },  -- コーネリア
+       { true, true, true, true, true, nil })
+end)
+
 test('your pet: its HP % from its entity, its MP % and TP as the client reads them for you', function ()
     reset()
     world.pet, world.ents[0x700] = 0x700, { sid = PET, name = 'Ifrit', hpp = 80, dist = 2 }

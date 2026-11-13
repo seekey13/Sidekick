@@ -452,6 +452,20 @@ test('everyone goes by server id, you and trusts included, as v2 aims; an action
          '/ma "Cure IV" <me>' })
 end)
 
+test('a trust that can\'t be hurt (Moogle, Kupofried) is never healed, buffed or cleansed', function ()
+    local function moogle(t)
+        t.kind, t.name, t.immune = 'trust', 'Moogle', true
+        return t
+    end
+    eq({ decide(snap({ moogle({ hpp = 30 }) }), no_regen()) }, { nil, 'nothing to do' })
+    -- Left out of a heal's count too: the member beside it is cured on their own.
+    local cmd = decide(snap({ moogle({ hpp = 30 }), { name = 'A', hpp = 30 } }), no_regen())
+    eq(cmd, '/ma "Cure V" 102')  -- A alone: no Curaga for two
+    local cfg = settings.defaults()
+    cfg.heal.on = false
+    eq({ decide(snap({ moogle({ buffs = { [3] = true } }) }), cfg) }, { nil, 'nothing to do' })  -- Poisoned
+end)
+
 test('a heal unticked on its own (heal.never) never heals; its row\'s other tiers still do', function ()
     local cfg = no_regen()
     cfg.heal.never = { ['Cure III'] = true }

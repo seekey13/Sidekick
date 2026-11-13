@@ -251,6 +251,8 @@ ja.words = {
         '同じ種類の歌2つ（マーチ2種など）は並んで効果があります。同じ歌を2回選んでも1つです。範囲の歌が必要な間は個別の歌を待ちます（範囲の歌で上書きされるため）。',
     ['Sung on %s alone, through Pianissimo, whenever they lack one.'] = '%sだけに、切れたときにピアニッシモで歌います。',
     ['whoever is in this party slot'] = 'このパーティ枠のメンバー', ['no one'] = 'なし',
+    ['This trust can\'t be hurt: Sidekick never heals, buffs or cleanses it.'] =
+        'このフェイスはダメージを受けません。回復・強化・状態回復はしません。',
     ['Pianissimo: %s'] = 'ピアニッシモ: %s',
     ['Songs on one member need Pianissimo (Bard 20)'] = '個別の歌にはピアニッシモ（吟遊詩人20）が必要です',
     ['Pianissimo fast casting'] = 'ピアニッシモで詠唱短縮',

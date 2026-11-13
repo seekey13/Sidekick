@@ -199,6 +199,7 @@ local function player_chips(units, outsiders, outside, on)
         out[#out + 1] = {
             slot = slot, label = label, group = group, present = u ~= nil,
             name = u and u.name ~= '' and u.name or nil, on = on(slot, u) == true, wrap = wrap,
+            immune = u and u.immune or nil,  -- a trust that can't be hurt (core/game.lua): greyed, never picked
         }
     end
     for slot = 0, 5 do add(slot, 'party', units[slot], TAGS[slot]) end
@@ -222,7 +223,12 @@ local function chips(acts, r, units, outsiders)
     end
     if not reaches then return nil end
     local chosen = r.targets or { [0] = true }
-    return player_chips(units, outsiders, outside, function (slot) return chosen[slot] == true end)
+    local out = player_chips(units, outsiders, outside, function (slot) return chosen[slot] == true end)
+    -- A luopan can stand on a trust that can't be hurt (jobs/geo.lua): its chip stays live.
+    if acts[1] and acts[1].role == 'geo' then
+        for _, tg in ipairs(out) do tg.immune = nil end
+    end
+    return out
 end
 
 -- Modifier chips (SCH's stratagems, RUN's Embolden): each one in the catalog that fits one of
@@ -814,7 +820,7 @@ end
 -- HUD's (its labels and sizes) and the views it shows of others itself,
 -- with the view's `version`, VIEW: raise it when a field the window draws changes,
 -- so a session still running older code isn't drawn from a view it can't read.
-model.VIEW = 12
+model.VIEW = 13
 function model.published(view)
     local out = util.shallow_copy(view)
     out.pointer, out.others, out.ui, out.remote, out.sessions, out.themes = nil, nil, nil, nil, nil, nil

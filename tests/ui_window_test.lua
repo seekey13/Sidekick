@@ -1506,6 +1506,22 @@ for _, th in ipairs(themes.list) do
     end
 end
 
+test('a trust that can\'t be hurt: its buff, heal and removal chips are greyed and take no click; Classic\'s too', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    local g = fake.snap({ { name = 'Moogle', kind = 'trust', immune = true } })
+    local view = function () return model.build(g, cat, cfg, st, NAMES) end
+    eq(render(cfg, st, on('Buff', { ['P1##buff_Protect1'] = true }), view()), 0)
+    eq(render(cfg, st, on('Heal', { ['P1##sk_heal_1'] = true }), view()), 0)
+    eq(render(cfg, st, on('Remove', { ['P1##sk_remove_who_1'] = true }), view()), 0)
+    local d = settings.defaults()
+    eq({ cfg.rows.Protect, cfg.heal.skip, cfg.remove.off }, { nil, d.heal.skip, d.remove.off })
+    local classic = themes.get('classic')
+    local was_shown = settings_shown
+    eq(draw(classic.ui, cfg, status({ settings = true }), nil, view()), nil)
+    render(settings.defaults(), status({ settings = was_shown }))
+end)
+
 test('Classic is ui/classic.lua; Party State\'s Theme lists every theme, a click on another picks it', function ()
     local classic = themes.get('classic')
     eq({ classic and classic.name, classic and classic.error }, { 'Classic', nil })

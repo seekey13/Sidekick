@@ -668,6 +668,11 @@ local function chip_click(a, r, tg, lit)
     if not tg.on then a.target(r.key, tg.slot, true) end
 end
 
+-- A trust that can't be hurt (core/game.lua: immune): its button is grey and dead, as 2.9.1's.
+local function immune_help(name)
+    return game_text(name) .. '\nTrust cannot take any damage'
+end
+
 local function member_help(c, name, warning)
     if not name then return 'empty slot' end
     local kind = c.kinds[name]
@@ -688,8 +693,8 @@ local function buff_chips(c, sid, r)
         local lit = r.on and tg.on
         if tg.present or lit then
             next_one()
-            if chip_button(tg.label, 'sk_' .. id .. '_' .. tostring(tg.slot), lit and 'on' or 'off',
-                    member_help(c, tg.name, '\nTrust/Tracked Buff tracking is not totally reliable')) then
+            if chip_button(tg.label, 'sk_' .. id .. '_' .. tostring(tg.slot), tg.immune and 'dead' or lit and 'on' or 'off',
+                    tg.immune and immune_help(tg.name) or member_help(c, tg.name, '\nTrust/Tracked Buff tracking is not totally reliable')) then
                 chip_click(c.act, r, tg, lit)
             end
         end
@@ -839,9 +844,9 @@ local function song_row(c, m, fam, family_of)
         if area or set.present or lit then
             if not first then imgui.SameLine(0, GAP) end
             first = false
-            local dead = not area and not m.pianissimo and not lit
-            local help = area and TIP.area_song or ((set.name and game_text(set.name) or 'empty slot')
-                .. (m.pianissimo and '' or '\nNeeds Pianissimo (Bard 20)'))
+            local dead = not area and (set.immune or not m.pianissimo) and not lit
+            local help = area and TIP.area_song or set.immune and immune_help(set.name)
+                or ((set.name and game_text(set.name) or 'empty slot') .. (m.pianissimo and '' or '\nNeeds Pianissimo (Bard 20)'))
             if chip_button(area and 'A' or set.label, 'sk_' .. id .. '_' .. set.key, dead and 'dead' or lit and 'on' or 'off',
                     help, area and SLOT_W or CHIP_W) then
                 if lit then
@@ -905,7 +910,8 @@ local function slot_buttons(chips, id, on_click, help_of)
         if tg.present and tg.name then
             if any then imgui.SameLine() end
             any = true
-            if chip_button(tg.label, 'sk_' .. id .. '_' .. tostring(tg.slot), tg.on and 'on' or 'off', help_of(tg)) then on_click(tg) end
+            if chip_button(tg.label, 'sk_' .. id .. '_' .. tostring(tg.slot), tg.immune and 'dead' or tg.on and 'on' or 'off',
+                    tg.immune and immune_help(tg.name) or help_of(tg)) then on_click(tg) end
         end
     end
     return any

@@ -241,6 +241,8 @@ test('follow: past the distance, by party slot; not while moving', function ()
     eq({ cmd, intent.why }, { '/follow <p2>', 'A 8.0y away' })
     eq({ decide(snap({ { name = 'A', dist = 4 } }), follower(), whm) }, { nil, 'nothing to do' })
     eq({ decide(snap({ { name = 'A', dist = 8 } }, { moving = true }), follower(), whm) }, { nil, 'moving' })
+    -- A trust left out of support (core/engine.lua: immune) can still be followed.
+    eq(decide(snap({ { name = 'A', kind = 'trust', immune = true, dist = 8 } }), follower(), whm), '/follow <p1>')
 end)
 
 test('follow: mounted, in a safe zone and in AFK sleep too, where the rest waits; never in an event', function ()
