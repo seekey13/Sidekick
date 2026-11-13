@@ -213,6 +213,21 @@ test('a reading counts only for the heal sent, while it can still be landing', f
     eq(observed.learned.ma2, 100)
 end)
 
+test('a heal capped by a top-up since the send teaches nothing; HP shown before or after it lands', function ()
+    observed.learned.ma4 = nil
+    observed.sent('ma4', { need = { [101] = 800 }, mult = 1, at = 0 })
+    observed.healed('ma4', 101, 300, 1, 300)  -- someone's cure left 300 missing: capped, not a weak Cure IV
+    observed.healed('ma4', 101, 300, 1, 0)    -- the client already shows it landed, at full
+    eq(observed.learned.ma4, nil)
+    observed.healed('ma4', 101, 600, 1, 800)  -- shown before it lands, nothing changed: 600 of 800
+    eq(observed.learned.ma4, 600)
+    observed.learned.ma4 = nil
+    observed.healed('ma4', 101, 300, 1, 500)  -- shown after it lands: 300 of 800, 500 still missing
+    eq(observed.learned.ma4, 300)
+    observed.learned.ma4 = nil
+    observed.done('ma4')
+end)
+
 test('Majesty spreads one Cure over a bunched group, and is divided out of a reading', function ()
     local pld = fake.catalog(PLD, 75, nil, 0, { 'Majesty' })
     local cmd, intent = decide(with(snap(four(70)), { MAJESTY }), nil, nil, pld)

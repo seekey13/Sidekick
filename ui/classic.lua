@@ -171,10 +171,6 @@ local TIP = {
         .. 'Debuffs to Remove picks which debuffs are\nworth removing, for everyone or one player.',
     remove_target = '\nUntick to never clear debuffs on them, Doom\ntoo: someone else sees to them.',
     shared = 'It heals too: unchecked here, it is unchecked\nunder Group Healing.',
-    doom_retries = 'Times Cursna is cast again after it misses a\nDoom; then the Doom is taken as gone. Your\n'
-        .. 'own and your party\'s Doom are read from the\ngame: Cursna goes on while it shows.\n\n'
-        .. 'Trust/Alliance/Tracked targets: their debuffs\nare read from what this character sees, so\n'
-        .. 'if someone else removed the Doom, a Cursna\nthat finds nothing may look the same as a miss.',
     whose = 'Everyone without a set of their own, and\nwhoever joins. A player\'s first change gives\nthem their own.',
     rest = 'While idle and your MP falls below Rest\n(MP%), Sidekick sends /heal on. Nothing\n'
         .. 'Sidekick does interrupts a rest: it stands\nat full MP, or when the Follow Target passes\nDistance.',
@@ -1063,7 +1059,6 @@ local function remove_body(c)
     local rows, n = favorites_first(c, removers)
     for i, r in ipairs(rows) do
         check_row(c, 'remove', r, { help = r.shared and TIP.shared or nil })
-        if r.doom_retries then slider(c, 'Doom Retries', 'remove.doom_retries', r.doom_retries, TIP.doom_retries) end
         divider(i, n, #rows)
     end
     if #debuffs > 0 then debuff_tree(c, s, debuffs) end

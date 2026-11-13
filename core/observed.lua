@@ -30,9 +30,16 @@ end
 
 -- A heal of yours (or your pet's) restored `amount` on sid. A reading capped by
 -- the target's max HP says nothing about potency; the rest feed an average.
-function observed.healed(key, sid, amount, now)
+-- `missing`: HP sid is missing as it lands, when the client shows it. Someone
+-- else's cure or a Regen tick may have topped them up since the send, capping
+-- the heal below what was missing then. The client may show the HP before this
+-- heal or after it: either way the lower of the two only throws more readings
+-- out, never lets a capped one in. A top-up the client hasn't shown yet (another
+-- healer's, its HP update still on the way) still gets through, as before.
+function observed.healed(key, sid, amount, now, missing)
     local e = expected(key, now)
     local need = e and e.need[sid]
+    if need and missing then need = math.min(need, missing) end
     if not need or amount <= 0 or amount >= need then return end
     local r, old = amount / e.mult, observed.learned[key]
     observed.learned[key] = old and (0.7 * old + 0.3 * r) or r
