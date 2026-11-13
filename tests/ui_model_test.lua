@@ -122,8 +122,6 @@ test('Debuff removal lists the debuffs your removers clear, worst first, each sw
     eq(removers, { 'Poisona', 'Paralyna', 'Blindna', 'Silena', 'Stona', 'Viruna', 'Cursna', 'Esuna', 'Erase' })
     eq({ debuffs[1], debuffs[2], debuffs[3] }, { 'poison', 'paralysis', 'blindness' })
     eq({ rows[#removers].remover, rows[#removers + 1].debuff }, { true, true })  -- removers, then debuffs, then items
-    -- Cursna alone carries Doom retries, drawn under it.
-    eq({ row(view, 'remove', 'Cursna').doom_retries, row(view, 'remove', 'Erase').doom_retries }, { 5, nil })
     local para = row(view, 'remove', 'paralysis')
     eq({ para.label, para.on, para.debuff, para.usable, para.ready, para.count }, { 'Paralysis', true, true, true, true, nil })
     eq(para.action, 'Paralyna, Esuna, Remedy Ointment, Remedy, Panacea')

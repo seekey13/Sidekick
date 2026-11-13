@@ -1429,10 +1429,6 @@ end
 
 local REMOVER_TIP = 'Untick to never use it: the debuffs only it removes are greyed out below.'
 local DEBUFF_TIP = 'Untick to leave it on: worth it for what doesn\'t matter to your job (MP Down on a Warrior).'
-local DOOM_RETRIES_TIP = 'Times Cursna is cast again after it misses a Doom; then the Doom is taken as gone. '
-    .. 'Yours and your party\'s Doom are read from the game: Cursna goes on while it shows.\n'
-    .. 'Trust, Alliance and Tracked targets: their debuffs are read from what this character sees, so if '
-    .. 'someone else removed the Doom, a Cursna that finds nothing may look the same as a miss.'
 
 -- Debuff removal's spells and abilities, a checkbox each: its name, then ready or why not at the right.
 local function remover_row(pg, sid, r)
@@ -1540,7 +1536,6 @@ local function section_rows(pg, s, has_body, pane)
         subheader(pg, 'REMOVERS')
         for _, r in ipairs(removers) do
             remover_row(pg, s.id, r)
-            if r.doom_retries then slider(pg, 'Doom retries', 'remove.doom_retries', r.doom_retries, DOOM_RETRIES_TIP) end
         end
     end
     if #debuffs > 0 then

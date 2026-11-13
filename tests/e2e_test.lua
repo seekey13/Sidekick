@@ -287,7 +287,8 @@ test('every scenario in the suite loads, with what it checks and a run', functio
 end)
 
 -- The cursna scenarios against a fake game: `misses` Cursnas with no effect, then one that takes the Doom off.
--- `how`: stall = no Cursna after the first; no_heal = no heal ever; let_go = Sidekick drops the Doom after the first miss.
+-- `how`: stall = no Cursna after the first; no_heal = no heal ever; let_go = Sidekick reads the Doom gone after the first miss;
+-- lag = Sidekick still reads the Doom for 1 s after the Cursna that took it (the icon after the 0x028, as in game).
 local function noted(r, pattern)
     for _, n in ipairs(r.notes) do if n:find(pattern) then return true end end
     return false
@@ -329,7 +330,8 @@ local function cursna_game(misses, how)
             later(1.5, function ()
                 local took = n > misses
                 handlers.packet_in(action_packet(1, 4, 20, { { 2, took and 359 or 75, took and 15 or 0 } }))
-                if took or how == 'let_go' then test.buffs[15] = nil
+                if took and how == 'lag' then later(1, function () test.buffs[15] = nil end)
+                elseif took or how == 'let_go' then test.buffs[15] = nil
                 elseif how ~= 'stall' then later(10, function () casts = casts + 1; sidekick_sends('Cursna', 'Test', 'remove') end) end
             end)
         end
@@ -358,11 +360,18 @@ test('cursna_party: a Doom outlasting four Cursnas is bad luck, not a stall; Sid
     eq(noted(r, '^the Doom outlasted 4 Cursnas'), true)
 end)
 
-test('cursna_party: Sidekick letting the Doom go: noted, taken off, a heal, then quiet', function ()
+test('cursna_party: the fourth Cursna taking it, its icon lagging: taken off, not outlasted, then quiet', function ()
+    local r, heals = cursna_game(3, 'lag')
+    eq({ r.result, r.why, heals }, { 'pass', nil, 2 })
+    eq({ noted(r, '^Doom taken off by Cursna 4$'), noted(r, 'outlasted') }, { true, false })
+    eq(r.timings.heal_after_the_Cursna_that_took_it ~= nil, true)
+end)
+
+test('cursna_party: Sidekick reading the Doom gone with no Cursna that took it fails; the cleanup takes it off', function ()
     local r = cursna_game(5, 'let_go')
-    eq(r.result, 'pass')
-    eq(noted(r, '^Sidekick took the Doom as gone after 1 Cursnas with no effect'), true)
-    eq(noted(r, '^after the Doom was let go, Cure V'), true)
+    eq({ r.result, r.why:match('^Sidekick read the Doom on Test gone %d+s after it landed, after 1 Cursna with no effect: '
+        .. 'none took it off$') ~= nil }, { 'fail', true })
+    eq(packets[#packets - 2], '!deleffect Test 15')
 end)
 
 test('cursna_party: no Cursna once its recast is up fails, saying what Sidekick was doing', function ()

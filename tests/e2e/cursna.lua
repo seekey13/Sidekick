@@ -12,17 +12,15 @@
       4. While the Doom stays, another Cursna within CURSNA_RECAST + SLACK of the last one sent, up to MAX_CASTS, until
          the Doom is gone, read the same way as in 1. A Doom that outlasts MAX_CASTS is bad luck (Cursna takes it one
          time in five at WHM75), noted: what fails is a Cursna not sent once its recast is up.
-      5. The Doom gone: no more Cursnas on them. On the alliance and a tracked player Sidekick lets a Doom go after
-         cfg.remove.doom_retries + 1 misses, or buffs.DOOM_SECONDS after it landed: noted with which, and the Doom
-         taken off then, in case the server still holds it.
+      5. The Doom gone: no more Cursnas on them. Only a Cursna takes it off here, so Sidekick reading it gone with
+         none that took it fails: the server still counts it down (the alliance's and a tracked player's Doom is read
+         from that count, core/buffs.lua).
     A tracked player's HP is set by !exec (GM level 4): checked first, before any Doom, skipping without it.
     Each Cursna's result goes in the notes (message 75: no effect; 359: Doom taken off). A wait that fails says what
     Sidekick was doing then (its `why` and next action). The cleanup takes the Doom off, and raises them should it
     run out.
 ]]--
 
-local buffs = require('core.buffs')
-local removal = require('core.removal')
 local settings = require('core.settings')
 
 local DOOM = 15
@@ -57,10 +55,6 @@ return function (kind)
             local mine = (rm.own or {})[who]
             local skip = type(mine) == 'table' and mine.set and (mine.skip or {}) or rm.skip or {}
             t.need(rm.on and not (rm.off or {})[who] and not skip.doom, 'Doom removal is off for %s (Remove)', who)
-            if kind ~= 'party' then
-                t.note('Sidekick takes a missed Doom as gone after %d misses, or %ds after it landed',
-                    removal.retries(rm.doom_retries) + 1, buffs.DOOM_SECONDS)
-            end
             t.need(t.unit(who), '%s isn\'t among the units Sidekick decides on', who)
             if kind == 'tracked' then
                 -- The probe's 40% on a tracked player goes by !exec (GM level 4): seen to work before any Doom, with
@@ -148,23 +142,20 @@ return function (kind)
                 t.note('%s died of the Doom: the cleanup raises them', who)
                 return
             end
-            if doomed() and casts >= MAX_CASTS then
+            -- Not after the one that took it: Sidekick reads the icon a moment after the 0x028, so the Doom shows still.
+            if not took and doomed() and casts >= MAX_CASTS then
                 -- Bad luck, not a stall: each Cursna takes Doom one time in five at WHM75's skill.
                 t.note('the Doom outlasted %d Cursnas, each sent once its recast was up', casts)
                 probe('after the last Cursna')
                 return
             end
+            -- No Cursna took it, yet Sidekick reads it gone: it lost a Doom the server still counts down (the cleanup
+            -- takes it off).
+            t.check(took, 'Sidekick read the Doom on %s gone %.0fs after it landed, after %d Cursna%s with no effect: '
+                .. 'none took it off', who, clock() - doomed_at, casts, casts == 1 and '' or 's')
             t.wait_for(function () return not doomed() end, 5, ('Doom gone from %s in Sidekick\'s reading'):format(who))
-            if took then
-                t.note('Doom taken off by Cursna %d', casts)
-            else
-                -- Sidekick let it go (packets: its misses, or its cap), while the server may still hold it: off now,
-                -- so it doesn't kill them in the quiet window.
-                t.note('Sidekick took the Doom as gone after %d Cursnas with no effect, %.0fs after it landed (%s)', casts,
-                    clock() - doomed_at, clock() - doomed_at >= buffs.DOOM_SECONDS and 'its cap' or 'its misses')
-                t.gm.uneffect(who, 'doom')
-            end
-            probe(took and 'after the Cursna that took it' or 'after the Doom was let go')
+            t.note('Doom taken off by Cursna %d', casts)
+            probe('after the Cursna that took it')
             -- Nothing left on them: no Cursna into a Doom that's gone.
             local quiet = t.sends({ action = 'Cursna', on = who })
             t.wait(CURSNA_RECAST + SLACK)
