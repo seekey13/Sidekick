@@ -420,15 +420,6 @@ ja.words = {
     ['Removed by %s'] = '回復手段: %s',
     ['\nSwitched off: left on once something removes it again.'] = '\nオフ: 回復手段がまた使えるようになっても、そのままにします。',
     ['Tick something above that removes it.'] = '上で回復手段をオンにしてください。',
-    ['Doom retries'] = '死の宣告の再試行',
-    ['Times Cursna is cast again after it misses a Doom; then the Doom is taken as gone. '
-        .. 'Yours and your party\'s Doom are read from the game: Cursna goes on while it shows.\n'
-        .. 'Trust, Alliance and Tracked targets: their debuffs are read from what this character sees, so if '
-        .. 'someone else removed the Doom, a Cursna that finds nothing may look the same as a miss.'] =
-        'カーズナが死の宣告を治せなかったとき、もう一度唱える回数。超えると死の宣告は消えたものとします。'
-        .. '自分とパーティの死の宣告はゲームから読むので、表示されている間はカーズナを続けます。\n'
-        .. 'フェイス・アライアンス・追跡の相手: 弱体はこのキャラクターが見たものから読むため、'
-        .. 'ほかの人が死の宣告を治した場合、効果のなかったカーズナが失敗と区別できないことがあります。',
 
     -- Chat (Sidekick.lua) ---------------------------------------------------------------------
     ['No blue magic until the server sends your set spells: it does when you zone or change one.'] =

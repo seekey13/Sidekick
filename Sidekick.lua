@@ -31,7 +31,6 @@ local lang = require('core.lang')
 local observed = require('core.observed')
 local packets = require('core.packets')
 local profiles = require('core.profiles')
-local removal = require('core.removal')
 local resources = require('core.resources')
 local settings = require('core.settings')
 local share = require('core.share')
@@ -141,9 +140,6 @@ local packet_ctx = {
     removes = function (key)  -- your removers, cleared on their landing
         local a = cat.removers[key]
         if a then return a.removes, can.self_only(a) and a.area > 0 end
-    end,
-    doom_misses = function ()  -- Cursna misses on a Doom read from packets before it's taken as gone
-        return removal.retries(cfg and cfg.remove and cfg.remove.doom_retries) + 1
     end,
     missing = game.missing,  -- HP missing as a heal lands: a top-up since the send caps it
 }

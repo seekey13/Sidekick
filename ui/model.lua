@@ -30,10 +30,8 @@ local job_modules = require('core.jobs')
 local lang = require('core.lang')
 local pet_behavior = require('behaviors.pet')
 local profiles = require('core.profiles')
-local removal = require('core.removal')
 local settings = require('core.settings')
 local sky = require('core.sky')
-local status_ids = require('core.status')
 local util = require('core.util')
 
 local model = {}
@@ -423,11 +421,6 @@ local function build_rows(s, g, cat, cfg, units, outsiders, statuses)
             row.remover = true
             for _, a in ipairs(cat) do  -- a family with another role (Chakra heals too) shares its row
                 if settings.key(a) == key and a.role ~= 'remove' then row.shared = true end
-            end
-            for _, a in ipairs(acts_of[key]) do  -- Cursna: its retries on a Doom it missed, drawn under it
-                if util.contains(a.removes or {}, status_ids.DOOM) then
-                    row.doom_retries = removal.retries(cfg.remove.doom_retries)
-                end
             end
         end
         rows[#rows + 1] = row
@@ -861,7 +854,6 @@ model.REMOTE_SET = {
     ['rest.on'] = 'bool', ['rest.mp'] = { 1, 99 }, ['rest.distance'] = { 1, 15 },
     ['afk.on'] = 'bool', ['afk.minutes'] = { afk.MIN, afk.MAX },
     ['buff.hold_aoe'] = 'bool', ['buff.gather'] = 'bool', ['buff.one_shadow'] = 'bool',
-    ['remove.doom_retries'] = { 0, removal.MAX_RETRIES },
 }
 for _, spec in job_modules.each('ui') do
     for path, want in pairs(spec.set or {}) do

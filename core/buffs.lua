@@ -10,9 +10,12 @@ local buffs = {}
 -- Wear-off packets go missing (out of range, zoning), so every status expires on
 -- its own: after its known duration, else after this long.
 buffs.DEFAULT_SECONDS = 300
--- Doom ends by then however it came (taken off, or its count runs out and kills):
--- one whose end went unseen draws Cursna no longer.
-buffs.DOOM_SECONDS = 45
+-- Doom shows by its counter (core/packets.lua): the server ticks effects every 3 s, zone-wide
+-- (zone_entities.cpp), so its first count comes 3 to 6 s after it lands, then one every 3 s.
+-- Doom lasts this long past its gain or its last count: one that ended with nothing seen to
+-- end it (out of range, a removal that names it to no one) draws Cursna no longer. It covers
+-- the first count and one count lost.
+buffs.DOOM_HOLD = 8
 
 local DOOM = 15
 local store = {}  -- [server id] = { [status id] = expires at (os.clock seconds) }
@@ -21,7 +24,7 @@ local store = {}  -- [server id] = { [status id] = expires at (os.clock seconds)
 -- so it lasts as long as the one that wears last.
 function buffs.gain(sid, status, now, seconds, stacks)
     store[sid] = store[sid] or {}
-    if status == DOOM then seconds = math.min(seconds or buffs.DOOM_SECONDS, buffs.DOOM_SECONDS) end
+    if status == DOOM then seconds = buffs.DOOM_HOLD end
     local expires = now + (seconds or buffs.DEFAULT_SECONDS)
     store[sid][status] = stacks and math.max(store[sid][status] or expires, expires) or expires
 end
