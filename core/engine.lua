@@ -118,10 +118,25 @@ local function expecting(g, mem)
     return util.overlay(g, { me = me, units = units })
 end
 
+-- `units` without the trusts that can't be hurt (core/game.lua: `immune`): no
+-- behavior heals, buffs, cleanses, recovers or counts them. The HUD still lists them.
+local function supported(units)
+    local out
+    for i, u in ipairs(units) do
+        if u.immune and not out then
+            out = {}
+            for j = 1, i - 1 do out[j] = units[j] end
+        elseif out and not u.immune then
+            out[#out + 1] = u
+        end
+    end
+    return out or units
+end
+
 -- The intent for now, or nil and why not; with `only_free`, the free behaviors' alone.
 local function decide(g, cat, cfg, mem, only_free)
     mem.gather, mem.waiting = nil, nil
-    g = expecting(util.overlay(g, { gates = cfg.gates }), mem)  -- the rows' Combat and Idle, for can.gate
+    g = expecting(util.overlay(g, { gates = cfg.gates, units = supported(g.units) }), mem)  -- the rows' Combat and Idle, for can.gate
     -- A mount, else the first of a town or AFK sleep: the reason given, over any gate after it.
     local mounted, pause
     for _, gate in ipairs(GATES) do
