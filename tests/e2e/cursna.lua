@@ -15,6 +15,7 @@
       5. The Doom gone: no more Cursnas on them. On the alliance and a tracked player Sidekick lets a Doom go after
          cfg.remove.doom_retries + 1 misses, or buffs.DOOM_SECONDS after it landed: noted with which, and the Doom
          taken off then, in case the server still holds it.
+    A tracked player's HP is set by !exec (GM level 4): checked first, before any Doom, skipping without it.
     Each Cursna's result goes in the notes (message 75: no effect; 359: Doom taken off). A wait that fails says what
     Sidekick was doing then (its `why` and next action). The cleanup takes the Doom off, and raises them should it
     run out.
@@ -61,6 +62,18 @@ return function (kind)
                     removal.retries(rm.doom_retries) + 1, buffs.DOOM_SECONDS)
             end
             t.need(t.unit(who), '%s isn\'t among the units Sidekick decides on', who)
+            if kind == 'tracked' then
+                -- The probe's 40% on a tracked player goes by !exec (GM level 4): seen to work before any Doom, with
+                -- automation still as it was (off: no heal yet), then put back.
+                t.gm.hp_pct(who, 40)
+                local ok, err = pcall(t.wait_for, function () return t.who(who).hpp <= 45 end, 5, 'HP')
+                if not ok and not (type(err) == 'table' and (err.why or ''):find(': not within ', 1, true)) then
+                    error(err, 0)  -- an abort, or the time running out
+                end
+                t.need(ok, '%s\'s HP didn\'t fall: a tracked player\'s is set by !exec, which needs GM level 4', who)
+                t.gm.full(who)
+                t.wait_for(function () return t.who(who).hpp > 45 end, 5, who .. '\'s HP back')
+            end
             t.start()
             t.settle()
 
@@ -89,8 +102,7 @@ return function (kind)
                 t.wait(1)
                 local before = t.sends({ on = who })
                 t.gm.hp_pct(who, 40)
-                t.wait_for(function () return t.who(who).hpp <= 45 end, 5, who .. ' at 40%'
-                    .. (kind == 'tracked' and ' (a tracked player\'s HP is set by !exec: GM level 4)' or ''))
+                t.wait_for(function () return t.who(who).hpp <= 45 end, 5, who .. ' at 40%')
                 local heal = waiting(function ()
                     return after(t.sends({ behavior = 'heal', on = who }), before[#before])
                 end, 10, ('a heal on %s %s'):format(who, label))

@@ -388,6 +388,17 @@ test('cursna_party: Cursna switched off under Remove skips', function ()
     eq({ r.result, r.why }, { 'skip', 'Cursna is switched off (Remove)' })
 end)
 
+test('cursna_tracked: a tracked player\'s HP that doesn\'t fall (no GM level 4) skips, before any Doom', function ()
+    tracked.list = { { name = 'Tracked' } }
+    world.ents[0x402] = 'Tracked'
+    world.units = { { name = 'Dev', buffs = {} }, { name = 'Tracked', buffs = {} } }
+    status.running, packets = false, {}
+    local r = run_to_end('cursna_tracked')[1]
+    world.ents[0x402], world.units, tracked.list = nil, nil, {}
+    eq({ r.result, r.why }, { 'skip', 'Tracked\'s HP didn\'t fall: a tracked player\'s is set by !exec, which needs GM level 4' })
+    for _, line in ipairs(packets) do eq(line:find('addeffect', 1, true), nil, line) end
+end)
+
 test('unwatch waits for a scenario running: aborted, cleaned up, then unhooked', function ()
     packets = {}
     e2e.clear()
