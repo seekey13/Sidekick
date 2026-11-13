@@ -493,14 +493,20 @@ function game.sent(action)
     ready_since[ready_key(action)] = nil
 end
 
+-- Max HP of party member `sid`: as seen at full, else estimated from HP%. Rough at
+-- low HP, good enough to score.
+local function max_of(sid, hp, hpp)
+    return max_hp[sid] or (hpp > 0 and hp > 0 and math.floor(hp * 100 / hpp)) or nil
+end
+
 -- HP party member `sid` is missing as the client shows it now, or nil when it isn't
 -- one of your party or alliance (core/observed.lua: a heal's reading as it lands).
 function game.missing(sid)
     local party = AshitaCore:GetMemoryManager():GetParty()
     for i = 0, 17 do
         if party:GetMemberIsActive(i) == 1 and party:GetMemberServerId(i) == sid then
-            local hp, hpp = party:GetMemberHP(i), party:GetMemberHPPercent(i)
-            local max = max_hp[sid] or (hpp > 0 and hp > 0 and math.floor(hp * 100 / hpp)) or nil
+            local hp = party:GetMemberHP(i)
+            local max = max_of(sid, hp, party:GetMemberHPPercent(i))
             return max and math.max(0, max - hp) or nil
         end
     end
@@ -534,8 +540,7 @@ local function member(party, player, em, i, zone, now)
         local j = u.jobs or {}
         u.uses_mp = has_mp[key] == true or MP_JOBS[j[1]] == true or (j[4] or 0) > 0 and MP_JOBS[j[3]] == true
     end
-    -- Never seen at full: estimate from HP%. Rough at low HP, good enough to score.
-    u.max_hp = max_hp[sid] or (u.hpp > 0 and u.hp > 0 and math.floor(u.hp * 100 / u.hpp)) or nil
+    u.max_hp = max_of(sid, u.hp, u.hpp)
     -- Only one the client draws: out of its range a member has no entity, and
     -- would read as 0 yalms away. Then dist and pos are unknown: out of reach.
     if u.in_zone and tidx > 0 and (i == 0 or present(em, tidx)) then

@@ -225,6 +225,7 @@ test('a heal capped by a top-up since the send teaches nothing; HP shown before 
     observed.healed('ma4', 101, 300, 1, 500)  -- shown after it lands: 300 of 800, 500 still missing
     eq(observed.learned.ma4, 300)
     observed.learned.ma4 = nil
+    observed.done('ma4')
 end)
 
 test('Majesty spreads one Cure over a bunched group, and is divided out of a reading', function ()

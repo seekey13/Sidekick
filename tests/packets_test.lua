@@ -318,3 +318,16 @@ test('a raw 0x028: your own and your pet\'s heals are read on untracked targets 
         observed.learned[cure], observed.learned[ruby] = nil, nil
     end)
 end)
+
+test('a heal is read against the HP each target is missing as it lands', function ()
+    local c = ctx()
+    c.missing = function (sid) return ({ [TRUST] = 150 })[sid] end  -- topped up since; PET: unknown
+    observed.clear()
+    observed.sent('ma7', { need = { [TRUST] = 500, [PET] = 500 }, mult = 1, at = 0 })
+    packets.action(action(ME, SPELL, 7, { { TRUST, 7, 150 } }), c, 1)  -- capped by the top-up
+    eq(observed.learned.ma7, nil)
+    observed.sent('ma7', { need = { [TRUST] = 500, [PET] = 500 }, mult = 1, at = 0 })
+    packets.action(action(ME, SPELL, 7, { { PET, 7, 300 } }), c, 1)    -- the send's 500 still holds
+    eq(observed.learned.ma7, 300)
+    observed.learned.ma7 = nil
+end)

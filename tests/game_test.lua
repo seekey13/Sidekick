@@ -517,13 +517,13 @@ end)
 
 test('HP missing now: by max HP once seen at full, else estimated; nil for who isn\'t in party or alliance', function ()
     reset()
-    local bea = { sid = 600, tidx = 0x500, name = 'Bea', hpp = 100, hp = 1500, mpp = 0, mp = 0 }
-    world.party[2], world.ents[0x500] = bea, { sid = 600, name = 'Bea', hpp = 100, dist = 3 }
+    local bea = { sid = 610, tidx = 0x510, name = 'Bea', hpp = 100, hp = 1500, mpp = 0, mp = 0 }
+    world.party[2], world.ents[0x510] = bea, { sid = 610, name = 'Bea', hpp = 100, dist = 3 }
     read()                                         -- seen at full: 1500
     bea.hpp, bea.hp = 40, 600
-    eq({ game.missing(600), game.missing(ME), game.missing(STRANGER) }, { 900, 0, nil })
-    world.party[3] = { sid = 602, tidx = 0x502, name = 'Dee', hpp = 50, hp = 500, mpp = 0, mp = 0 }
-    eq(game.missing(602), 500)                     -- never seen at full: 1000 from 500 at 50%
+    eq({ game.missing(610), game.missing(ME), game.missing(STRANGER) }, { 900, 0, nil })
+    world.party[3] = { sid = 611, tidx = 0x511, name = 'Dee', hpp = 50, hp = 500, mpp = 0, mp = 0 }
+    eq(game.missing(611), 500)                     -- never seen at full: 1000 from 500 at 50%
 end)
 
 rawset(_G, 'AshitaCore', nil)

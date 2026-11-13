@@ -34,7 +34,8 @@ end
 -- else's cure or a Regen tick may have topped them up since the send, capping
 -- the heal below what was missing then. The client may show the HP before this
 -- heal or after it: either way the lower of the two only throws more readings
--- out, never lets a capped one in.
+-- out, never lets a capped one in. A top-up the client hasn't shown yet (another
+-- healer's, its HP update still on the way) still gets through, as before.
 function observed.healed(key, sid, amount, now, missing)
     local e = expected(key, now)
     local need = e and e.need[sid]
