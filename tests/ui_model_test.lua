@@ -79,8 +79,22 @@ test('WHM 75 / BLM 37: every section, in order, each under its header, then UI /
 end)
 
 test('recovery says whether a row spends TP, so Chivalry\'s line is shown only then', function ()
-    eq(build(whm).recover, { mp = 30, tp = 1000, min_tp = 3000, spends_tp = false })
+    eq(build(whm).recover, { mp = 30, tp = 1000, min_tp = 3000, spends_tp = false, target = '', names = { 'A', 'B' },
+                             devotion = false })
     eq(build(fake.catalog(PLD, 75, nil, 0, { 'Chivalry' })).recover.spends_tp, true)
+end)
+
+test('recovery says whether Devotion is there to aim, at whom (your party but you, with MP), and who it is aimed at',
+    function ()
+    local cat = fake.catalog(WHM, 75, BLM, 37, { 'Devotion' })
+    local cfg = settings.defaults()
+    cfg.recover.target = 'B'
+    local g = fake.snap({ { name = 'A' }, { name = 'War', uses_mp = false }, { name = 'B' },
+                          { name = 'Ally', slot = 6, kind = 'alliance' }, { name = 'Out', kind = 'tracked' } })
+    local r = build(cat, cfg, g).recover
+    eq({ r.devotion, r.target, r.names }, { true, 'B', { 'A', 'B' } })
+    eq(build(fake.catalog(RDM, 75, nil, 0, { 'Convert' })).recover.devotion, false)  -- on you alone
+    eq(model.REMOTE_SET['recover.target'], 'name')
 end)
 
 test('a section with nothing to show is left out: BLM 75 has no raise, no heal that wakes, only items under Debuffs', function ()

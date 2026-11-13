@@ -14,7 +14,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 addon.name    = 'Sidekick'
 addon.author  = 'Seekey'
-addon.version = '3.1.2'
+addon.version = '3.1.3'
 addon.desc    = 'Support Job Automation Framework'
 addon.link    = 'https://github.com/seekey13/Sidekick'
 
@@ -817,7 +817,7 @@ end)
 
 local HELP = '/sk (or /sidekick) opens or closes Sidekick Settings. Commands: hud, alt [name|all], alt start|stop [name|all], widget, '
     .. 'start [name|all], stop [name|all], toggle, plan, state, '
-    .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow [name|on|off], rest [on|off], '
+    .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, devotion <name|off>, follow [name|on|off], rest [on|off], '
     .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], theme [name], catalog [unknown], '
     .. 'log, help. A Phantom Roll\'s name (Bolter\'s Roll) rolls it now, then Double-Ups at Lowest'
 
@@ -894,6 +894,25 @@ local COMMANDS = {
         cfg.heal.focus = name
         settings.save()
         if name == '' then printf('Focus off.') else printf('Focus: %s.', name) end
+    end,
+    -- Devotion only on that member, spelled as the game does while they're in your party; off, on whoever is lowest.
+    -- One not in your party now (another party of the alliance, tracked, not here yet) is taken too, as names are
+    -- spelled (Kupipi), with a warning: until they're in your party, Devotion goes on whoever is lowest. Never you.
+    devotion = function (args, g)
+        local name, member = name_or_off(args), nil
+        if name ~= '' and name:lower() == g.me.name:lower() then
+            printf('That\'s you: Devotion goes on another member.')
+            return
+        end
+        for _, u in ipairs(g.units) do
+            if u.kind ~= 'self' and can.in_party(u) and u.name:lower() == name:lower() then member = u end
+        end
+        if member then name = member.name elseif name ~= '' then name = name:sub(1, 1):upper() .. name:sub(2):lower() end
+        cfg.recover.target = name
+        settings.save()
+        if name == '' then printf('Devotion on whoever is lowest on MP.') return end
+        printf('Devotion only on %s.', name)
+        if not member then printf('%s isn\'t in your party now: Devotion goes on whoever is lowest until they are.', name) end
     end,
     follow = function (args, g) follow_command(args[3], g) end,
     track = function (args, g)

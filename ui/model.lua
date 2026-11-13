@@ -712,6 +712,7 @@ function model.build(g, cat, cfg, status, names)
     end)
 
     local spends_tp, wakes = false, false  -- Chivalry: its TP line is worth showing; a heal can wake
+    local devotion = false                 -- a recovery row for a member (Devotion): who it goes on is worth showing
     local stratagems = false               -- what heal.reserve keeps (SCH's charges): the reserve is worth showing
     local shadows = false                  -- NIN: Utsusemi, so recasting at one shadow is worth showing
     local sends = false                    -- Assault, Fight, Deploy: where the pet is sent is worth showing
@@ -720,12 +721,18 @@ function model.build(g, cat, cfg, status, names)
         shadows = shadows or a.last_shadow ~= nil
         sends = sends or a.role == 'pet_send'
         spends_tp = spends_tp or a.role == 'recover' and a.spends_tp == true
+        devotion = devotion or a.role == 'recover' and not a.decide and a.gives ~= 'tp'
+            and not can.self_only(a) and not can.at_enemy(a)
         wakes = wakes or a.role == 'heal' and a.wakes == true and not a.pet
     end
 
-    local party_names = {}  -- your party but you: who a job module's section may pick (Entrust)
+    -- Your party but you: who a job module's section may pick (Entrust); those with MP, who Devotion may go on.
+    local party_names, mp_names = {}, {}
     for _, u in ipairs(g.units) do
-        if u.kind ~= 'self' and can.in_party(u) then party_names[#party_names + 1] = u.name end
+        if u.kind ~= 'self' and can.in_party(u) then
+            party_names[#party_names + 1] = u.name
+            if u.uses_mp then mp_names[#mp_names + 1] = u.name end
+        end
     end
 
     local view = {
@@ -738,7 +745,8 @@ function model.build(g, cat, cfg, status, names)
                  cure_potency = h.cure_potency, waltz_potency = h.waltz_potency, regen_potency = h.regen_potency,
                  reserve = h.reserve, stratagems = stratagems,
                  focus_names = focus_names, targets = heal_targets },
-        recover = { mp = cfg.recover.mp, tp = cfg.recover.tp, min_tp = cfg.recover.min_tp, spends_tp = spends_tp },
+        recover = { mp = cfg.recover.mp, tp = cfg.recover.tp, min_tp = cfg.recover.min_tp, spends_tp = spends_tp,
+                    target = cfg.recover.target or '', names = mp_names, devotion = devotion },
         pet_heal = cfg.pet.heal,
         pet_at_t = sends and cfg.pet.at_t == true or nil, pet_sends = sends,  -- send it at <t> while engaged
         follow = { on = cfg.follow.on, target = cfg.follow.target, distance = cfg.follow.distance, names = focus_names },
@@ -806,7 +814,7 @@ end
 -- HUD's (its labels and sizes) and the views it shows of others itself,
 -- with the view's `version`, VIEW: raise it when a field the window draws changes,
 -- so a session still running older code isn't drawn from a view it can't read.
-model.VIEW = 11
+model.VIEW = 12
 function model.published(view)
     local out = util.shallow_copy(view)
     out.pointer, out.others, out.ui, out.remote, out.sessions, out.themes = nil, nil, nil, nil, nil, nil
@@ -841,7 +849,8 @@ model.REMOTE_SET = {
     ['heal.threshold'] = { 1, 99 }, ['heal.danger'] = { 1, 99 }, ['heal.critical'] = { 1, 99 },
     ['heal.focus_threshold'] = { 1, 99 }, ['heal.focus_danger'] = { 1, 99 }, ['heal.focus_critical'] = { 1, 99 }, ['heal.cure_potency'] = { 0, 50 }, ['heal.waltz_potency'] = { 0, 50 },
     ['heal.regen_potency'] = { 0, 30 }, ['heal.focus'] = 'name', ['heal.reserve'] = 'bool',
-    ['recover.mp'] = { 1, 99 }, ['recover.tp'] = { 0, 3000 }, ['recover.min_tp'] = { 0, 3000 }, ['pet.heal'] = { 1, 99 }, ['pet.at_t'] = 'bool',
+    ['recover.mp'] = { 1, 99 }, ['recover.tp'] = { 0, 3000 }, ['recover.min_tp'] = { 0, 3000 }, ['recover.target'] = 'name',
+    ['pet.heal'] = { 1, 99 }, ['pet.at_t'] = 'bool',
     ['follow.on'] = 'bool', ['follow.target'] = 'name', ['follow.distance'] = { 1, 15 },
     ['rest.on'] = 'bool', ['rest.mp'] = { 1, 99 }, ['rest.distance'] = { 1, 15 },
     ['afk.on'] = 'bool', ['afk.minutes'] = { afk.MIN, afk.MAX },

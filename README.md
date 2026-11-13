@@ -55,6 +55,7 @@ Automation starts **off** after a load; turn off **Always load stopped** (Sideki
 | `/sk plan` | Show what it would do right now, without doing it |
 | `/sk buff <spell> <targets>` | Keep a buff up (`me`, `p1`–`p5`, `b0`–`c5`, a tracked name); `off` to stop |
 | `/sk focus <Name>` \| `off` | Heal this member first |
+| `/sk devotion <Name>` \| `off` | Devotion only on this party member (while they aren't in your party, on whoever is lowest on MP); `off`, always on whoever is lowest |
 | `/sk follow` `[Name\|on\|off]` | Follow on or off (toggled with nothing after it); with a name, follow that leader: anyone in your party, alliance or tracked (a name not there yet is kept, with a warning). Follow goes on mounted, in town and while automation is stopped |
 | `/sk rest` / `afk` `[on\|off]` | Rest when MP runs low / AFK sleep |
 | `/sk track` / `untrack` `[Name]` | Look after a player outside your alliance |

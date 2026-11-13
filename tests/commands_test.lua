@@ -362,6 +362,28 @@ local ok, err = pcall(function ()
         e.sk('/sk follow B')
     end)
 
+    test('/sk devotion <name> aims Devotion at that member, spelled as the game does; off at the lowest; never you', function ()
+        local r
+        for _, file in pairs(e.files) do r = r or file.recover end
+        eq(r.target, '')
+        eq({ e.sk('/sk devotion b'), r.target }, { 'Devotion only on B.', 'B' })
+        eq({ e.sk('/sk devotion me'), r.target }, { 'That\'s you: Devotion goes on another member.', 'B' })
+        local away = function (n)
+            return ('Devotion only on %s. | %s isn\'t in your party now: Devotion goes on whoever is lowest until they '
+                .. 'are.'):format(n, n)
+        end
+        eq({ e.sk('/sk devotion lATER'), r.target }, { away('Later'), 'Later' })  -- not here yet: kept, spelled as names are
+        eq({ e.sk('/sk devotion OFF'), r.target }, { 'Devotion on whoever is lowest on MP.', '' })
+        eq({ e.sk('/sk devotion'), r.target }, { 'Devotion on whoever is lowest on MP.', '' })
+        e.party = { { name = 'B' }, { name = 'Zed', kind = 'alliance' }, { name = 'Out', kind = 'tracked' } }
+        e.frame()
+        eq({ e.sk('/sk devotion zed'), r.target }, { away('Zed'), 'Zed' })  -- another party's: Devotion can't reach them
+        eq({ e.sk('/sk devotion OUT'), r.target }, { away('Out'), 'Out' })
+        e.party = { { name = 'B' } }
+        e.frame()
+        e.sk('/sk devotion off')
+    end)
+
     test('Follow goes on with automation stopped, mounted or in a safe zone too; never while you move', function ()
         e.party, e.queued = { { name = 'B', dist = 9 } }, {}
         e.frame()

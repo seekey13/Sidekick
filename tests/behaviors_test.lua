@@ -81,6 +81,38 @@ test('recover: Devotion on the member lowest on MP, never one with no MP', funct
     eq(decide(g, nil, cat), '/ja "Devotion" 101')
 end)
 
+test('recover: Devotion with a target goes only on them, under the MP line, and waits for them while they are away',
+    function ()
+    local cat = fake.catalog(WHM, 75, nil, 0, { 'Devotion' })
+    local cfg = cfg_with({ ['recover.target'] = 'A' })
+    local g = snap({ { name = 'A', mpp = 25 }, { name = 'B', mpp = 10 } })
+    local cmd, intent = decide(g, cfg, cat)
+    eq({ cmd, intent.why }, { '/ja "Devotion" 101', 'A MP 25%' })  -- B is lower, but not the target
+    g.units[2].mpp = 40  -- A
+    eq({ decide(g, cfg, cat) }, { nil, 'nothing to do' })  -- over the line: B under it is still left alone
+    g.units[2].mpp, g.units[2].in_zone = 25, false
+    eq({ decide(g, cfg, cat) }, { nil, 'nothing to do' })  -- in another zone: still kept for A
+    g.units[2].in_zone, g.units[2].alive, cfg.revive.on = true, false, false
+    eq({ decide(g, cfg, cat) }, { nil, 'nothing to do' })  -- dead (and not raised here): still kept for A
+    g.units[2].alive, cfg.revive.on = true, true
+    cfg.recover.target = ''
+    eq(decide(g, cfg, cat), '/ja "Devotion" 102')  -- whoever is lowest: B
+    cfg.recover.target = 'a'
+    eq(decide(g, cfg, cat), '/ja "Devotion" 101')  -- named in any case, as focus and Entrust are
+end)
+
+test('recover: Devotion with a target not in your party goes on whoever is lowest until they are', function ()
+    local cat = fake.catalog(WHM, 75, nil, 0, { 'Devotion' })
+    local cfg = cfg_with({ ['recover.target'] = 'Gone' })
+    local g = snap({ { name = 'A', mpp = 25 }, { name = 'B', mpp = 10 }, { name = 'Zed', mpp = 5, kind = 'alliance' },
+                     { name = 'Out', kind = 'tracked' } })
+    eq(decide(g, cfg, cat), '/ja "Devotion" 102')  -- left the party: B, the lowest
+    cfg.recover.target = 'Zed'
+    eq(decide(g, cfg, cat), '/ja "Devotion" 102')  -- another party of the alliance: Devotion can't reach them
+    cfg.recover.target = 'Out'
+    eq(decide(g, cfg, cat), '/ja "Devotion" 102')  -- tracked
+end)
+
 test('recover: Meditate in combat under the TP line; Chivalry from its own TP line', function ()
     local sam = fake.catalog(SAM, 75, nil, 0, { 'Meditate' })
     eq(decide(snap(nil, { combat = true }), nil, sam), '/ja "Meditate" <me>')

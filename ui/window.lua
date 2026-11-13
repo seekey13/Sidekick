@@ -658,21 +658,21 @@ local function flow(items, x0, right, gap)
     return n
 end
 
--- What a pick shows: its choice's `field` (label), or None; a pick the job no longer has says so
+-- What a pick shows: its choice's `field` (label), or `none` (None); a pick the job no longer has says so
 -- (a name, as one who isn't here now, doesn't).
-local function shown_pick(current, choices, field)
+local function shown_pick(current, choices, field, none)
     for _, c in ipairs(choices) do
         if c.name == current then return c[field or 'label'] end
     end
-    if current == '' then return t('None') end
+    if current == '' then return none or t('None') end
     return choices.names and choices.label(current) or f('%s (not available)', lang.name(current))
 end
 
--- A drop-down's list for setting `path`: None (''), then each of `choices` ({ name, label }) by its
+-- A drop-down's list for setting `path`: `none` (None) for '', then each of `choices` ({ name, label }) by its
 -- `field` (label), `current` ticked, each with the tooltip `tip(choice)` gives; `id` keeps their ids apart.
-local function options(id, path, current, choices, field, tip)
+local function options(id, path, current, choices, field, tip, none)
     return function ()
-        if kit.selectable(t('None') .. '##' .. id .. '_none', current == '') then act.set(path, '') end
+        if kit.selectable((none or t('None')) .. '##' .. id .. '_none', current == '') then act.set(path, '') end
         for _, c in ipairs(choices) do
             if kit.selectable(c[field or 'label'] .. '##' .. id .. '_' .. c.name, c.name == current) then act.set(path, c.name) end
             if tip then kit.tip(tip(c)) end
@@ -689,10 +689,11 @@ local function named(names, label)
     return out
 end
 
--- A labelled line's drop-down for setting `path` (None for ''), `w` wide (PICK_W).
-local function choice(pg, label, id, path, current, choices, help, w, tip)
-    pick(pg, label, label .. '##sk_' .. id, shown_pick(current, choices), options('sk_' .. id, path, current, choices, nil, tip),
-        help, w)
+-- A labelled line's drop-down for setting `path` (`none` for '', None unless given), `w` wide (PICK_W).
+local function choice(pg, label, id, path, current, choices, help, w, tip, none)
+    none = none and t(none)
+    pick(pg, label, label .. '##sk_' .. id, shown_pick(current, choices, nil, none),
+        options('sk_' .. id, path, current, choices, nil, tip, none), help, w)
 end
 
 -- A slot's drop-down at (x, cy), `w` wide, for setting `path`. Returns whether it's hovered.
@@ -795,6 +796,12 @@ local function draw_recover_settings(view, pg)
     slider(pg, 'TP under', 'recover.tp', r.tp, 'In combat, get TP back under this.')
     if r.spends_tp then
         slider(pg, 'Spend TP from', 'recover.min_tp', r.min_tp, 'Chivalry turns all your TP into MP: only from this much.')
+    end
+    if r.devotion then
+        choice(pg, 'Devotion on', 'recover_target', 'recover.target', r.target, named(r.names),
+            'Devotion goes only on this member, once their MP is under MP under; while they aren\'t in your party, on the '
+                .. 'member lowest on MP. Lowest MP: always the member lowest on MP.',
+            nil, nil, 'Lowest MP')
     end
 end
 
