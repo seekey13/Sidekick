@@ -508,6 +508,7 @@ ja.words = {
     ['off'] = 'オフ', ['Widget %s.'] = 'ウィジェット: %s', ['Focus off.'] = 'フォーカス: オフ', ['Focus: %s.'] = 'フォーカス: %s',
     ['Devotion on whoever is lowest on MP.'] = 'デヴォーション: MPが最も低いメンバーに使います。',
     ['Devotion only on %s.'] = 'デヴォーション: %sにだけ使います。',
+    ['%s isn\'t in your party now: no Devotion until they are.'] = '%sは今パーティにいません。加わるまでデヴォーションは使いません。',
     ['That\'s you: Devotion goes on another member.'] = 'それはあなたです: デヴォーションは他のメンバーに使います。',
     ['Follow off.'] = '追従: オフ', ['Following %s past %d yalms.'] = '%sを追従します（%dヤルムより離れたら）。',
     ['Follow on, but no leader yet: /sk follow <name>.'] = '追従: オン。ただしリーダーが未設定です: /sk follow <名前>',

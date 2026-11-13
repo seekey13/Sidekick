@@ -37,8 +37,16 @@ test('a profile never holds the profiles, the HUD, the language, following, the 
     eq({ snap.geo.entrust, snap.geo.entrust_spell }, { nil, 'Indi-Fury' })
     eq({ snap.recover.target, snap.recover.mp }, { nil, 40 })
     eq(snap.heal.danger, 50)
+    profiles.load_default(cfg)
+    eq(cfg.recover.target, 'Mage')
+    profiles.load(cfg, 'Two')
+    eq(cfg.recover.target, 'Mage')
+    cfg.profiles.Old = { recover = { mp = 50, target = 'Saved' } }  -- one a profile was never meant to hold
+    profiles.load(cfg, 'Old')
+    eq({ cfg.recover.target, cfg.recover.mp }, { 'Mage', 50 })
     profiles.new(cfg)
     eq({ cfg.remove.off, cfg.remove.own.A, cfg.remove.skip }, { { Kupipi = true }, { set = true, skip = { poison = true } }, {} })
+    eq(cfg.recover.target, 'Mage')
 end)
 
 test('loading from Default parks the working copy; Default brings it back, and loads keep what is kept', function ()

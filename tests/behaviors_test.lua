@@ -94,6 +94,15 @@ test('recover: Devotion with a target goes only on them, under the MP line, and 
     eq({ decide(g, cfg, cat) }, { nil, 'nothing to do' })  -- not in the party: no one else gets it
     cfg.recover.target = ''
     eq(decide(g, cfg, cat), '/ja "Devotion" 102')  -- back to whoever is lowest: B
+    cfg.recover.target = 'b'
+    eq(decide(g, cfg, cat), '/ja "Devotion" 102')  -- named in any case, as focus and Entrust are
+end)
+
+test('recover: Devotion with a target in another party of the alliance goes on no one: it reaches your party alone', function ()
+    local cat = fake.catalog(WHM, 75, nil, 0, { 'Devotion' })
+    local cfg = cfg_with({ ['recover.target'] = 'Zed' })
+    local g = snap({ { name = 'A', mpp = 10 }, { name = 'Zed', mpp = 10, kind = 'alliance' } })
+    eq({ decide(g, cfg, cat) }, { nil, 'nothing to do' })
 end)
 
 test('recover: Meditate in combat under the TP line; Chivalry from its own TP line', function ()

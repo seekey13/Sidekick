@@ -368,9 +368,19 @@ local ok, err = pcall(function ()
         eq(r.target, '')
         eq({ e.sk('/sk devotion b'), r.target }, { 'Devotion only on B.', 'B' })
         eq({ e.sk('/sk devotion me'), r.target }, { 'That\'s you: Devotion goes on another member.', 'B' })
-        eq({ e.sk('/sk devotion Later'), r.target }, { 'Devotion only on Later.', 'Later' })  -- not here yet: kept
+        local later = 'Devotion only on Later. | Later isn\'t in your party now: no Devotion until they are.'
+        eq({ e.sk('/sk devotion lATER'), r.target }, { later, 'Later' })  -- not here yet: kept, spelled as names are
         eq({ e.sk('/sk devotion OFF'), r.target }, { 'Devotion on whoever is lowest on MP.', '' })
         eq({ e.sk('/sk devotion'), r.target }, { 'Devotion on whoever is lowest on MP.', '' })
+        e.party = { { name = 'B' }, { name = 'Zed', kind = 'alliance' }, { name = 'Out', kind = 'tracked' } }
+        e.frame()
+        eq({ e.sk('/sk devotion zed'), r.target },  -- another party's: Devotion can't reach them
+           { 'Devotion only on Zed. | Zed isn\'t in your party now: no Devotion until they are.', 'Zed' })
+        eq({ e.sk('/sk devotion OUT'), r.target },
+           { 'Devotion only on Out. | Out isn\'t in your party now: no Devotion until they are.', 'Out' })
+        e.party = { { name = 'B' } }
+        e.frame()
+        e.sk('/sk devotion off')
     end)
 
     test('Follow goes on with automation stopped, mounted or in a safe zone too; never while you move', function ()
