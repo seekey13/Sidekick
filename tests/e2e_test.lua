@@ -72,8 +72,9 @@ local function frame(dt)
     now = now + (dt or 0.1)
     if world.react then world.react() end
     share.tick({}, now, status, {})
-    engine.decide({ units = world.units or {} }, { { name = 'Poisona' }, { name = 'Cursna' } },
-        { buff = { hold_aoe = false }, remove = { on = true, skip = {} } }, {})
+    engine.decide({ units = world.units or {} },
+        { { name = 'Poisona' }, { name = 'Cursna', role = 'remove', family = 'Cursna', kind = 'ma' } },
+        { buff = { hold_aoe = false }, remove = { on = true, skip = {} }, rows = world.rows or {} }, {})
     handlers.d3d_present()
 end
 local function frames(seconds) for _ = 1, math.ceil(seconds / 0.1) do frame() end end
@@ -277,16 +278,25 @@ test('a read through t.gm (who, cursor...) is no scene: the scene\'s moment stay
     eq({ r.result, r.why, r.notes[1] }, { 'pass', nil, 'Test' })
 end)
 
-test('every scenario in the suite loads, with what it checks', function ()
-    for _, s in ipairs(e2e.list()) do eq(s.about:find('does not load', 1, true), nil, s.name) end
+test('every scenario in the suite loads, with what it checks and a run', function ()
+    for _, s in ipairs(e2e.list()) do
+        eq(s.about:find('does not load', 1, true), nil, s.name)
+        package.loaded['tests.e2e.' .. s.name] = nil
+        eq(type(require('tests.e2e.' .. s.name).run), 'function', s.name)
+    end
 end)
 
 -- The cursna scenarios against a fake game: `misses` Cursnas with no effect, then one that takes the Doom off.
-local function cursna_game(misses, stall)
+-- `how`: stall = no Cursna after the first; no_heal = no heal ever; let_go = Sidekick drops the Doom after the first miss.
+local function noted(r, pattern)
+    for _, n in ipairs(r.notes) do if n:find(pattern) then return true end end
+    return false
+end
+local function cursna_game(misses, how)
     local test = { name = 'Test', buffs = {} }
     world.units = { { name = 'Dev', buffs = {} }, test }
     status.running, status.sent, packets, queued = false, {}, {}, {}
-    local seen_lines, casts, pending = 0, 0, {}
+    local seen_lines, casts, pending, heals = 0, 0, {}, 0
     local function later(dt, fn) pending[#pending + 1] = { at = now + dt, fn = fn } end
     world.react = function ()
         for i = #pending, 1, -1 do
@@ -302,6 +312,8 @@ local function cursna_game(misses, stall)
                 test.buffs[15] = nil
             elseif line:match('^!hp %d+ Test$') and line ~= '!hp 99999 Test' then
                 world.party[2].hpp = 40
+                heals = heals + 1
+                if how == 'no_heal' then return end
                 later(0.5, function () sidekick_sends('Cure V', 'Test', 'heal') end)
                 later(3, function ()
                     handlers.packet_in(action_packet(1, 4, 6, { { 2, 7, 700 } }))
@@ -317,28 +329,63 @@ local function cursna_game(misses, stall)
             later(1.5, function ()
                 local took = n > misses
                 handlers.packet_in(action_packet(1, 4, 20, { { 2, took and 359 or 75, took and 15 or 0 } }))
-                if took then test.buffs[15] = nil
-                elseif not stall then later(10, function () casts = casts + 1; sidekick_sends('Cursna', 'Test', 'remove') end) end
+                if took or how == 'let_go' then test.buffs[15] = nil
+                elseif how ~= 'stall' then later(10, function () casts = casts + 1; sidekick_sends('Cursna', 'Test', 'remove') end) end
             end)
         end
     end
     local r = run_to_end('cursna_party')[1]
     world.react, world.units, world.party[2].hpp = nil, nil, 100
-    return r
+    return r, heals
 end
 
-test('cursna_party: Doom on Test, Cursna until it goes, a heal between, then quiet', function ()
-    local r = cursna_game(2)
-    eq({ r.result, r.why }, { 'pass', nil })
-    eq(r.notes[#r.notes], 'Doom taken off by Cursna 3')
+test('cursna_party: Doom on Test, Cursna until it goes, a heal after the first and after the last, then quiet', function ()
+    local r, heals = cursna_game(2)
+    eq({ r.result, r.why, heals }, { 'pass', nil, 2 })
+    eq({ r.timings.heal_after_the_first_Cursna ~= nil, r.timings.heal_after_the_Cursna_that_took_it ~= nil }, { true, true })
+    eq(noted(r, '^Doom taken off by Cursna 3$'), true)
     eq(packets[#packets - 2], '!deleffect Test 15')  -- the cleanup
+end)
+
+test('cursna_party: the first Cursna takes it: one heal, after it', function ()
+    local r, heals = cursna_game(0)
+    eq({ r.result, heals, r.timings.heal_after_the_Cursna_that_took_it ~= nil }, { 'pass', 1, true })
+end)
+
+test('cursna_party: a Doom outlasting four Cursnas is bad luck, not a stall; Sidekick still heals after', function ()
+    local r, heals = cursna_game(10)
+    eq({ r.result, heals }, { 'pass', 2 })
+    eq(noted(r, '^the Doom outlasted 4 Cursnas'), true)
+end)
+
+test('cursna_party: Sidekick letting the Doom go: noted, taken off, a heal, then quiet', function ()
+    local r = cursna_game(5, 'let_go')
+    eq(r.result, 'pass')
+    eq(noted(r, '^Sidekick took the Doom as gone after 1 Cursnas with no effect'), true)
+    eq(noted(r, '^after the Doom was let go, Cure V'), true)
 end)
 
 test('cursna_party: no Cursna once its recast is up fails, saying what Sidekick was doing', function ()
     status.why = 'nothing to do'
-    local r = cursna_game(5, true)
+    local r = cursna_game(5, 'stall')
     status.why = nil
-    eq({ r.result, r.why }, { 'fail', 'a Cursna on Test once its recast was up: not within 16s (Sidekick: nothing to do)' })
+    -- Timed from the last Cursna sent, not from after the heal between.
+    eq({ r.result, r.why:match('^a Cursna on Test once its recast was up: not within ([%d.]+)s %(Sidekick: nothing to do%)$') },
+       { 'fail', '10.4' })
+end)
+
+test('cursna_party: nothing at all after a Cursna (no heal) fails, saying what Sidekick was doing', function ()
+    status.why = 'nothing to do'
+    local r = cursna_game(5, 'no_heal')
+    status.why = nil
+    eq({ r.result, r.why }, { 'fail', 'a heal on Test after the first Cursna: not within 10s (Sidekick: nothing to do)' })
+end)
+
+test('cursna_party: Cursna switched off under Remove skips', function ()
+    world.rows = { Cursna = { on = false } }
+    local r = cursna_game(0)
+    world.rows = nil
+    eq({ r.result, r.why }, { 'skip', 'Cursna is switched off (Remove)' })
 end)
 
 test('unwatch waits for a scenario running: aborted, cleaned up, then unhooked', function ()

@@ -7,21 +7,31 @@
       1. Doom on them (60 s), and Sidekick reading it: your party's from the client's icons, the alliance's and a
          tracked player's from packets (core/packets.lua). A Doom Sidekick never reads fails here, saying so.
       2. A Cursna on them that lands.
-      3. Sidekick still acting: their HP set to 40%, and a heal on them that lands, with Doom still on them or not.
-      4. While the Doom stays, another Cursna once its recast is up (CURSNA_RECAST), up to MAX_CASTS, until the Doom
-         is gone, read the same way as in 1. On the alliance and a tracked player, Sidekick takes a Doom as gone after
-         cfg.remove.doom_retries + 1 misses: that's noted, not failed. A Doom that outlasts MAX_CASTS is bad luck
-         (Cursna takes it one time in five at WHM75), noted too; what fails is a Cursna not sent once its recast is up.
-      5. The Doom gone: no more Cursnas on them.
+      3. Sidekick still acting (the probe): their HP set to 40% and seen to fall, and a heal on them that lands. After
+         the first Cursna when it missed, and again at the end, whatever the Doom did.
+      4. While the Doom stays, another Cursna within CURSNA_RECAST + SLACK of the last one sent, up to MAX_CASTS, until
+         the Doom is gone, read the same way as in 1. A Doom that outlasts MAX_CASTS is bad luck (Cursna takes it one
+         time in five at WHM75), noted: what fails is a Cursna not sent once its recast is up.
+      5. The Doom gone: no more Cursnas on them. On the alliance and a tracked player Sidekick lets a Doom go after
+         cfg.remove.doom_retries + 1 misses, or buffs.DOOM_SECONDS after it landed: noted with which, and the Doom
+         taken off then, in case the server still holds it.
     Each Cursna's result goes in the notes (message 75: no effect; 359: Doom taken off). A wait that fails says what
-    Sidekick was doing then (its `why` and next action). The cleanup takes the Doom off, and raises them should it run out.
+    Sidekick was doing then (its `why` and next action). The cleanup takes the Doom off, and raises them should it
+    run out.
 ]]--
+
+local buffs = require('core.buffs')
+local removal = require('core.removal')
+local settings = require('core.settings')
 
 local DOOM = 15
 local NO_EFFECT, DOOM_OFF = 75, 359  -- 0x028 messages on Cursna's target
 local CURSNA_RECAST = 10  -- seconds (the server's spell_list)
 local MAX_CASTS = 4       -- Cursnas waited for, the first included: four at their recasts fit in the Doom's 60 s
 local SLACK = 6           -- seconds past a recast for the next send (throttle, READY_DELAY, a frame)
+
+-- The runner's clock (tools/e2e.lua): the game's, as sends and events are stamped.
+local function clock() return vana and vana.time and vana.time.clock() or os.clock() end
 
 local WHO = {
     party = function (t) return t.member() end,
@@ -37,18 +47,26 @@ return function (kind)
         run = function (t)
             local who = pick(t)
             t.note('on %s (%s)', who, kind)
-            t.need(t.action('Cursna'), 'no Cursna among Sidekick\'s actions for this job')
-            local rm = t.cfg().remove
+            local cursna = t.action('Cursna')
+            t.need(cursna, 'no Cursna among Sidekick\'s actions for this job')
+            local cfg = t.cfg()
+            t.need(settings.row(cfg, cursna).on, 'Cursna is switched off (Remove)')
+            local rm = cfg.remove
+            -- The statuses left on them, as behaviors/remove.lua's skip_of reads them.
             local mine = (rm.own or {})[who]
-            local skip = mine and mine.set and mine.skip or rm.skip or {}
+            local skip = type(mine) == 'table' and mine.set and (mine.skip or {}) or rm.skip or {}
             t.need(rm.on and not (rm.off or {})[who] and not skip.doom, 'Doom removal is off for %s (Remove)', who)
-            if kind ~= 'party' then t.note('Sidekick takes a missed Doom as gone after %s misses', tostring((tonumber(rm.doom_retries) or 5) + 1)) end
+            if kind ~= 'party' then
+                t.note('Sidekick takes a missed Doom as gone after %d misses, or %ds after it landed',
+                    removal.retries(rm.doom_retries) + 1, buffs.DOOM_SECONDS)
+            end
             t.need(t.unit(who), '%s isn\'t among the units Sidekick decides on', who)
             t.start()
             t.settle()
 
             -- Whether Sidekick reads Doom on them now.
             local function doomed() local u = t.unit(who); return u ~= nil and u.buffs[DOOM] == true end
+            local function dead() return (t.who(who) or {}).dead end
             -- What Sidekick says it's doing now.
             local function thinking()
                 local s = t.status() or {}
@@ -63,32 +81,46 @@ return function (kind)
                 if not (why and why:find(': not within ', 1, true)) then error(v, 0) end
                 t.fail('%s (Sidekick: %s)', why, thinking())
             end
-
-            t.gm.effect(who, 'doom', 10, 60)
-            local _, read = waiting(doomed, 5, ('Sidekick reading Doom on %s'):format(who))
-            t.time('doom_read', read)
-
-            local last = nil  -- the last Cursna sent: the next must come after it
             local function after(list, ev)
                 for _, x in ipairs(list) do if not ev or x.seq > ev.seq then return x end end
             end
+            -- Sidekick still acting: their HP to 40%, and a heal on them that lands, the Doom still on or not.
+            local function probe(label)
+                t.wait(1)
+                local before = t.sends({ on = who })
+                t.gm.hp_pct(who, 40)
+                t.wait_for(function () return t.who(who).hpp <= 45 end, 5, who .. ' at 40%'
+                    .. (kind == 'tracked' and ' (a tracked player\'s HP is set by !exec: GM level 4)' or ''))
+                local heal = waiting(function ()
+                    return after(t.sends({ behavior = 'heal', on = who }), before[#before])
+                end, 10, ('a heal on %s %s'):format(who, label))
+                t.note('%s, %s on %s %.2fs after the HP fell', label, heal.action, who, heal.at - t.since)
+                t.time('heal_' .. label:gsub('%W+', '_'), heal.at - t.since)
+                t.lands(heal, 15)
+                t.wait_for(function () return t.who(who).hpp > 45 end, 5, who .. '\'s HP up')
+            end
+
+            t.gm.effect(who, 'doom', 10, 60)
+            local doomed_at = clock()
+            local _, read = waiting(doomed, 5, ('Sidekick reading Doom on %s'):format(who))
+            t.time('doom_read', read)
+
+            local last = nil  -- the last Cursna sent: the next must come after it, within its recast of it
             -- The next Cursna on them, or 'gone' (Sidekick reads no Doom on them now), or 'dead'.
-            local function next_cursna(timeout)
+            local function next_cursna()
+                local timeout = last and math.max(1, last.at + CURSNA_RECAST + SLACK - clock()) or 10
                 return waiting(function ()
                     local x = after(t.sends({ action = 'Cursna', on = who }), last)
                     if x then return x end
-                    if (t.who(who) or {}).dead then return 'dead' end
+                    if dead() then return 'dead' end
                     if last and not doomed() then return 'gone' end
                 end, timeout, ('a Cursna on %s%s'):format(who, last and ' once its recast was up' or ''))
             end
 
-            local casts, took, probed = 0, false, false
+            local casts, took = 0, false
             while casts < MAX_CASTS do
-                local ev = next_cursna(last and CURSNA_RECAST + SLACK or 10)
-                if ev == 'gone' or ev == 'dead' then
-                    if ev == 'dead' then t.note('%s died of the Doom: the cleanup raises them', who) end
-                    break
-                end
+                local ev = next_cursna()
+                if ev == 'gone' or ev == 'dead' then break end
                 casts = casts + 1
                 local landed = t.lands(ev, 10, 'cursna_' .. casts)
                 local msg = landed.targets[1] and landed.targets[1].message
@@ -96,31 +128,31 @@ return function (kind)
                     msg == NO_EFFECT and 'no effect' or msg == DOOM_OFF and 'Doom taken off' or 'other')
                 last = ev
                 took = msg == DOOM_OFF
-                if not probed then
-                    -- Sidekick still acting once a Cursna went off: a heal on them, the Doom still on or not.
-                    probed = true
-                    t.wait(1)
-                    local before = t.sends({ on = who })
-                    t.gm.hp_pct(who, 40)
-                    local heal = waiting(function ()
-                        return after(t.sends({ behavior = 'heal', on = who }), before[#before])
-                    end, 10, ('a heal on %s after the Cursna'):format(who))
-                    t.note('after the Cursna, %s on %s %.2fs after the HP fell', heal.action, who, heal.at - t.since)
-                    t.time('heal_after', heal.at - t.since)
-                    t.lands(heal, 15, 'heal_landed')
-                    t.wait_for(function () return t.who(who).hpp > 45 end, 5, who .. '\'s HP up')
-                end
                 if took then break end
+                if casts == 1 then probe('after the first Cursna') end
             end
 
+            if dead() then
+                t.note('%s died of the Doom: the cleanup raises them', who)
+                return
+            end
             if doomed() and casts >= MAX_CASTS then
                 -- Bad luck, not a stall: each Cursna takes Doom one time in five at WHM75's skill.
                 t.note('the Doom outlasted %d Cursnas, each sent once its recast was up', casts)
+                probe('after the last Cursna')
                 return
             end
-            if (t.who(who) or {}).dead then return end
             t.wait_for(function () return not doomed() end, 5, ('Doom gone from %s in Sidekick\'s reading'):format(who))
-            t.note(took and 'Doom taken off by Cursna %d' or 'Doom taken as gone after %d Cursnas with no effect', casts)
+            if took then
+                t.note('Doom taken off by Cursna %d', casts)
+            else
+                -- Sidekick let it go (packets: its misses, or its cap), while the server may still hold it: off now,
+                -- so it doesn't kill them in the quiet window.
+                t.note('Sidekick took the Doom as gone after %d Cursnas with no effect, %.0fs after it landed (%s)', casts,
+                    clock() - doomed_at, clock() - doomed_at >= buffs.DOOM_SECONDS and 'its cap' or 'its misses')
+                t.gm.uneffect(who, 'doom')
+            end
+            probe(took and 'after the Cursna that took it' or 'after the Doom was let go')
             -- Nothing left on them: no Cursna into a Doom that's gone.
             local quiet = t.sends({ action = 'Cursna', on = who })
             t.wait(CURSNA_RECAST + SLACK)
