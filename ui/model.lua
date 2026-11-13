@@ -26,6 +26,7 @@
 local afk = require('core.afk')
 local ammo = require('core.ammo')
 local can = require('core.can')
+local heal_behavior = require('behaviors.heal')
 local job_modules = require('core.jobs')
 local lang = require('core.lang')
 local pet_behavior = require('behaviors.pet')
@@ -734,6 +735,7 @@ function model.build(g, cat, cfg, status, names)
         end
     end
 
+    local efficient, focus_efficient = heal_behavior.efficient_heals(cat, cfg)
     local view = {
         job = jobs(names.job, g.main, g.main_lv, g.sub, g.sub_lv),
         status = status_line(status, cfg.follow),
@@ -743,6 +745,9 @@ function model.build(g, cat, cfg, status, names)
                  focus_threshold = h.focus_threshold, focus_danger = h.focus_danger, focus_critical = h.focus_critical,
                  cure_potency = h.cure_potency, waltz_potency = h.waltz_potency, regen_potency = h.regen_potency,
                  reserve = h.reserve, stratagems = stratagems,
+                 -- every heal efficient healing could use is off (for the focus member: every one that can
+                 -- reach them): Heal under (Focus heal under) can do nothing
+                 no_efficient = efficient == 'off', no_focus_efficient = focus_efficient == 'off',
                  focus_names = focus_names, targets = heal_targets },
         recover = { mp = cfg.recover.mp, tp = cfg.recover.tp, min_tp = cfg.recover.min_tp, spends_tp = spends_tp,
                     target = cfg.recover.target or '', names = mp_names, devotion = devotion },

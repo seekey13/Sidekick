@@ -163,6 +163,10 @@ ja.words = {
         'オフにすると、そのメンバーのためには回復しません。範囲回復は届くことがあります。',
     ['Heal under is at or under Danger under: no efficient heals, only danger ones.'] =
         '回復ラインが危険ライン以下です。効率回復はせず、危険時の回復だけを行います。',
+    ['All efficient healing abilities are disabled, so Heal under can\'t work.'] =
+        '効率回復に使える回復がすべて無効なため、回復ラインは機能しません。',
+    ['All efficient healing abilities that can reach the focus member are disabled, so Focus heal under can\'t work.'] =
+        'フォーカスメンバーに届く効率回復がすべて無効なため、フォーカス回復は機能しません。',
     ['Focus'] = 'フォーカス', ['Heal this member first, on its own lines.'] = 'このメンバーを専用のラインで優先して回復します。',
     ['Focus heal under is at or under Focus danger under: the focus member gets danger heals only.'] =
         'フォーカス回復がフォーカス危険以下です。フォーカスメンバーには危険時の回復だけを行います。',

@@ -1084,6 +1084,17 @@ test('a heal row goes by the tiers left ticked; with none, it says so', function
     eq({ r.on, r.ready, r.avail, r.action }, { true, false, 'every tier unticked', nil })
 end)
 
+test('no_efficient: once every heal efficient healing could use is off; never on a job without one', function ()
+    local cfg = settings.defaults()
+    local function flags(view) return { view.heal.no_efficient, view.heal.no_focus_efficient } end
+    eq(flags(build(whm, cfg)), { false, false })
+    for _, a in ipairs(whm) do if a.role == 'heal' then cfg.rows[settings.key(a)] = { on = false } end end
+    eq(flags(build(whm, cfg)), { true, true })
+    cfg.rows.Drain = nil
+    eq(flags(build(whm, cfg)), { false, true })  -- Drain heals only you
+    eq(build(fake.catalog(9, 75, 1, 37, { 'Wild Carrot' }), settings.defaults()).heal.no_efficient, false)  -- BST: a Ready move
+end)
+
 test('tiers: waltzes too; a heal alone on its row or a Ready move only once unticked', function ()
     local DNC, BST = 19, 9
     local whm_dnc = fake.catalog(WHM, 75, DNC, 37, { 'Curing Waltz', 'Curing Waltz II', 'Divine Waltz' })

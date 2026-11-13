@@ -128,15 +128,19 @@ local K = {
     ['Pollen']            = { role = 'heal', potency = { 30 } },
     ['Magic Fruit']       = { role = 'heal', wakes = true, potency = { 300 } },
     ['Plenilune Embrace'] = { role = 'heal', wakes = true, potency = { 650 } },
-    ['Vivacious Pulse']   = { role = 'heal' },
+    -- Vivacious Pulse, Chakra, Mending Halation (LSB's scripts): no gear or x1.25 on them.
+    -- Pulse: 10 + Divine skill / 2, + half the matching stat per rune up (Tenebrae none): a RUN 75's
+    -- ~230 skill and two runes on ~60.
+    ['Vivacious Pulse']   = { role = 'heal', potency = { 185 } },
     ['Healing Ruby']      = { role = 'heal', wakes = true, pet = { 'Carbuncle' }, potency = { 250, 250 }, learn = { [SMN] = { 1, 65 } } },
     ['Wild Carrot']       = {
         { kind = 'ma', role = 'heal', wakes = true, potency = { 120 } },
         { kind = 'pet', role = 'heal', pet = { 'KeenearedSteffi', 'Rabbit' }, potency = { 120 }, mob_skill = 3903,
           learn = { [BST] = 25 } },
     },
+    -- Chakra: VIT x 2 + (MNK level + 1) x 0.2% of max HP: a MNK 75 on ~70 VIT and ~1100 HP.
     ['Chakra'] = {
-        { role = 'heal' },
+        { role = 'heal', potency = { 300 } },
         { role = 'remove', removes = { 'Poison', 'Blindness' } },
     },
     -- ponytail: area priors are guesses until the in-game check (Curaga, Divine Waltz, Healing Breeze, Healing Ruby, Wild Carrot).
@@ -144,7 +148,8 @@ local K = {
     ['Curaga']           = { role = 'heal', wakes = true, potency = { 60, 130, 270, 450, 600 } },
     ['Divine Waltz']     = { role = 'heal', wakes = true, blocked_by = 'Saber Dance', trance = true, potency = { 70, 300 } },
     ['Healing Breeze']   = { role = 'heal', wakes = true, potency = { 90 } },
-    ['Mending Halation'] = { role = 'heal', main_only = true, pet = true },
+    -- Mending Halation: 7 x the luopan's level (yours), 525 at 75; +5% a merit.
+    ['Mending Halation'] = { role = 'heal', main_only = true, pet = true, potency = { 525 } },
     -- Two rows: healing decides when a Regen is worth casting; "keep up" holds it on chosen targets.
     -- Ticks and durations to Regen V: LSB's enhancing spell table.
     ['Regen'] = {

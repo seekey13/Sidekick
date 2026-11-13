@@ -1327,6 +1327,31 @@ test('a heal line at or under its danger line says only danger heals go', functi
     eq({ drew(MINE), drew(FOCUS) }, { true, true })
 end)
 
+test('with every efficient heal off, Heal under and Focus heal under are greyed and dead, and say why', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    local MINE = 'All efficient healing abilities are disabled, so Heal under can\'t work.'
+    local FOCUS = 'All efficient healing abilities that can reach the focus member are disabled, so Focus heal under '
+        .. 'can\'t work.'
+    render(cfg, st, on('Heal', { over = true }))
+    eq({ tipped(MINE), tipped(FOCUS) }, { false, false })
+    for _, a in ipairs(cat) do  -- Regen's tiers unticked; the other heal rows off
+        if a.role == 'heal' and a.family == 'Regen' then cfg.heal.never[a.name] = true
+        elseif a.role == 'heal' then cfg.rows[settings.key(a)] = { on = false } end
+    end
+    cfg.heal.threshold = cfg.heal.danger  -- the danger note gives way to the reason
+    eq(render(cfg, st, on('Heal', { ['Heal under##sk_heal_threshold'] = 60, ['Focus heal under##sk_heal_focus_threshold'] = 60,
+        ['Danger under##sk_heal_danger'] = 40, over = true })), 1)
+    eq({ cfg.heal.threshold, cfg.heal.focus_threshold, cfg.heal.danger }, { 50, 85, 40 })
+    eq({ tipped(MINE), tipped(FOCUS), drew('Heal under is at or under Danger under') }, { true, true, false })
+    cfg.rows.Drain = nil  -- Drain back: it heals only you, so only the focus member's line stays greyed
+    render(cfg, st, on('Heal', { over = true }))
+    eq({ tipped(MINE), tipped(FOCUS) }, { false, true })
+    cfg.heal.never['Regen II'] = nil  -- one tier back: efficient healing has it
+    render(cfg, st, on('Heal', { over = true }))
+    eq({ tipped(MINE), tipped(FOCUS) }, { false, false })
+end)
+
 test('a slider\'s value, clicked, takes a typed number, held to its range', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
