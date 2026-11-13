@@ -33,6 +33,7 @@ exclude_files = { 'tests/data/**', '.claude/**' }
 -- Sidekick.lua would make VanaCore load it as one of its own addons).
 files['tools/gm.lua'] = { read_globals = { 'vana' } }
 files['tools/e2e.lua'] = { read_globals = { 'vana' } }
+files['tests/e2e/*.lua'] = { read_globals = { 'vana' } }  -- the scenarios run in the runner's state
 
 -- The runner defines the helpers every *_test.lua uses.
 files['tests/run.lua'] = { allow_defined_top = true }

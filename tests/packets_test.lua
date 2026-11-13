@@ -88,54 +88,90 @@ test('another\'s Esuna clears on a trust the status it names', function ()
     eq(buffs.of(TRUST, 2), {})
 end)
 
-test('Doom on a trust: past its retries, Cursnas that leave it and it\'s taken as gone; a new Doom starts over', function ()
-    local removal = require('core.removal')
-    local CURSE, DOOM = 9, 15
+-- A 0x029 as the server builds it (0x029_battle_message.h): actor at 0x04, target at 0x08, param at 0x0C,
+-- message at 0x18. Doom's own come from the doomed unit, to itself.
+local function message_packet(target, param, message)
+    local b = {}
+    for i = 1, 0x1C do b[i] = 0 end
+    local function put(at, v, n) for i = 0, n - 1 do b[at + i + 1] = math.floor(v / 0x100 ^ i) % 0x100 end end
+    put(0x04, target, 4); put(0x08, target, 4); put(0x0C, param, 4); put(0x18, message, 2)
+    return { id = 0x029, data = string.char(unpack(b)) }
+end
+
+-- Ashita's struct.unpack, little endian, for the 'i4' and 'H' core/packets.lua reads.
+local function with_struct(fn)
+    local was = struct
+    rawset(_G, 'struct', { unpack = function (fmt, d, pos)
+        local n = fmt == 'H' and 2 or 4
+        local v = 0
+        for i = n - 1, 0, -1 do v = v * 0x100 + d:byte(pos + i) end
+        if fmt == 'i4' and v >= 0x80000000 then v = v - 0x100000000 end
+        return v, pos + n
+    end })
+    local ok, err = pcall(fn)
+    rawset(_G, 'struct', was)
+    if not ok then error(err, 0) end
+end
+
+test('Doom on a trust: on while its counter runs, Cursnas that miss and all; off as it\'s taken off', function ()
+    local CURSE, DOOM, PARALYSIS = 9, 15, 4
+    local COUNT, ESCAPE = 112, 359
     local c = ctx()
     c.removes = function (key) if key == 'ma20' then return { CURSE, DOOM } end end
-    c.doom_misses = function () return 3 end  -- Doom retries 2
-    buffs.clear(); removal.clear()
-    packets.action(action(MOB, MOB_SKILL, 1234, { { TRUST, 242, DOOM } }), c, 0)
-    packets.action(action(ME, SPELL, 20, { { TRUST, 75, 0 } }), c, 1)
-    packets.action(action(ME, SPELL, 20, { { TRUST, 75, 0 } }), c, 2)
-    eq(buffs.of(TRUST, 3), { [DOOM] = true })
-    packets.action(action(ME, SPELL, 20, { { TRUST, 75, 0 } }), c, 3)  -- the third miss
-    eq(buffs.of(TRUST, 4), {})
-    -- Two misses, then it lands: the next Doom has three misses of its own.
-    packets.action(action(MOB, MOB_SKILL, 1234, { { TRUST, 242, DOOM } }), c, 5)
-    packets.action(action(ME, SPELL, 20, { { TRUST, 75, 0 } }), c, 6)
-    packets.action(action(ME, SPELL, 20, { { TRUST, 75, 0 } }), c, 7)
-    packets.action(action(ME, SPELL, 20, { { TRUST, 359, DOOM } }), c, 8)
-    packets.action(action(MOB, MOB_SKILL, 1234, { { TRUST, 242, DOOM } }), c, 9)
-    packets.action(action(ME, SPELL, 20, { { TRUST, 75, 0 } }), c, 10)
-    packets.action(action(ME, SPELL, 20, { { TRUST, 75, 0 } }), c, 11)
-    eq(buffs.of(TRUST, 12), { [DOOM] = true })
-    -- A miss that took a curse (83) is a miss on the Doom too.
-    buffs.gain(TRUST, CURSE, 12)
-    packets.action(action(ME, SPELL, 20, { { TRUST, 83, CURSE } }), c, 13)
-    eq(buffs.of(TRUST, 14), {})
-    -- Doom retries 0 (cfg.remove.doom_retries): the first miss is the last.
-    c.doom_misses = function () return 1 end
-    packets.action(action(MOB, MOB_SKILL, 1234, { { TRUST, 242, DOOM } }), c, 15)
-    packets.action(action(ME, SPELL, 20, { { TRUST, 75, 0 } }), c, 16)
-    eq(buffs.of(TRUST, 17), {})
-    -- No retries set: removal.DOOM_MISSES.
-    c.doom_misses = nil
-    packets.action(action(MOB, MOB_SKILL, 1234, { { TRUST, 242, DOOM } }), c, 18)
-    for i = 1, removal.DOOM_MISSES - 1 do packets.action(action(ME, SPELL, 20, { { TRUST, 75, 0 } }), c, 18 + i) end
-    eq(buffs.of(TRUST, 25), { [DOOM] = true })
-    packets.action(action(ME, SPELL, 20, { { TRUST, 75, 0 } }), c, 25)
-    eq(buffs.of(TRUST, 26), {})
+    with_struct(function ()
+        buffs.clear()
+        packets.action(action(MOB, MOB_SKILL, 1234, { { TRUST, 242, DOOM } }), c, 0)
+        -- The count every 3 s from 5 s, and a Cursna with no effect after each: the Doom stays, read right after
+        -- the Cursna, before the next count could put it back.
+        for k = 0, 9 do
+            local s = 5 + 3 * k
+            packets.handle(message_packet(TRUST, 20 - k, COUNT), c, s)
+            packets.action(action(ME, SPELL, 20, { { TRUST, 75, 0 } }), c, s + 1)
+            eq(buffs.of(TRUST, s + 1), { [DOOM] = true })
+        end
+        -- One that took a curse (83): the curse goes, the Doom stays.
+        packets.handle(message_packet(TRUST, 10, COUNT), c, 35)
+        buffs.gain(TRUST, CURSE, 35)
+        packets.action(action(ME, SPELL, 20, { { TRUST, 83, CURSE } }), c, 36)
+        eq(buffs.of(TRUST, 36), { [DOOM] = true })
+        -- The count is a number, not a status: 4 is not Paralysis.
+        packets.handle(message_packet(TRUST, PARALYSIS, COUNT), c, 38)
+        eq(buffs.of(TRUST, 38), { [DOOM] = true })
+        -- "Narrowly escapes impending doom" as a 0x029 (an NM's death, Mix: Holy Water on a trust): off. A
+        -- player's own Holy Water tells only them.
+        packets.handle(message_packet(TRUST, 0, ESCAPE), c, 43)
+        eq(buffs.of(TRUST, 43), {})
+        -- As Cursna's own result (0x028): off too.
+        packets.handle(message_packet(TRUST, 19, COUNT), c, 50)
+        packets.action(action(ME, SPELL, 20, { { TRUST, ESCAPE, DOOM } }), c, 51)
+        eq(buffs.of(TRUST, 51), {})
+        -- The count of a unit not tracked: nothing.
+        packets.handle(message_packet(STRANGER, 19, COUNT), c, 52)
+        eq(buffs.of(STRANGER, 52), {})
+    end)
 end)
 
-test('a Doom read from packets lasts DOOM_SECONDS at most: one whose end went unseen draws Cursna no longer', function ()
-    local DOOM = 15
-    buffs.clear()
-    packets.action(action(MOB, MOB_SKILL, 1234, { { TRUST, 242, DOOM } }), ctx(), 0)
-    eq(buffs.of(TRUST, buffs.DOOM_SECONDS - 1), { [DOOM] = true })
-    eq(buffs.of(TRUST, buffs.DOOM_SECONDS), {})
-    buffs.gain(TRUST, DOOM, 0, 600)  -- a longer catalog duration is capped too
-    eq(buffs.of(TRUST, buffs.DOOM_SECONDS), {})
+test('a Doom read from packets lasts DOOM_HOLD past its gain or its last count: one that ended unseen draws Cursna no longer',
+    function ()
+    local DOOM, COUNT = 15, 112
+    with_struct(function ()
+        buffs.clear()
+        packets.action(action(MOB, MOB_SKILL, 1234, { { TRUST, 242, DOOM } }), ctx(), 0)
+        eq(buffs.of(TRUST, buffs.DOOM_HOLD - 0.1), { [DOOM] = true })  -- the first count comes within 6 s
+        eq(buffs.of(TRUST, buffs.DOOM_HOLD), {})
+        -- The counts stop (out of range, taken off where no one saw): gone DOOM_HOLD after the last.
+        packets.action(action(MOB, MOB_SKILL, 1234, { { TRUST, 242, DOOM } }), ctx(), 10)
+        packets.handle(message_packet(TRUST, 19, COUNT), ctx(), 15)
+        packets.handle(message_packet(TRUST, 18, COUNT), ctx(), 18)
+        eq(buffs.of(TRUST, 18 + buffs.DOOM_HOLD - 0.1), { [DOOM] = true })
+        eq(buffs.of(TRUST, 18 + buffs.DOOM_HOLD), {})
+        -- A count with no gain seen (they came into range doomed): Doom.
+        packets.handle(message_packet(PET, 7, COUNT), ctx(), 40)
+        eq(buffs.of(PET, 40), { [DOOM] = true })
+        -- A catalog duration doesn't stretch it.
+        buffs.gain(TRUST, DOOM, 50, 600)
+        eq(buffs.of(TRUST, 50 + buffs.DOOM_HOLD), {})
+    end)
 end)
 
 test('your remover with no effect on you or your party: what it clears is futile there for it while shown, but Doom', function ()
@@ -172,14 +208,6 @@ test('your remover with no effect on you or your party: what it clears is futile
     removal.clear()
     packets.action(action(ME, SPELL, 143, { { PARTY, 75, 0 } }), c, 300)
     eq(removal.futile(PARTY, shown, 301), {})
-end)
-
-test('Doom retries: a whole number in 0..MAX_RETRIES, the default for one missing or not a number', function ()
-    local removal = require('core.removal')
-    local d = removal.DOOM_MISSES - 1
-    eq({ removal.retries(nil), removal.retries('two'), removal.retries(0 / 0), removal.retries(-3),
-         removal.retries(2.7), removal.retries(1e9), removal.retries('4') },
-       { d, d, d, 0, 2, removal.MAX_RETRIES, 4 })
 end)
 
 test('your item in use locks like a cast, until it finishes or is cut off', function ()
