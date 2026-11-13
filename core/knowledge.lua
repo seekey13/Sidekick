@@ -117,11 +117,12 @@ local FINISHING_5 = { 'Finishing Move (5)', 'Finishing Move (6+)' }  -- five or 
 
 local K = {
     -- heal ---------------------------------------------------------------------
-    -- Every tier to 99 (LSB's scripts). Cure: each tier's soft cap, Cure VI's cap at 700 cure
-    -- power (the newer formula, its only one). A waltz is (target VIT + your CHR) x its
-    -- multiplier + a base, uncapped: Curing Waltz V at the 150 VIT + CHR Curing Waltz IV's
-    -- 600 stands for (600 + 1.25 x 150).
-    ['Cure']              = { role = 'heal', wakes = true, potency = { 30, 90, 200, 400, 700, 1010 } },
+    -- Cure and Curing Waltz to 99 (LSB's scripts). Cure I-V: the old formula's soft caps. Cure
+    -- VI has only the new one: 890 at 500 cure power, the bracket a 99 WHM is in (its cap,
+    -- 1010, takes 700). A waltz is (target VIT + your CHR) x its multiplier + a base,
+    -- uncapped: Curing Waltz V at the 150 VIT + CHR Curing Waltz IV's 600 stands for
+    -- (600 + 1.25 x 150).
+    ['Cure']              = { role = 'heal', wakes = true, potency = { 30, 90, 200, 400, 700, 890 } },
     ['Curing Waltz']      = { role = 'heal', wakes = true, blocked_by = 'Saber Dance', trance = true, potency = { 70, 140, 300, 600, 787 } },
     ['Drain']             = { role = 'heal', potency = { 90, 180 } },
     ['Pollen']            = { role = 'heal', potency = { 30 } },

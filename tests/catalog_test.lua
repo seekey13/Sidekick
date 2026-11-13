@@ -117,7 +117,7 @@ test('the tiers past 75 have their values: Cure VI, Curaga V, Regen IV and V, Cu
     local iv, v = find(whm, 'Regen IV', 'heal'), find(sch, 'Regen V', 'heal')
     eq({ find(whm, 'Cure VI').potency, find(whm, 'Curaga V').potency, iv.tick, iv.duration, v.tick, v.duration,
          find(sch, 'Regen V', 'buff').duration },
-       { 1010, 600, 30, 60, 40, 60, 60 })
+       { 890, 600, 30, 60, 40, 60, 60 })
     eq(find(build(DNC, 99, nil, 0, { 'Curing Waltz V' }), 'Curing Waltz V').potency, 787)
 end)
 
