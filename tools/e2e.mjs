@@ -84,7 +84,7 @@ function seconds(s) { return s === undefined ? '' : `${Number(s).toFixed(2)}s`; 
 
 function show(r) {
   const timings = Object.entries(r.timings || {}).map(([k, v]) => `${k} ${seconds(v)}`).join(', ');
-  console.log(`${r.result.toUpperCase().padEnd(5)} ${r.name.padEnd(14)} ${String(r.seconds).padStart(5)}s  ${timings}`);
+  console.log(`${r.result.toUpperCase().padEnd(5)} ${r.name.padEnd(15)} ${String(r.seconds).padStart(5)}s  ${timings}`);
   if (r.why) console.log(`      ${r.why.split('\n')[0]}`);
   for (const n of list(r.notes)) console.log(`      - ${n}`);
   if (r.result === 'pass' || r.result === 'skip') return;
@@ -107,7 +107,7 @@ async function main() {
   await connect();
   if (verb === 'list') {
     await tool('lua', { addon: 'Sidekick', code: FRESH });
-    for (const s of list(await lua(json('e2e.list()')))) console.log(`${s.name.padEnd(14)} ${s.about}`);
+    for (const s of list(await lua(json('e2e.list()')))) console.log(`${s.name.padEnd(15)} ${s.about}`);
   } else if (verb === 'status') {
     console.log(JSON.stringify(await lua(json('e2e.status()')), null, 2));
   } else if (verb === 'abort') {

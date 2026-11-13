@@ -15,12 +15,15 @@
       5. The Doom gone: no more Cursnas on them. Only a Cursna takes it off here, so Sidekick reading it gone with
          none that took it fails: the server still counts it down (the alliance's and a tracked player's Doom is read
          from that count, core/buffs.lua).
-    A tracked player's HP is set by !exec (GM level 4): checked first, before any Doom, skipping without it.
+    A tracked player's HP is set by !exec (GM level 4): checked first, before any Doom, skipping without it. Skipped
+    too: Cursna or Doom removal off for them, Cursna gated to combat, healing off for them (the probe needs it).
+    A Doom left from a scenario before is waited out first, and a Cursna sent on it isn't counted.
     Each Cursna's result goes in the notes (message 75: no effect; 359: Doom taken off). A wait that fails says what
     Sidekick was doing then (its `why` and next action). The cleanup takes the Doom off, and raises them should it
     run out.
 ]]--
 
+local buffs = require('core.buffs')
 local settings = require('core.settings')
 
 local DOOM = 15
@@ -55,6 +58,10 @@ return function (kind)
             local mine = (rm.own or {})[who]
             local skip = type(mine) == 'table' and mine.set and (mine.skip or {}) or rm.skip or {}
             t.need(rm.on and not (rm.off or {})[who] and not skip.doom, 'Doom removal is off for %s (Remove)', who)
+            t.need((cfg.gates or {})[settings.key(cursna)] ~= 'combat', 'Cursna goes only in combat (its gate)')
+            -- The probe heals them: healing off would read as the stall this looks for.
+            local hs = cfg.heal or {}
+            t.need(hs.on and not (hs.skip or {})[who], 'healing is off for %s (Heal): the probe heals them', who)
             t.need(t.unit(who), '%s isn\'t among the units Sidekick decides on', who)
             if kind == 'tracked' then
                 -- The probe's 40% on a tracked player goes by !exec (GM level 4): seen to work before any Doom, with
@@ -106,6 +113,13 @@ return function (kind)
                 t.wait_for(function () return t.who(who).hpp > 45 end, 5, who .. '\'s HP up')
             end
 
+            -- A Doom left from the scenario before (its removal tells only them) read gone first: one from packets is
+            -- held DOOM_HOLD past its last count. Cursnas sent on it don't count.
+            waiting(function () return not doomed() end, buffs.DOOM_HOLD + 2,
+                ('no Doom on %s in Sidekick\'s reading before any was given'):format(who))
+            local stale = t.sends({ action = 'Cursna', on = who })
+            stale = stale[#stale]
+
             t.gm.effect(who, 'doom', 10, 60)
             local doomed_at = clock()
             local _, read = waiting(doomed, 5, ('Sidekick reading Doom on %s'):format(who))
@@ -116,7 +130,7 @@ return function (kind)
             local function next_cursna()
                 local timeout = last and math.max(1, last.at + CURSNA_RECAST + SLACK - clock()) or 10
                 return waiting(function ()
-                    local x = after(t.sends({ action = 'Cursna', on = who }), last)
+                    local x = after(t.sends({ action = 'Cursna', on = who }), last or stale)
                     if x then return x end
                     if dead() then return 'dead' end
                     if last and not doomed() then return 'gone' end

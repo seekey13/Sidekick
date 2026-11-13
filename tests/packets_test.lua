@@ -121,16 +121,24 @@ test('Doom on a trust: on while its counter runs, Cursnas that miss and all; off
     with_struct(function ()
         buffs.clear()
         packets.action(action(MOB, MOB_SKILL, 1234, { { TRUST, 242, DOOM } }), c, 0)
-        -- Ten Cursnas with no effect, one with a curse (83), the count going on: the Doom stays.
-        for s = 1, 10 do packets.action(action(ME, SPELL, 20, { { TRUST, 75, 0 } }), c, s * 3) end
-        buffs.gain(TRUST, CURSE, 31)
-        packets.action(action(ME, SPELL, 20, { { TRUST, 83, CURSE } }), c, 32)
-        for s = 5, 41, 3 do packets.handle(message_packet(TRUST, 20 - (s - 5) / 3, COUNT), c, s) end
-        eq(buffs.of(TRUST, 42), { [DOOM] = true })
+        -- The count every 3 s from 5 s, and a Cursna with no effect after each: the Doom stays, read right after
+        -- the Cursna, before the next count could put it back.
+        for k = 0, 9 do
+            local s = 5 + 3 * k
+            packets.handle(message_packet(TRUST, 20 - k, COUNT), c, s)
+            packets.action(action(ME, SPELL, 20, { { TRUST, 75, 0 } }), c, s + 1)
+            eq(buffs.of(TRUST, s + 1), { [DOOM] = true })
+        end
+        -- One that took a curse (83): the curse goes, the Doom stays.
+        packets.handle(message_packet(TRUST, 10, COUNT), c, 35)
+        buffs.gain(TRUST, CURSE, 35)
+        packets.action(action(ME, SPELL, 20, { { TRUST, 83, CURSE } }), c, 36)
+        eq(buffs.of(TRUST, 36), { [DOOM] = true })
         -- The count is a number, not a status: 4 is not Paralysis.
-        packets.handle(message_packet(TRUST, PARALYSIS, COUNT), c, 42)
-        eq(buffs.of(TRUST, 42), { [DOOM] = true })
-        -- "Narrowly escapes impending doom" as a 0x029 (Holy Water, an NM's death): off.
+        packets.handle(message_packet(TRUST, PARALYSIS, COUNT), c, 38)
+        eq(buffs.of(TRUST, 38), { [DOOM] = true })
+        -- "Narrowly escapes impending doom" as a 0x029 (an NM's death, Mix: Holy Water on a trust): off. A
+        -- player's own Holy Water tells only them.
         packets.handle(message_packet(TRUST, 0, ESCAPE), c, 43)
         eq(buffs.of(TRUST, 43), {})
         -- As Cursna's own result (0x028): off too.

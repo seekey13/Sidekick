@@ -26,7 +26,10 @@ return {
         t.settle()
         local function doomed() local u = t.unit(who); return u ~= nil and u.buffs[DOOM] == true end
         local function running() return (t.status() or {}).running end
-        t.check(not doomed(), 'Sidekick reads Doom on %s before any was given', who)
+        -- One left from the scenario before (cursna_alliance's cleanup tells only them) is held DOOM_HOLD past its
+        -- last count: read gone first.
+        t.wait_for(function () return not doomed() end, buffs.DOOM_HOLD + 2,
+            ('no Doom on %s in Sidekick\'s reading before any was given'):format(who))
 
         t.gm.effect(who, 'doom', 10, 60)
         local _, read = t.wait_for(doomed, 5, ('Sidekick reading Doom on %s'):format(who))
