@@ -493,6 +493,19 @@ function game.sent(action)
     ready_since[ready_key(action)] = nil
 end
 
+-- HP party member `sid` is missing as the client shows it now, or nil when it isn't
+-- one of your party or alliance (core/observed.lua: a heal's reading as it lands).
+function game.missing(sid)
+    local party = AshitaCore:GetMemoryManager():GetParty()
+    for i = 0, 17 do
+        if party:GetMemberIsActive(i) == 1 and party:GetMemberServerId(i) == sid then
+            local hp, hpp = party:GetMemberHP(i), party:GetMemberHPPercent(i)
+            local max = max_hp[sid] or (hpp > 0 and hp > 0 and math.floor(hp * 100 / hpp)) or nil
+            return max and math.max(0, max - hp) or nil
+        end
+    end
+end
+
 -- Party slot `i` as a unit: 0 you, 1-5 your party and trusts, 6-17 the alliance.
 local function member(party, player, em, i, zone, now)
     local sid, tidx = party:GetMemberServerId(i), party:GetMemberTargetIndex(i)

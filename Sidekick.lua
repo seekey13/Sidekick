@@ -145,6 +145,7 @@ local packet_ctx = {
     doom_misses = function ()  -- Cursna misses on a Doom read from packets before it's taken as gone
         return removal.retries(cfg and cfg.remove and cfg.remove.doom_retries) + 1
     end,
+    missing = game.missing,  -- HP missing as a heal lands: a top-up since the send caps it
 }
 
 -- Latest game snapshot, at most 10 a second: plenty for a 1.1s action throttle.
