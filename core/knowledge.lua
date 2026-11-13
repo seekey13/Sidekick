@@ -117,8 +117,12 @@ local FINISHING_5 = { 'Finishing Move (5)', 'Finishing Move (6+)' }  -- five or 
 
 local K = {
     -- heal ---------------------------------------------------------------------
-    ['Cure']              = { role = 'heal', wakes = true, potency = { 30, 90, 200, 400, 700 } },
-    ['Curing Waltz']      = { role = 'heal', wakes = true, blocked_by = 'Saber Dance', trance = true, potency = { 70, 140, 300, 600 } },
+    -- Every tier to 99 (LSB's scripts). Cure: each tier's soft cap, Cure VI's cap at 700 cure
+    -- power (the newer formula, its only one). A waltz is (target VIT + your CHR) x its
+    -- multiplier + a base, uncapped: Curing Waltz V at the 150 VIT + CHR Curing Waltz IV's
+    -- 600 stands for (600 + 1.25 x 150).
+    ['Cure']              = { role = 'heal', wakes = true, potency = { 30, 90, 200, 400, 700, 1010 } },
+    ['Curing Waltz']      = { role = 'heal', wakes = true, blocked_by = 'Saber Dance', trance = true, potency = { 70, 140, 300, 600, 787 } },
     ['Drain']             = { role = 'heal', potency = { 90, 180 } },
     ['Pollen']            = { role = 'heal', potency = { 30 } },
     ['Magic Fruit']       = { role = 'heal', wakes = true, potency = { 300 } },
@@ -135,14 +139,16 @@ local K = {
         { role = 'remove', removes = { 'Poison', 'Blindness' } },
     },
     -- ponytail: area priors are guesses until the in-game check (Curaga, Divine Waltz, Healing Breeze, Healing Ruby, Wild Carrot).
-    ['Curaga']           = { role = 'heal', wakes = true, potency = { 60, 130, 270, 450 } },
+    -- Curaga: each tier's floor (LSB's minCure), Curaga V's too.
+    ['Curaga']           = { role = 'heal', wakes = true, potency = { 60, 130, 270, 450, 600 } },
     ['Divine Waltz']     = { role = 'heal', wakes = true, blocked_by = 'Saber Dance', trance = true, potency = { 70, 300 } },
     ['Healing Breeze']   = { role = 'heal', wakes = true, potency = { 90 } },
     ['Mending Halation'] = { role = 'heal', main_only = true, pet = true },
     -- Two rows: healing decides when a Regen is worth casting; "keep up" holds it on chosen targets.
+    -- Ticks and durations to Regen V: LSB's enhancing spell table.
     ['Regen'] = {
-        { role = 'heal', status = 'Regen', tick = { 5, 12, 20 }, duration = { 75, 60, 60 } },
-        { role = 'buff', label = 'Regen (keep up)', duration = { 75, 60, 60 } },
+        { role = 'heal', status = 'Regen', tick = { 5, 12, 20, 30, 40 }, duration = { 75, 60, 60, 60, 60 } },
+        { role = 'buff', label = 'Regen (keep up)', duration = { 75, 60, 60, 60, 60 } },
     },
 
     -- emergency (critical HP) --------------------------------------------------

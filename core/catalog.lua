@@ -59,7 +59,7 @@ local function ids(v, idx, what)
     return out
 end
 
--- One value for every tier, or a list by tier: nil for a tier past its end (Regen IV's duration).
+-- One value for every tier, or a list by tier: nil for a tier past its end.
 local function per_tier(v, tier)
     if type(v) == 'table' then return v[tier] end
     return v
