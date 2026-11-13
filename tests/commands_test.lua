@@ -368,16 +368,17 @@ local ok, err = pcall(function ()
         eq(r.target, '')
         eq({ e.sk('/sk devotion b'), r.target }, { 'Devotion only on B.', 'B' })
         eq({ e.sk('/sk devotion me'), r.target }, { 'That\'s you: Devotion goes on another member.', 'B' })
-        local later = 'Devotion only on Later. | Later isn\'t in your party now: no Devotion until they are.'
-        eq({ e.sk('/sk devotion lATER'), r.target }, { later, 'Later' })  -- not here yet: kept, spelled as names are
+        local away = function (n)
+            return ('Devotion only on %s. | %s isn\'t in your party now: Devotion goes on whoever is lowest until they '
+                .. 'are.'):format(n, n)
+        end
+        eq({ e.sk('/sk devotion lATER'), r.target }, { away('Later'), 'Later' })  -- not here yet: kept, spelled as names are
         eq({ e.sk('/sk devotion OFF'), r.target }, { 'Devotion on whoever is lowest on MP.', '' })
         eq({ e.sk('/sk devotion'), r.target }, { 'Devotion on whoever is lowest on MP.', '' })
         e.party = { { name = 'B' }, { name = 'Zed', kind = 'alliance' }, { name = 'Out', kind = 'tracked' } }
         e.frame()
-        eq({ e.sk('/sk devotion zed'), r.target },  -- another party's: Devotion can't reach them
-           { 'Devotion only on Zed. | Zed isn\'t in your party now: no Devotion until they are.', 'Zed' })
-        eq({ e.sk('/sk devotion OUT'), r.target },
-           { 'Devotion only on Out. | Out isn\'t in your party now: no Devotion until they are.', 'Out' })
+        eq({ e.sk('/sk devotion zed'), r.target }, { away('Zed'), 'Zed' })  -- another party's: Devotion can't reach them
+        eq({ e.sk('/sk devotion OUT'), r.target }, { away('Out'), 'Out' })
         e.party = { { name = 'B' } }
         e.frame()
         e.sk('/sk devotion off')

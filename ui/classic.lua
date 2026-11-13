@@ -187,8 +187,8 @@ local TIP = {
     recover_tp = 'In combat, get TP back under this.',
     recover_mp = 'Recover MP under this MP% (yours; a\nmember\'s for Devotion).',
     min_tp = 'Chivalry turns all your TP into MP: only\nfrom this much.',
-    devotion_target = 'Party member Devotion goes on, once their\nMP drops below Self Recover (MP%). Lowest\n'
-        .. 'MP: whoever in your party is lowest.',
+    devotion_target = 'Party member Devotion goes on, once their\nMP drops below Self Recover (MP%). While\n'
+        .. 'they\'re not in your party, whoever is\nlowest. Lowest MP: whoever in your party\nis lowest.',
     rolls = 'Corsair automation: keeps the two rolls below\nactive and uses Double-Up on each until it is\n'
         .. 'good enough. While Bust is up only one roll slot\nis used, so Sidekick holds off recasting the other.',
     roll_slot = 'Roll cast in this slot. Set to None to leave\nthe slot unused.',

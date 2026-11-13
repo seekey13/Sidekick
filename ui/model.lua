@@ -726,9 +726,13 @@ function model.build(g, cat, cfg, status, names)
         wakes = wakes or a.role == 'heal' and a.wakes == true and not a.pet
     end
 
-    local party_names = {}  -- your party but you: who a job module's section may pick (Entrust), and Devotion
+    -- Your party but you: who a job module's section may pick (Entrust); those with MP, who Devotion may go on.
+    local party_names, mp_names = {}, {}
     for _, u in ipairs(g.units) do
-        if u.kind ~= 'self' and can.in_party(u) then party_names[#party_names + 1] = u.name end
+        if u.kind ~= 'self' and can.in_party(u) then
+            party_names[#party_names + 1] = u.name
+            if u.uses_mp then mp_names[#mp_names + 1] = u.name end
+        end
     end
 
     local view = {
@@ -742,7 +746,7 @@ function model.build(g, cat, cfg, status, names)
                  reserve = h.reserve, stratagems = stratagems,
                  focus_names = focus_names, targets = heal_targets },
         recover = { mp = cfg.recover.mp, tp = cfg.recover.tp, min_tp = cfg.recover.min_tp, spends_tp = spends_tp,
-                    target = cfg.recover.target or '', names = party_names, devotion = devotion },
+                    target = cfg.recover.target or '', names = mp_names, devotion = devotion },
         pet_heal = cfg.pet.heal,
         pet_at_t = sends and cfg.pet.at_t == true or nil, pet_sends = sends,  -- send it at <t> while engaged
         follow = { on = cfg.follow.on, target = cfg.follow.target, distance = cfg.follow.distance, names = focus_names },

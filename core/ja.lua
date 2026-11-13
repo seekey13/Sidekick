@@ -185,8 +185,10 @@ ja.words = {
     ['Spend TP from'] = 'TP消費の下限', ['Chivalry turns all your TP into MP: only from this much.'] =
         'シバルリーは全TPをMPに変えます。このTP以上のときだけ使います。',
     ['Devotion on'] = 'デヴォーション対象', ['Lowest MP'] = 'MPが最も低い人',
-    ['Devotion goes only on this member, once their MP is under MP under. Lowest MP: the member lowest on MP.'] =
-        'このメンバーのMPがMP回復ライン未満のときだけデヴォーションを使います。「MPが最も低い人」はMPが最も低いメンバーに使います。',
+    ['Devotion goes only on this member, once their MP is under MP under; while they aren\'t in your party, on the '
+        .. 'member lowest on MP. Lowest MP: always the member lowest on MP.'] =
+        'このメンバーのMPがMP回復ライン未満のときだけデヴォーションを使います。パーティにいない間はMPが最も低いメンバーに使います。'
+        .. '「MPが最も低い人」は常にMPが最も低いメンバーに使います。',
     ['Pet HP under'] = 'ペットHPライン', ['Heal your pet under this HP %.'] = 'ペットのHPがこの%未満なら回復します。',
     ['Send at your target'] = '自分のターゲットへ',
     ['Send your pet at your own target (<t>), and only while you are engaged, instead of the battle target.'] =
@@ -508,7 +510,8 @@ ja.words = {
     ['off'] = 'オフ', ['Widget %s.'] = 'ウィジェット: %s', ['Focus off.'] = 'フォーカス: オフ', ['Focus: %s.'] = 'フォーカス: %s',
     ['Devotion on whoever is lowest on MP.'] = 'デヴォーション: MPが最も低いメンバーに使います。',
     ['Devotion only on %s.'] = 'デヴォーション: %sにだけ使います。',
-    ['%s isn\'t in your party now: no Devotion until they are.'] = '%sは今パーティにいません。加わるまでデヴォーションは使いません。',
+    ['%s isn\'t in your party now: Devotion goes on whoever is lowest until they are.'] =
+        '%sは今パーティにいません。加わるまではMPが最も低いメンバーにデヴォーションを使います。',
     ['That\'s you: Devotion goes on another member.'] = 'それはあなたです: デヴォーションは他のメンバーに使います。',
     ['Follow off.'] = '追従: オフ', ['Following %s past %d yalms.'] = '%sを追従します（%dヤルムより離れたら）。',
     ['Follow on, but no leader yet: /sk follow <name>.'] = '追従: オン。ただしリーダーが未設定です: /sk follow <名前>',

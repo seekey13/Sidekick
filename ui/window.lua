@@ -799,7 +799,8 @@ local function draw_recover_settings(view, pg)
     end
     if r.devotion then
         choice(pg, 'Devotion on', 'recover_target', 'recover.target', r.target, named(r.names),
-            'Devotion goes only on this member, once their MP is under MP under. Lowest MP: the member lowest on MP.',
+            'Devotion goes only on this member, once their MP is under MP under; while they aren\'t in your party, on the '
+                .. 'member lowest on MP. Lowest MP: always the member lowest on MP.',
             nil, nil, 'Lowest MP')
     end
 end
