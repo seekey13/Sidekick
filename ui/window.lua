@@ -594,13 +594,17 @@ local function id_of(label, path) return label .. '##sk_' .. path:gsub('%.', '_'
 
 -- The helpers from here to `choice` take their label, help and unit in English and show them in the UI's language.
 
--- A slider for setting `path` (`value`), over its range in LIMITS unless `range` ({ min, max }) is given.
-local function slider(pg, label, path, value, help, unit, range)
+-- A slider for setting `path` (`value`), over its range in LIMITS unless `range` ({ min, max }) is given. Given `off`
+-- (why it can't work), it's greyed and dead, and `off` is the whole line's tooltip in place of `help`.
+local function slider(pg, label, path, value, help, unit, range, off)
+    local top = pg.y
+    help = off or help
     local cy = line(pg, t(label), help and t(help), nil, nil, pg.right - S(SLIDER_W) - S(8) - pg.lx)
     local r = range or LIMITS[path]
-    local v, moved = kit.slider(id_of(label, path), pg.right - S(SLIDER_W), cy, S(SLIDER_W), value, r[1], r[2], true, pg.alpha,
-        unit and t(unit))
-    if moved then act.set(path, v) end
+    local v, moved = kit.slider(id_of(label, path), pg.right - S(SLIDER_W), cy, S(SLIDER_W), value, r[1], r[2], not off,
+        pg.alpha, unit and t(unit))
+    if off and kit.over(pg.x, top, pg.w, pg.y - top) then kit.tooltip(t(off)) end
+    if moved and not off then act.set(path, v) end
 end
 
 -- A switch: `set(on)` when flipped, else setting `path` (also its id).
@@ -709,6 +713,11 @@ local HEAL_LINES = {
     { 'Danger under', 'danger', 'Under this HP %, heal fastest instead, and wait for a heal nearly ready.' },
     { 'Critical under', 'critical', 'Under this HP %, boost the heal first (Divine Seal) or save them (Martyr).' },
 }
+-- Every heal efficient healing could use is off (heal rows, or Cure, Cure II, Regen... unticked): nothing for Heal under.
+local NO_EFFICIENT = {
+    threshold = 'All efficient healing abilities are disabled, so Heal under can\'t work.',
+    focus_threshold = 'All efficient healing abilities are disabled, so Focus heal under can\'t work.',
+}
 local HEAL_TIP = 'Untick to never heal them for their own sake; an area heal may still land on them.'
 local WHO_TIP = 'Untick to never clear debuffs on them, Doom too: someone else sees to them.'
 
@@ -778,14 +787,16 @@ end
 
 local function draw_heal_settings(view, pg)
     local h = view.heal
-    for _, l in ipairs(HEAL_LINES) do slider(pg, l[1], 'heal.' .. l[2], h[l[2]], l[3], '%') end
+    local off = function (key) return h.no_efficient and NO_EFFICIENT[key] or nil end
+    for _, l in ipairs(HEAL_LINES) do slider(pg, l[1], 'heal.' .. l[2], h[l[2]], l[3], '%', nil, off(l[2])) end
     -- A heal line at or under its danger line leaves nothing between them: only danger heals go.
-    if h.threshold <= h.danger then note(pg, t('Heal under is at or under Danger under: no efficient heals, only danger ones.'), P.amber) end
+    if h.threshold <= h.danger and not h.no_efficient then note(pg, t('Heal under is at or under Danger under: no efficient heals, only danger ones.'), P.amber) end
     choice(pg, 'Focus', 'focus', 'heal.focus', h.focus, named(h.focus_names), 'Heal this member first, on its own lines.')
     for _, l in ipairs(HEAL_LINES) do
-        slider(pg, 'Focus ' .. l[1]:lower(), 'heal.focus_' .. l[2], h['focus_' .. l[2]], 'For the focus member: ' .. l[3], '%')
+        slider(pg, 'Focus ' .. l[1]:lower(), 'heal.focus_' .. l[2], h['focus_' .. l[2]], 'For the focus member: ' .. l[3], '%',
+            nil, off('focus_' .. l[2]))
     end
-    if h.focus_threshold <= h.focus_danger then
+    if h.focus_threshold <= h.focus_danger and not h.no_efficient then
         note(pg, t('Focus heal under is at or under Focus danger under: the focus member gets danger heals only.'), P.amber)
     end
     slider(pg, 'Cure potency +', 'heal.cure_potency', h.cure_potency, 'Cure potency % from gear, until a cure has been seen healing.', '%')

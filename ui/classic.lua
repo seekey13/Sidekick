@@ -409,14 +409,17 @@ end
 -- Settings controls ----------------------------------------------------------------------------
 
 -- A slider for setting `path`, over its range (LIMITS, unless given).
-local function slider(c, label, path, value, help, lo, hi)
+-- Given `off` (why it can't work), the slider is dimmed, moving it sets nothing, and `off` is its tooltip.
+local function slider(c, label, path, value, help, lo, hi, off)
     if not lo then lo, hi = LIMITS[path][1], LIMITS[path][2] end
     local v = { util.clamp(math.floor(num(value, lo)), lo, hi) }
     width(SLIDER_W)
+    style(off and VAR_ALPHA or nil, 0.5)
     local moved = imgui.SliderInt(label .. '##sk_' .. id_of(path), v, lo, hi)
+    unstyle()
     unwidth()
-    tip(help)
-    if moved then c.act.set(path, v[1]) end
+    tip(off or help)
+    if moved and not off then c.act.set(path, v[1]) end
 end
 
 -- 2.9.1's number field (the Party State panel's), held to its range.
@@ -960,20 +963,22 @@ end
 local function focus_body(c)
     local h = c.view.heal
     name_pick(c, 'Focus Target', 'heal.focus', h.focus, h.focus_names, TIP.focus_target)
-    slider(c, 'Focus (HP%)', 'heal.focus_threshold', h.focus_threshold, 'For the focus member:\n' .. TIP.group_hp)
+    slider(c, 'Focus (HP%)', 'heal.focus_threshold', h.focus_threshold, 'For the focus member:\n' .. TIP.group_hp, nil, nil,
+        h.no_efficient and 'All efficient healing abilities are disabled, so Focus can\'t work.' or nil)
     slider(c, 'Focus Danger (HP%)', 'heal.focus_danger', h.focus_danger, 'For the focus member:\n' .. TIP.danger_hp)
     slider(c, 'Focus Critical (HP%)', 'heal.focus_critical', h.focus_critical, 'For the focus member:\n' .. TIP.critical_hp)
-    if h.focus_threshold <= h.focus_danger then
+    if h.focus_threshold <= h.focus_danger and not h.no_efficient then
         colored(YELLOW, 'Focus is at or under Focus Danger: the focus member gets danger heals only.')
     end
 end
 
 local function heal_body(c)
     local h = c.view.heal
-    slider(c, 'Group (HP%)', 'heal.threshold', h.threshold, TIP.group_hp)
+    slider(c, 'Group (HP%)', 'heal.threshold', h.threshold, TIP.group_hp, nil, nil,
+        h.no_efficient and 'All efficient healing abilities are disabled, so Group can\'t work.' or nil)
     slider(c, 'Danger (HP%)', 'heal.danger', h.danger, TIP.danger_hp)
     slider(c, 'Critical (HP%)', 'heal.critical', h.critical, TIP.critical_hp)
-    if h.threshold <= h.danger then colored(YELLOW, 'Group is at or under Danger: no efficient heals, only danger ones.') end
+    if h.threshold <= h.danger and not h.no_efficient then colored(YELLOW, 'Group is at or under Danger: no efficient heals, only danger ones.') end
     if slot_buttons(h.targets, 'heal_targets', function (tg) c.act.skip(tg.name, tg.on) end,
             function (tg) return game_text(tg.name) .. TIP.group_target end) then
         imgui.SameLine()

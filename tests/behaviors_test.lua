@@ -60,6 +60,21 @@ end)
 
 -- Recover ---------------------------------------------------------------------------
 
+test('efficient_heals: on while one heal efficient healing could use is on; off once all are; none on a job without',
+        function ()
+    local heal = require('behaviors.heal')
+    local cfg = settings.defaults()
+    eq(heal.efficient_heals(whm, cfg), 'on')
+    for _, a in ipairs(whm) do
+        if a.role == 'heal' and a.family ~= 'Cure' then cfg.rows[settings.key(a)] = { on = false } end
+    end
+    cfg.heal.never = { Cure = true, ['Cure II'] = true, ['Cure III'] = true, ['Cure IV'] = true }
+    eq(heal.efficient_heals(whm, cfg), 'on')    -- Cure V still ticked
+    cfg.heal.never['Cure V'] = true
+    eq(heal.efficient_heals(whm, cfg), 'off')
+    eq(heal.efficient_heals(fake.catalog(SAM, 75, nil, 0), cfg), 'none')
+end)
+
 test('recover: Convert under the MP line, only while it gains and you are out of danger', function ()
     local rdm = fake.catalog(RDM, 75, nil, 0, { 'Convert' })
     local cfg = cfg_with({ ['heal.on'] = false })
