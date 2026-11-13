@@ -73,6 +73,7 @@ test('efficient_heals: on while one heal efficient healing could use is on; off 
     cfg.heal.never['Cure V'] = true
     eq(heal.efficient_heals(whm, cfg), 'off')
     eq(heal.efficient_heals(fake.catalog(SAM, 75, nil, 0), cfg), 'none')
+    eq(heal.efficient_heals(fake.catalog(9, 75, nil, 0, { 'Wild Carrot' }), cfg), 'none')  -- BST: Ready charges are kept
 end)
 
 test('recover: Convert under the MP line, only while it gains and you are out of danger', function ()

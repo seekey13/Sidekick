@@ -372,14 +372,14 @@ end
 -- by, or a Ready move's charges, kept for the pet), 'off' when it has but every one's row is off or unticked
 -- (heal.never), else 'on'. 'off' leaves Heal under nothing to do (ui/: its slider is greyed).
 function heal.efficient_heals(cat, cfg)
-    local any = false
+    local found = false
     for _, a in ipairs(cat) do
-        if a.role == 'heal' and not a.charges and (a.tick or a.potency) then
+        if a.role == 'heal' and not a.charges and (a.tick and a.tick > 0 or a.potency) then  -- want() drops a 0 tick
             if settings.row(cfg, a).on and not settings.never_heal(cfg, a) then return 'on' end
-            any = true
+            found = true
         end
     end
-    return any and 'off' or 'none'
+    return found and 'off' or 'none'
 end
 
 -- Critical and danger, which go ahead of removal; efficient after it (core/engine.lua).

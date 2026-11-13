@@ -599,7 +599,7 @@ local function id_of(label, path) return label .. '##sk_' .. path:gsub('%.', '_'
 local function slider(pg, label, path, value, help, unit, range, off)
     local top = pg.y
     help = off or help
-    local cy = line(pg, t(label), help and t(help), nil, nil, pg.right - S(SLIDER_W) - S(8) - pg.lx)
+    local cy = line(pg, t(label), help and t(help), nil, off and P.dim or nil, pg.right - S(SLIDER_W) - S(8) - pg.lx)
     local r = range or LIMITS[path]
     local v, moved = kit.slider(id_of(label, path), pg.right - S(SLIDER_W), cy, S(SLIDER_W), value, r[1], r[2], not off,
         pg.alpha, unit and t(unit))
