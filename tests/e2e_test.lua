@@ -67,10 +67,13 @@ local e2e = require('tools.e2e')
 e2e.say = function () end
 
 -- One frame of the game: the clock on, Sidekick handing on its status, the runner's step.
+-- `world.react`, when set, plays the game's and Sidekick's side each frame; `world.units` are the units Sidekick decides on.
 local function frame(dt)
     now = now + (dt or 0.1)
+    if world.react then world.react() end
     share.tick({}, now, status, {})
-    engine.decide({ units = {} }, { { name = 'Poisona' } }, { buff = { hold_aoe = false }, remove = { on = true, skip = {} } }, {})
+    engine.decide({ units = world.units or {} }, { { name = 'Poisona' }, { name = 'Cursna' } },
+        { buff = { hold_aoe = false }, remove = { on = true, skip = {} } }, {})
     handlers.d3d_present()
 end
 local function frames(seconds) for _ = 1, math.ceil(seconds / 0.1) do frame() end end
@@ -272,6 +275,70 @@ test('a read through t.gm (who, cursor...) is no scene: the scene\'s moment stay
     end })
     local r = run_to_end('fake_read')[1]
     eq({ r.result, r.why, r.notes[1] }, { 'pass', nil, 'Test' })
+end)
+
+test('every scenario in the suite loads, with what it checks', function ()
+    for _, s in ipairs(e2e.list()) do eq(s.about:find('does not load', 1, true), nil, s.name) end
+end)
+
+-- The cursna scenarios against a fake game: `misses` Cursnas with no effect, then one that takes the Doom off.
+local function cursna_game(misses, stall)
+    local test = { name = 'Test', buffs = {} }
+    world.units = { { name = 'Dev', buffs = {} }, test }
+    status.running, status.sent, packets, queued = false, {}, {}, {}
+    local seen_lines, casts, pending = 0, 0, {}
+    local function later(dt, fn) pending[#pending + 1] = { at = now + dt, fn = fn } end
+    world.react = function ()
+        for i = #pending, 1, -1 do
+            if now >= pending[i].at then local p = table.remove(pending, i); p.fn() end
+        end
+        while seen_lines < #packets do
+            seen_lines = seen_lines + 1
+            local line = packets[seen_lines]
+            if line == '!addeffect Test 15 10 60' then
+                later(0.5, function () test.buffs[15] = true end)
+                later(1, function () casts = casts + 1; sidekick_sends('Cursna', 'Test', 'remove') end)
+            elseif line:match('^!deleffect Test 15') then
+                test.buffs[15] = nil
+            elseif line:match('^!hp %d+ Test$') and line ~= '!hp 99999 Test' then
+                world.party[2].hpp = 40
+                later(0.5, function () sidekick_sends('Cure V', 'Test', 'heal') end)
+                later(3, function ()
+                    handlers.packet_in(action_packet(1, 4, 6, { { 2, 7, 700 } }))
+                    world.party[2].hpp = 100
+                end)
+            end
+        end
+        -- Each Cursna sent lands 1.5 s later; the next goes at its recast while the Doom stays, unless stalled.
+        local last = status.sent[1]
+        if last and last.action == 'Cursna' and not last.landed then
+            last.landed = true
+            local n = casts
+            later(1.5, function ()
+                local took = n > misses
+                handlers.packet_in(action_packet(1, 4, 20, { { 2, took and 359 or 75, took and 15 or 0 } }))
+                if took then test.buffs[15] = nil
+                elseif not stall then later(10, function () casts = casts + 1; sidekick_sends('Cursna', 'Test', 'remove') end) end
+            end)
+        end
+    end
+    local r = run_to_end('cursna_party')[1]
+    world.react, world.units, world.party[2].hpp = nil, nil, 100
+    return r
+end
+
+test('cursna_party: Doom on Test, Cursna until it goes, a heal between, then quiet', function ()
+    local r = cursna_game(2)
+    eq({ r.result, r.why }, { 'pass', nil })
+    eq(r.notes[#r.notes], 'Doom taken off by Cursna 3')
+    eq(packets[#packets - 2], '!deleffect Test 15')  -- the cleanup
+end)
+
+test('cursna_party: no Cursna once its recast is up fails, saying what Sidekick was doing', function ()
+    status.why = 'nothing to do'
+    local r = cursna_game(5, true)
+    status.why = nil
+    eq({ r.result, r.why }, { 'fail', 'a Cursna on Test once its recast was up: not within 16s (Sidekick: nothing to do)' })
 end)
 
 test('unwatch waits for a scenario running: aborted, cleaned up, then unhooked', function ()
