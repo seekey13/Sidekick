@@ -713,10 +713,12 @@ local HEAL_LINES = {
     { 'Danger under', 'danger', 'Under this HP %, heal fastest instead, and wait for a heal nearly ready.' },
     { 'Critical under', 'critical', 'Under this HP %, boost the heal first (Divine Seal) or save them (Martyr).' },
 }
--- Every heal efficient healing could use is off (heal rows, or Cure, Cure II, Regen... unticked): nothing for Heal under.
+-- Every heal efficient healing could use is off (heal rows, or Cure, Cure II, Regen... unticked): nothing for Heal under;
+-- every one that can reach the focus member (not Chakra or Drain): nothing for Focus heal under.
 local NO_EFFICIENT = {
     threshold = 'All efficient healing abilities are disabled, so Heal under can\'t work.',
-    focus_threshold = 'All efficient healing abilities are disabled, so Focus heal under can\'t work.',
+    focus_threshold = 'All efficient healing abilities that can reach the focus member are disabled, so Focus heal under '
+        .. 'can\'t work.',
 }
 local HEAL_TIP = 'Untick to never heal them for their own sake; an area heal may still land on them.'
 local WHO_TIP = 'Untick to never clear debuffs on them, Doom too: someone else sees to them.'
@@ -787,7 +789,9 @@ end
 
 local function draw_heal_settings(view, pg)
     local h = view.heal
-    local off = function (key) return h.no_efficient and NO_EFFICIENT[key] or nil end
+    local off = function (key)
+        return (key == 'focus_threshold' and h.no_focus_efficient or h.no_efficient) and NO_EFFICIENT[key] or nil
+    end
     for _, l in ipairs(HEAL_LINES) do slider(pg, l[1], 'heal.' .. l[2], h[l[2]], l[3], '%', nil, off(l[2])) end
     -- A heal line at or under its danger line leaves nothing between them: only danger heals go.
     if h.threshold <= h.danger and not h.no_efficient then note(pg, t('Heal under is at or under Danger under: no efficient heals, only danger ones.'), P.amber) end
@@ -796,7 +800,7 @@ local function draw_heal_settings(view, pg)
         slider(pg, 'Focus ' .. l[1]:lower(), 'heal.focus_' .. l[2], h['focus_' .. l[2]], 'For the focus member: ' .. l[3], '%',
             nil, off('focus_' .. l[2]))
     end
-    if h.focus_threshold <= h.focus_danger and not h.no_efficient then
+    if h.focus_threshold <= h.focus_danger and not h.no_focus_efficient then
         note(pg, t('Focus heal under is at or under Focus danger under: the focus member gets danger heals only.'), P.amber)
     end
     slider(pg, 'Cure potency +', 'heal.cure_potency', h.cure_potency, 'Cure potency % from gear, until a cure has been seen healing.', '%')

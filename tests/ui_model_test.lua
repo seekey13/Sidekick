@@ -1088,9 +1088,12 @@ end)
 
 test('no_efficient: once every heal efficient healing could use is off; never on a job without one', function ()
     local cfg = settings.defaults()
-    eq(build(whm, cfg).heal.no_efficient, false)
+    local function flags(view) return { view.heal.no_efficient, view.heal.no_focus_efficient } end
+    eq(flags(build(whm, cfg)), { false, false })
     for _, a in ipairs(whm) do if a.role == 'heal' then cfg.rows[settings.key(a)] = { on = false } end end
-    eq(build(whm, cfg).heal.no_efficient, true)
+    eq(flags(build(whm, cfg)), { true, true })
+    cfg.rows.Drain = nil
+    eq(flags(build(whm, cfg)), { false, true })  -- Drain heals only you
     eq(build(fake.catalog(9, 75, 1, 37, { 'Wild Carrot' }), settings.defaults()).heal.no_efficient, false)  -- BST: a Ready move
 end)
 

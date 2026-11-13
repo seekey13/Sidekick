@@ -964,10 +964,11 @@ local function focus_body(c)
     local h = c.view.heal
     name_pick(c, 'Focus Target', 'heal.focus', h.focus, h.focus_names, TIP.focus_target)
     slider(c, 'Focus (HP%)', 'heal.focus_threshold', h.focus_threshold, 'For the focus member:\n' .. TIP.group_hp, nil, nil,
-        h.no_efficient and 'All efficient healing abilities are disabled, so Focus can\'t work.' or nil)
+        h.no_focus_efficient and 'All efficient healing abilities that can reach the focus member are disabled, so Focus '
+            .. 'can\'t work.' or nil)
     slider(c, 'Focus Danger (HP%)', 'heal.focus_danger', h.focus_danger, 'For the focus member:\n' .. TIP.danger_hp)
     slider(c, 'Focus Critical (HP%)', 'heal.focus_critical', h.focus_critical, 'For the focus member:\n' .. TIP.critical_hp)
-    if h.focus_threshold <= h.focus_danger and not h.no_efficient then
+    if h.focus_threshold <= h.focus_danger and not h.no_focus_efficient then
         colored(YELLOW, 'Focus is at or under Focus Danger: the focus member gets danger heals only.')
     end
 end

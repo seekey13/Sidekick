@@ -64,16 +64,20 @@ test('efficient_heals: on while one heal efficient healing could use is on; off 
         function ()
     local heal = require('behaviors.heal')
     local cfg = settings.defaults()
-    eq(heal.efficient_heals(whm, cfg), 'on')
+    eq({ heal.efficient_heals(whm, cfg) }, { 'on', 'on' })
     for _, a in ipairs(whm) do
         if a.role == 'heal' and a.family ~= 'Cure' then cfg.rows[settings.key(a)] = { on = false } end
     end
     cfg.heal.never = { Cure = true, ['Cure II'] = true, ['Cure III'] = true, ['Cure IV'] = true }
-    eq(heal.efficient_heals(whm, cfg), 'on')    -- Cure V still ticked
+    eq({ heal.efficient_heals(whm, cfg) }, { 'on', 'on' })    -- Cure V still ticked
     cfg.heal.never['Cure V'] = true
-    eq(heal.efficient_heals(whm, cfg), 'off')
-    eq(heal.efficient_heals(fake.catalog(SAM, 75, nil, 0), cfg), 'none')
-    eq(heal.efficient_heals(fake.catalog(9, 75, nil, 0, { 'Wild Carrot' }), cfg), 'none')  -- BST: Ready charges are kept
+    eq({ heal.efficient_heals(whm, cfg) }, { 'off', 'off' })
+    cfg.rows.Drain = nil
+    eq({ heal.efficient_heals(whm, cfg) }, { 'on', 'off' })   -- Drain heals only you: never the focus member
+    eq({ heal.efficient_heals(fake.catalog(SAM, 75, nil, 0), cfg) }, { 'none', 'none' })
+    eq({ heal.efficient_heals(fake.catalog(9, 75, nil, 0, { 'Wild Carrot' }), cfg) }, { 'none', 'none' })  -- BST: Ready
+    eq({ heal.efficient_heals(fake.catalog(MNK, 75, nil, 0, { 'Chakra' }), cfg) }, { 'on', 'none' })  -- Chakra: a prior
+    eq({ heal.efficient_heals(fake.catalog(PLD, 75, nil, 0), settings.defaults()) }, { 'on', 'on' })
 end)
 
 test('recover: Convert under the MP line, only while it gains and you are out of danger', function ()

@@ -203,8 +203,8 @@ local function better(c, best)
     return c.focus and not best.focus
 end
 
--- The best candidate for the band. A heal with no amount (Vivacious Pulse) goes
--- only when nothing else can, and never in efficient. Efficient sends nothing
+-- The best candidate for the band. A heal with no amount (no potency in core/knowledge.lua,
+-- none learned yet) goes only when nothing else can, and never in efficient. Efficient sends nothing
 -- while every heal would overheal: chip damage waits. A Ready move (Wild Carrot)
 -- keeps its charges for the pet's attacks unless someone is in danger.
 local function best_of(band, ctx, ready, members)
@@ -370,16 +370,20 @@ end
 
 -- Whether efficient healing has a heal to use: 'none' when the job has none it could rank (no amount to go
 -- by, or a Ready move's charges, kept for the pet), 'off' when it has but every one's row is off or unticked
--- (heal.never), else 'on'. 'off' leaves Heal under nothing to do (ui/: its slider is greyed).
+-- (heal.never), else 'on'. 'off' leaves Heal under nothing to do (ui/: its slider is greyed). The second
+-- result is the same over the heals that can land on someone else, as the focus member always is: not one
+-- only on you or aimed at the enemy (Chakra, Drain), unless it has an area.
 function heal.efficient_heals(cat, cfg)
-    local found = false
+    local mine, focus = 'none', 'none'
     for _, a in ipairs(cat) do
         if a.role == 'heal' and not a.charges and (a.tick and a.tick > 0 or a.potency) then  -- want() drops a 0 tick
-            if settings.row(cfg, a).on and not settings.never_heal(cfg, a) then return 'on' end
-            found = true
+            local on = settings.row(cfg, a).on and not settings.never_heal(cfg, a)
+            local state = on and 'on' or 'off'
+            if mine ~= 'on' then mine = state end
+            if focus ~= 'on' and (a.area > 0 or not (can.self_only(a) or can.at_enemy(a))) then focus = state end
         end
     end
-    return found and 'off' or 'none'
+    return mine, focus
 end
 
 -- Critical and danger, which go ahead of removal; efficient after it (core/engine.lua).
