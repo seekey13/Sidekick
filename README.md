@@ -135,13 +135,19 @@ Keeps your chosen **runes** up with separate sets for idle, **Vallation**, **Val
 <details>
 <summary><b>Scholar</b></summary>
 
-Handles **Light/Dark Arts** and Addendum automatically, fires **stratagems** (Penury, Celerity, Perpetuance, Accession...) just before the spells you tag, and can save the last charge for emergency healing.
+Handles **Light/Dark Arts** and Addendum automatically, fires **stratagems** (Penury, Celerity, Perpetuance, Accession...) just before the spells you tag, and can save the last charge for emergency healing. Choose **Auto** at the top of your storm's list and it casts the storm matching the zone's weather, going back to the last storm you picked when there's no elemental weather.
+</details>
+
+<details>
+<summary><b>Red Mage</b></summary>
+
+Choose **Auto** at the top of your enspell's list and it casts the enspell your weather (a storm on you counts) and the day favor most, at the best tier you have: Enfire under Hot Spell, but Enwater under Hot Spell on Watersday, where the day cancels the weather's bonus. There's no light or dark enspell, so when neither your weather nor the day helps one (Lightsday under clear skies, say), the last enspell you picked goes. Convert and the rest come from the shared engine, as for the jobs below.
 </details>
 
 <details>
 <summary><b>Other jobs</b></summary>
 
-White Mage, Red Mage, Paladin, Summoner, Dragoon and the rest are handled by the shared engine: Divine Seal and Martyr, Convert, Majesty and Chivalry, Healing Ruby, Spirit Link and more, all read from the game.
+White Mage, Paladin, Summoner, Dragoon and the rest are handled by the shared engine: Divine Seal and Martyr, Convert, Majesty and Chivalry, Healing Ruby, Spirit Link and more, all read from the game.
 </details>
 
 ## Configuration

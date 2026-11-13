@@ -376,6 +376,16 @@ ja.words = {
         .. 'Accession unable to spread it, or short of MP for it); otherwise the spell goes without it.'] =
         'ここで選んだ補助（戦術魔道書など）を魔法と一緒に使えない間（リキャスト中、チャージ不足、グリモア違い、女神降臨の章で広げられない、MP不足）は待ちます。オフなら補助なしで使います。',
     ['\nNo modifier is on here: it waits for nothing.'] = '\nここでオンの補助がないので、何も待ちません。',
+    -- Match (enspells, storms: core/sky.lua), and why a tier was matched
+    ['Auto (weather)'] = '自動（天候）', ['Auto (weather/day)'] = '自動（天候/曜日）',
+    ['Auto: %s (%s)'] = '自動：%s（%s）', ['Auto: %s'] = '自動：%s', ['no match'] = '合うものなし',
+    ['storm'] = '陣', ['weather'] = '天候', ['day'] = '曜日',
+    ['Cast the storm matching the zone\'s weather. With no elemental weather, the last one you picked goes.'] =
+        'エリアの天候と同じ属性の陣を使います。属性天候がないときは最後に選んだものを使います。',
+    ['Cast the one your weather (a storm on you counts) and the day favor most. '
+        .. 'With neither on its side (Lightsday under clear skies, say: there is no light one), the last one you picked goes.'] =
+        '自分の天候（陣も含む）と曜日で最も有利な属性のものを使います。'
+        .. 'どちらも有利にならないとき（晴れの光曜日など、光属性のものはありません）は最後に選んだものを使います。',
     -- a row's gate (its Idle pill is 'Idle (gate)': 'Idle' is the rune set's word above, 通常時)
     ['Combat'] = '戦闘中', ['Idle (gate)'] = '戦闘外',
     ['Only in combat: while there is a battle target, and for a few seconds after.'] =

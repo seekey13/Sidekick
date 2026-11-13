@@ -1225,6 +1225,9 @@ end
 local HOLD_TIP = 'Wait while a modifier picked here can\'t go with the spell (on recast, too few charges, the wrong Arts, '
     .. 'Accession unable to spread it, or short of MP for it); otherwise the spell goes without it.'
 
+local MATCH_WEATHER_TIP = 'Cast the storm matching the zone\'s weather. With no elemental weather, the last one you picked goes.'
+local MATCH_ELEMENT_TIP = 'Cast the one your weather (a storm on you counts) and the day favor most. '
+    .. 'With neither on its side (Lightsday under clear skies, say: there is no light one), the last one you picked goes.'
 local TIER_TIP = 'Untick to never heal with it; the other tiers still go.'
 local WAKE_TIP = 'Untick to never heal with it; the other tiers still go, and it still wakes a sleeper.'
 
@@ -1369,7 +1372,13 @@ local function family_row(pg, sid, r)
         line_i = 1
         kit.dropdown('##pick_' .. id, pg.lx, top, S(PICK_W), r.choice, true, pg.alpha, function ()
             for _, c in ipairs(r.choices) do
-                if kit.selectable(c.label, c.name == r.pick) then act.pick(r.key, c.name) end
+                -- Enspells, storms: Auto first, following the sky (Match); a tier picked leaves it.
+                if c.match then
+                    if kit.selectable(c.label, r.match) then act.match(r.key, true) end
+                    kit.tip(t(r.match_rule == 'weather' and MATCH_WEATHER_TIP or MATCH_ELEMENT_TIP))
+                elseif kit.selectable(c.label, not r.match and c.name == r.pick) then
+                    act.pick(r.key, c.name)
+                end
             end
         end)
     end

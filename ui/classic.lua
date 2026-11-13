@@ -770,8 +770,15 @@ local function buff_row(c, sid, r, has_mods, no_favorite)
         width(DROPDOWN_W)
         if begin_combo('##sk_pick_' .. id, r.choice or '') then
             for _, ch in ipairs(r.choices) do
-                local selected = ch.name == r.pick
-                if imgui.Selectable(ch.label .. '##sk_pick_' .. id .. '_' .. (ch.name or 'auto'), selected) then c.act.pick(r.key, ch.name) end
+                -- Enspells, storms: Auto first, following the sky (Match); a tier picked leaves it.
+                local selected = ch.match and r.match or not ch.match and not r.match and ch.name == r.pick
+                if imgui.Selectable(ch.label .. '##sk_pick_' .. id .. '_' .. (ch.match and 'match' or ch.name or 'auto'), selected) then
+                    if ch.match then c.act.match(r.key, true) else c.act.pick(r.key, ch.name) end
+                end
+                if ch.match then
+                    tip(r.match_rule == 'weather' and 'Cast the storm matching the zone\'s weather.\nNo elemental weather: the last one you picked goes.'
+                        or 'Cast the one your weather (a storm on you counts)\nand the day favor most. Neither on its side:\nthe last one you picked goes.')
+                end
                 if selected then imgui.SetItemDefaultFocus() end
             end
             end_combo()

@@ -32,6 +32,7 @@ local pet_behavior = require('behaviors.pet')
 local profiles = require('core.profiles')
 local removal = require('core.removal')
 local settings = require('core.settings')
+local sky = require('core.sky')
 local status_ids = require('core.status')
 local util = require('core.util')
 
@@ -140,7 +141,8 @@ local function row_label(key, acts, note)
 end
 
 -- A buff row's choices { label, name }: tiers after "Auto (best)" (name nil), or
--- a pick-one group's actions, each with its own note when the row has none. A tier
+-- a pick-one group's actions, each with its own note when the row has none, after
+-- its Auto ({ label, match = true }) when it can follow the sky (core/sky.lua). A tier
 -- shows its own name: a labelled row's label ('Regen (keep up)') names the row, not
 -- each tier in it. A pick-one member, one action each, keeps its label
 -- ('Lasting Emanation (Duration)').
@@ -148,6 +150,9 @@ local function choices(acts, note)
     local names = distinct(acts, 'name')
     if not acts[1].pick_one and #names < 2 then return nil end
     local out = acts[1].pick_one and {} or { { label = lang.t('Auto (best)') } }
+    if sky.can(acts) then
+        out[1] = { label = lang.t(acts[1].match == 'weather' and 'Auto (weather)' or 'Auto (weather/day)'), match = true }
+    end
     for _, name in ipairs(names) do
         local a
         for _, x in ipairs(acts) do if x.name == name then a = x; break end end
@@ -293,7 +298,22 @@ local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
         row.choice = lang.t(acts[1].pick_one and 'Pick one' or 'Auto (best)')
         if r.pick then row.choice = lang.f('%s (not available)', lang.name(r.pick)) end
         for _, c in ipairs(row.choices) do
-            if c.name == r.pick then row.choice = c.label end
+            if c.name == r.pick and not c.match then row.choice = c.label end
+        end
+    end
+    -- Auto (Match): the tier the sky picks stands in for the pick while one does, and the choice says
+    -- which and why; the pick, the last one chosen before Auto, goes when none does.
+    local matched
+    if modifiers and sky.can(acts) then
+        row.match = r.match == true
+        row.match_rule = acts[1].match
+        local because
+        matched, because = sky.pick(r, acts, g)
+        if matched then
+            row.matched = matched
+            row.choice = lang.f('Auto: %s (%s)', lang.name(matched), lang.t(because))
+        elseif row.match then
+            row.choice = r.pick and lang.f('Auto: %s', lang.name(r.pick)) or row.choices[1].label
         end
     end
     -- Only the heals left ticked (heal.never) can go.
@@ -303,7 +323,10 @@ local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
     end
     if live[1] then
         -- Sending the pet in aims where pet.at_t says (behaviors/pet.lua): the row's readiness too.
-        row.ready, row.avail, row.action = availability(live, r, acts[1].role == 'pet_send' and select(2, pet_behavior.aim(g, cfg)) or g)
+        local rr = matched and util.overlay(r, { pick = matched }) or r
+        row.ready, row.avail, row.action = availability(live, rr, acts[1].role == 'pet_send' and select(2, pet_behavior.aim(g, cfg)) or g)
+        -- Auto with nothing matching and nothing picked before it: there's nothing to pick here but a tier.
+        if row.match and not matched and not r.pick then row.avail = lang.t('no match') end
     else
         row.ready, row.avail = false, lang.t('every tier unticked')
     end
@@ -803,7 +826,8 @@ local REMOTE = {
     who = { 'string', 'boolean' }, debuff = { 'string', 'boolean', 'string|nil' },
     debuffs = { 'table', 'boolean', 'string|nil' },
     pick = { 'string', 'string|nil' }, target = { 'string', 'number|string', 'boolean' },
-    mod = { 'string', 'string', 'boolean' }, hold = { 'string', 'boolean' }, gate = { 'string', 'string|nil' },
+    mod = { 'string', 'string', 'boolean' }, hold = { 'string', 'boolean' }, match = { 'string', 'boolean' },
+    gate = { 'string', 'string|nil' },
     profile = { 'string|nil' }, save_profile = { 'string', 'boolean|nil' },
     new_profile = {}, delete_profile = { 'string' }, track = { 'string' }, untrack = { 'string' },
     skip = { 'string', 'boolean' }, heal_spell = { 'string', 'boolean' }, set = { 'string', 'boolean|number|string' },
@@ -856,7 +880,7 @@ end
 
 -- The calls that set a chip on a row: only for a buff or luopan row this job has,
 -- since one never saved is made off (a default-on row like Cure would be turned off).
-local CHIPS = { hold = true, mod = true, target = true }
+local CHIPS = { hold = true, match = true, mod = true, target = true }
 
 local function chipped(cat, key)
     for _, a in ipairs(cat or {}) do
@@ -875,6 +899,15 @@ local function gated(cat, key)
 end
 local GATES = { combat = true, idle = true }
 
+-- Whether `key` is a row of this job's that can follow the sky (an enspell or storm row: core/sky.lua).
+local function matchable(cat, key)
+    local acts = {}
+    for _, a in ipairs(cat or {}) do
+        if settings.key(a) == key then acts[#acts + 1] = a end
+    end
+    return sky.can(acts)
+end
+
 -- Make `call` ({ fn, n = #args, args... }), sent by another session, through `act`,
 -- when it's one REMOTE lists with arguments of the right types (`n` of them, no
 -- more than it takes); whether it was. Only those arguments are passed on.
@@ -889,6 +922,7 @@ function model.apply(act, cfg, call, cat)
     local a, b = call[2], call[3]
     if fn == 'section' and (a == 'ui' or type(cfg[a]) ~= 'table' or type(cfg[a].on) ~= 'boolean') then return false end
     if CHIPS[fn] and not chipped(cat, a) then return false end
+    if fn == 'match' and not matchable(cat, a) then return false end
     if fn == 'gate' and not (gated(cat, a) and (b == nil or GATES[b])) then return false end
     -- A target's slot is an integer 0-17, or a tracked player's name.
     if fn == 'target' and type(b) == 'number' and (b % 1 ~= 0 or b < 0 or b > 17) then return false end
@@ -997,8 +1031,11 @@ function model.actions(cfg, status, changed, tracking, send, theme)
         end
         changed()
     end
-    -- name nil = best tier.
-    act.pick = saving(function (key, name) saved_row(cfg, key, false).pick = name end)
+    -- name nil = best tier. Picking one leaves Auto (Match), the list's first choice where it has one.
+    act.pick = saving(function (key, name)
+        local r = saved_row(cfg, key, false)
+        r.pick, r.match = name, nil
+    end)
     -- A buff row's chips, on or off by `on` (toggled without it): a target (a party slot 0-5, an alliance slot
     -- 6-17, or a tracked player's name), or a modifier fired before its spell (a stratagem: 'Penury', 'Accession'...).
     act.target = saving(function (key, slot, on)
@@ -1013,6 +1050,9 @@ function model.actions(cfg, status, changed, tracking, send, theme)
     end)
     -- Whether a row's spell waits while one of its modifiers can't go with it (Hold), or goes without (the default).
     act.hold = saving(function (key, on) saved_row(cfg, key, false).hold = on or nil end)
+    -- Whether an enspell or storm row follows the sky (Auto, its list's first choice), its pick, the last one
+    -- chosen, only when nothing matches (core/sky.lua).
+    act.match = saving(function (key, on) saved_row(cfg, key, false).match = on or nil end)
     -- A row's gate: 'combat' (it goes only in combat), 'idle' (only out of it) or nil (any time); setting one clears
     -- the other. Kept in cfg.gates, so a row is never made here (core/settings.lua).
     act.gate = saving(function (key, gate)

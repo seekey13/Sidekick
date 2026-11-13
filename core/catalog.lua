@@ -139,6 +139,7 @@ function catalog.build(res, player, K)
                                             mp = use.boost.mp or 1, tiers = use.boost.tiers },
                     duration = per_tier(use.duration, tier),
                     wakes = use.wakes, trance = use.trance, gives = use.gives, gate = use.gate, pick_one = use.pick_one,
+                    match = use.match,
                     costs_hp = use.costs_hp, swaps = use.swaps, spends_tp = use.spends_tp,
                     ammo = use.ammo, pet_range = use.pet_range, tool = use.tool, last_shadow = use.last_shadow,
                     applies = use.applies, spreads = use.spreads, addendum = addendum or nil,

@@ -1,7 +1,9 @@
 --[[
     Keep the buffs you turned on up on the targets you picked. A row's action is its
     picked tier, else the best tier you can cast now; a pick_one group (bar-elements,
-    enspells...) needs a pick. A row's targets are party and alliance slots (0-17)
+    enspells...) needs a pick. With Auto (Match) on, an enspell or storm row goes with
+    the tier matching the sky instead, its pick only when none does (core/sky.lua).
+    A row's targets are party and alliance slots (0-17)
     and tracked players' names; a self-only buff goes on you, and an area self-cast
     (Protectra) is recast when anyone in your party near you lacks it. A status that
     can't be read (Boost) is recast whenever it's off recast.
@@ -31,6 +33,7 @@ local ammo = require('core.ammo')
 local can = require('core.can')
 local heal = require('behaviors.heal')
 local settings = require('core.settings')
+local sky = require('core.sky')
 local status = require('core.status')
 local util = require('core.util')
 
@@ -73,25 +76,36 @@ local AREA_RADIUS = 10  -- yalms around you
 local OTHERS_FIRST = 15  -- seconds your own Invisible waits at most for other work pending
 local lacks = can.lacks
 
--- Each row's action, its best tier first, rows in the Buffs list's order (settings.buff_order).
-local function chosen(cat, cfg, g)
+-- The buff rows that are on: { [key] = their actions }, and the keys in catalog order.
+local function rows_on(cat, cfg)
     local by_key, keys = {}, {}
     for _, a in ipairs(settings.enabled(cat, cfg, 'buff')) do
         local key = settings.key(a)
         if not by_key[key] then by_key[key] = {}; keys[#keys + 1] = key end
         table.insert(by_key[key], a)
     end
+    return by_key, keys
+end
+
+-- The tier a row of `list` goes with by name: the one matching the sky with its
+-- Match on (core/sky.lua), else its pick; nil for the best it can cast.
+local function picked(row, list, g) return sky.pick(row, list, g) or row.pick end
+
+-- Each row's action, its best tier first, rows in the Buffs list's order (settings.buff_order).
+local function chosen(cat, cfg, g)
+    local by_key, keys = rows_on(cat, cfg)
     local out = {}
     for _, key in ipairs(keys) do
         local list = by_key[key]
         local row = settings.row(cfg, list[1])
+        local name = picked(row, list, g)
         table.sort(list, util.by_level)
         local pick
         for _, a in ipairs(list) do
-            if row.pick == a.name or (not row.pick and not a.pick_one and can.use(a, g)) then pick = a; break end
+            if name == a.name or (not name and not a.pick_one and can.use(a, g)) then pick = a; break end
         end
         -- None can go now: the best, when it needs ammo, so that can be equipped for it.
-        if not (pick or row.pick or list[1].pick_one) and list[1].ammo then pick = list[1] end
+        if not (pick or name or list[1].pick_one) and list[1].ammo then pick = list[1] end
         if pick then
             out[#out + 1] = { action = pick, targets = row.targets or { [0] = true }, mods = settings.mods(cat, cfg, pick),
                               hold = row.hold == true }
@@ -266,10 +280,12 @@ function buff.want(g, cat, cfg, mem) return due(g, cat, cfg, mem, 'want') end
 -- it is for lacks, off recast within OTHERS_FIRST seconds.
 local function pending(g, cat, cfg, mem)
     if mem.gather or mem.waiting or g.now < (mem.busy_until or -math.huge) then return true end
+    local by_key = rows_on(cat, cfg)
     for _, a in ipairs(settings.enabled(cat, cfg, 'buff')) do
         local row = settings.row(cfg, a)
+        local name = picked(row, by_key[settings.key(a)], g)
         local _, _, wait = can.use(a, g)
-        if wait and wait <= OTHERS_FIRST and (row.pick or a.name) == a.name and not (a.pick_one and not row.pick) then
+        if wait and wait <= OTHERS_FIRST and (name or a.name) == a.name and not (a.pick_one and not name) then
             local targets, self_only = row.targets or { [0] = true }, can.self_only(a)
             for _, u in ipairs(g.units) do
                 local mine = u.kind == 'self'

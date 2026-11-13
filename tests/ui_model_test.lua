@@ -290,7 +290,7 @@ test('RDM 75 / WHM 37: a family reaching others at any tier gets targets', funct
     local view = build(fake.catalog(RDM, 75, WHM, 37))
     local r = row(view, 'buff', 'Phalanx')  -- Phalanx is self-only, Phalanx II is not
     eq({ r.targets ~= nil, #r.choices }, { true, 3 })
-    eq(row(view, 'buff', 'enspell').choices[7].label, 'Enfire II')
+    eq(row(view, 'buff', 'enspell').choices[8].label, 'Enfire II')  -- after Auto (core/sky.lua) and the six I's
 end)
 
 test('availability: the shortest recast, then MP, combat only', function ()
