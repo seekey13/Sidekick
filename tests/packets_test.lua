@@ -300,14 +300,14 @@ end
 
 local function with_bits(fn)
     local was, reads = ashita, 0
-    ashita = { bits = { unpack_be = function (d, _, at, n)
+    rawset(_G, 'ashita', { bits = { unpack_be = function (d, _, at, n)
         reads = reads + 1
         local v = 0
         for i = 1, n do v = v * 2 + (d[at + i] or 0) end
         return v
-    end } }
+    end } })
     local ok, err = pcall(fn, function () local r = reads; reads = 0; return r end)
-    ashita = was
+    rawset(_G, 'ashita', was)
     if not ok then error(err, 0) end
 end
 

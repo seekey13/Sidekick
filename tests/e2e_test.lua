@@ -451,7 +451,6 @@ end)
 local OWN = 1200
 local function max_hp_game(name, how)
     local alliance = name == 'max_hp_alliance'
-    local slot = alliance and 7 or 2
     local p = alliance and { name = 'Alliance', sid = 3, tidx = 0x402, hp = OWN, hpp = 100, mp = 300, mpp = 100 }
         or world.party[2]
     if alliance then world.party[7], world.ents[0x402] = p, 'Alliance' end

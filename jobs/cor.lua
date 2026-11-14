@@ -161,6 +161,19 @@ local function busy(mem, t) mem.busy_until = math.max(mem.busy_until or -math.hu
 
 local function up(a, g) return not can.lacks(a, g.me) end
 
+-- The Double-Up of `roll`, standing at g.roll's total, as an intent: nil while DOUBLE_GAP since the last one or
+-- Double-Up's recast holds it (busy till then). `snake`: Snake Eye fired first. `once`: a commanded roll's.
+local function double_up(g, mem, st, roll, double, snake, once)
+    local r = g.roll
+    local gap = math.max(st.doubled or -math.huge, r.doubled and r.at or -math.huge) + cor.DOUBLE_GAP
+    local _, _, wait = can.use(double, g)
+    if g.now < gap or wait then busy(mem, math.max(gap, g.now + (wait or 0))); return nil end
+    if not ready(double, g) then return nil end
+    return { action = double, once = once, mods = snake and { snake } or nil,
+             why = ('%s at %d'):format(roll.name, r.total),
+             sent = function (now) st.sent[roll.id], st.doubled = now, now end }
+end
+
 -- Whether a roll named now waits for a Bust to go: one is up and Fold can't clear it now.
 function cor.bust_waits(g, cat) return g.me.buffs[BUST] == true and not ready(named(cat, 'Fold'), g) end
 
@@ -215,13 +228,7 @@ function cor.shot(g, cat, _, mem)
             st.safe, st.shot = { id = r.id, at = r.at }, nil
             return nil
         end
-        local gap = math.max(st.doubled or -math.huge, r.doubled and r.at or -math.huge) + cor.DOUBLE_GAP
-        local _, _, wait = can.use(double, g)
-        if g.now < gap or wait then busy(mem, math.max(gap, g.now + (wait or 0))); return nil end
-        if not ready(double, g) then return nil end
-        return { action = double, once = true, mods = decision == 'snake_eye' and { snake } or nil,
-                 why = ('%s at %d'):format(roll.name, r.total),
-                 sent = function (now) st.sent[roll.id], st.doubled = now, now end }
+        return double_up(g, mem, st, roll, double, decision == 'snake_eye' and snake, true)
     end
     -- The total is in and the chance is not, yet: the buff can trail the packet.
     if g.now - r.at < cor.WAIT then busy(mem, r.at + cor.WAIT); return nil end
@@ -277,13 +284,7 @@ function cor.want(g, cat, cfg, mem)
             or cor.decide(r.total, roll.lucky, roll.unlucky, cor.eleven(g, cat, cfg, roll) and 'max' or cfg.roll.risk,
                 ready(snake, g), ready(fold, g))
         if decision ~= 'stop' then
-            local gap = math.max(st.doubled or -math.huge, r.doubled and r.at or -math.huge) + cor.DOUBLE_GAP
-            local _, _, wait = can.use(double, g)
-            if g.now < gap or wait then busy(mem, math.max(gap, g.now + (wait or 0))); return nil end
-            if not ready(double, g) then return nil end
-            return { action = double, mods = decision == 'snake_eye' and { snake } or nil,
-                     why = ('%s at %d'):format(roll.name, r.total),
-                     sent = function (now) st.sent[roll.id], st.doubled = now, now end }
+            return double_up(g, mem, st, roll, double, decision == 'snake_eye' and snake)
         end
     end
     for id, at in pairs(st.sent) do

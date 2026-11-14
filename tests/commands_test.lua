@@ -19,12 +19,7 @@ local function restore()
     rawset(string, 'args', saved_args)
 end
 
-local function copy(t)
-    if type(t) ~= 'table' then return t end
-    local out = {}
-    for k, v in pairs(t) do out[k] = copy(v) end
-    return out
-end
+local copy = require('core.util').copy
 
 -- What a session file of another Sidekick session reads as (core/share.lua).
 local function alt(name, sid)
@@ -701,20 +696,20 @@ local ok, err = pcall(function ()
     end)
 
     test('a job change\'s abilities, listed once the server\'s ability list comes after the job', function ()
-        local e = boot(false)
-        local p, has = e.player, { [757] = true }  -- Afflatus Solace, WHM's
+        local s = boot(false)
+        local p, has = s.player, { [757] = true }  -- Afflatus Solace, WHM's
         p.HasAbility = function (_, id) return has[id] == true end
-        e.packet(0x0AC)  -- WHM's list, as at login
-        e.sk('/sk')
-        e.frame()
-        local v = e.frame()
+        s.packet(0x0AC)  -- WHM's list, as at login
+        s.sk('/sk')
+        s.frame()
+        local v = s.frame()
         eq({ mentions(v, 'Afflatus Solace'), mentions(v, 'Berserk') }, { true, false })
         p.GetMainJob = function () return 1 end  -- WAR: the client still lists WHM's abilities
-        v = e.frame()
+        v = s.frame()
         eq({ mentions(v, 'Afflatus Solace'), mentions(v, 'Berserk') }, { true, false })
         has = { [543] = true }  -- then the server's list: Berserk
-        e.packet(0x0AC)
-        v = e.frame()
+        s.packet(0x0AC)
+        v = s.frame()
         eq({ mentions(v, 'Afflatus Solace'), mentions(v, 'Berserk') }, { false, true })
     end)
 end)

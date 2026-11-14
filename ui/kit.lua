@@ -632,20 +632,27 @@ end
 
 local function faded(enabled, alpha) return (enabled == false and 0.4 or 1) * (alpha or 1) end
 
+-- An on/off control `id` in the box at x, y: `on` after a click, whether it changed, how far on it's drawn (0 to 1),
+-- its alpha and whether it's pointed at while enabled.
+local function toggled(id, x, y, w, h, on, enabled, alpha)
+    local hovered, clicked = hit(id, x, y, w, h)
+    local changed = clicked and enabled ~= false
+    if changed then on = not on end
+    return on, changed == true, ease(id, on and 1 or 0), faded(enabled, alpha), hovered and enabled ~= false
+end
+
 -- A switch, kit.SW_W by kit.SW_H. Returns on, changed.
 function kit.switch(id, x, cy, on, enabled, alpha)
     local w, h = S(kit.SW_W), S(kit.SW_H)
     local y = cy - h / 2
-    local hovered, clicked = hit(id, x, y, w, h)
-    local changed = clicked and enabled ~= false
-    if changed then on = not on end
-    local t, a = ease(id, on and 1 or 0), faded(enabled, alpha)
+    local changed, t, a, hovered
+    on, changed, t, a, hovered = toggled(id, x, y, w, h, on, enabled, alpha)
     local dl = imgui.GetWindowDrawList()
     fill(dl, x, y, w, h, mix(P.off, P.accent, t), h / 2, a)
-    if hovered and enabled ~= false then fill(dl, x, y, w, h, '#FFFFFF', h / 2, 0.08 * a) end
+    if hovered then fill(dl, x, y, w, h, '#FFFFFF', h / 2, 0.08 * a) end
     local r = (h - S(4)) / 2
     kit.circle(dl, x + S(2) + r + (w - S(4) - r * 2) * t, cy, r, P.knob, a)
-    return on, changed == true
+    return on, changed
 end
 
 -- A checkbox, kit.CB by kit.CB, its left edge at x: the accent with a tick when on, a sunken box when off.
@@ -654,16 +661,14 @@ kit.CB = 16
 function kit.checkbox(id, x, cy, on, enabled, alpha)
     local s = S(kit.CB)
     local y = cy - s / 2
-    local hovered, clicked = hit(id, x, y, s, s)
-    local changed = clicked and enabled ~= false
-    if changed then on = not on end
-    local t, a = ease(id, on and 1 or 0), faded(enabled, alpha)
+    local changed, t, a, hovered
+    on, changed, t, a, hovered = toggled(id, x, y, s, s, on, enabled, alpha)
     local dl = imgui.GetWindowDrawList()
     fill(dl, x, y, s, s, mix(P.well, P.accent, t), S(3), a)
     outline(dl, x, y, s, s, mix(P.well_edge, P.accent, t), S(3), a)
-    if hovered and enabled ~= false then fill(dl, x, y, s, s, '#FFFFFF', S(3), 0.08 * a) end
+    if hovered then fill(dl, x, y, s, s, '#FFFFFF', S(3), 0.08 * a) end
     if t > 0 then kit.icon(dl, 'check', x + s / 2, cy, s, P.bg, a * t) end
-    return on, changed == true
+    return on, changed
 end
 
 -- Where slider `id` (its track from x, w wide) is dragged to, min to max, while it's held; else nil.

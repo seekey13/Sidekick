@@ -1,12 +1,7 @@
 -- core/settings.lua's files, against a fake of Ashita's settings library: `ui`
 -- has its own, shared by every job pair, and a relog's fresh tables are noticed.
 
-local function copy(t)
-    if type(t) ~= 'table' then return t end
-    local out = {}
-    for k, v in pairs(t) do out[k] = copy(v) end
-    return out
-end
+local copy = require('core.util').copy
 
 -- As Ashita's library does: the file's values, the defaults for the rest.
 local function merge(t, defaults)

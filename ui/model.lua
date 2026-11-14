@@ -682,12 +682,7 @@ end
 -- The view ---------------------------------------------------------------------
 
 -- Whether `a` spends what heal.reserve keeps for healing (core/jobs.lua: `reserves`).
-local function reserved(a)
-    for _, f in job_modules.each('reserves') do
-        if f(a) then return true end
-    end
-    return false
-end
+local function reserved(a) return job_modules.first('reserves', a) ~= nil end
 
 function model.build(g, cat, cfg, status, names)
     g = util.overlay(g, { gates = cfg.gates })  -- the rows' Combat and Idle, for can.gate (as engine.decide)
