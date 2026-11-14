@@ -240,6 +240,38 @@ test('max HP seen at full under Weakness or a Curse is forgotten once it goes', 
     eq(unit(read(), 700).max_hp, 1000)
 end)
 
+test('a party player raised with Weakness, shown in the client\'s status icons: max HP forgotten once it goes', function ()
+    reset()
+    local WEAKNESS, POINTER, BASE, P1 = 1, 0x10, 0x1000, 160
+    local p1 = { sid = P1, tidx = 0x402, name = 'P1', hpp = 100, hp = 1000, mpp = 50, mp = 100 }
+    world.party[2] = p1
+    world.ents[0x402] = { sid = P1, name = 'P1', dist = 3 }
+    local icons = {}  -- the party's status icon list: entry 0 is P1's, low bytes at +16
+    local function shows(id) for k = 0, 31 do icons[BASE + 16 + k] = 255 end; icons[BASE + 16] = id end
+    local function read_icons()
+        local core, ash = rawget(_G, 'AshitaCore'), rawget(_G, 'ashita')
+        rawset(_G, 'AshitaCore', { GetMemoryManager = const(mm), GetPointerManager = const({ Get = const(POINTER) }) })
+        rawset(_G, 'ashita', { memory = { find = const(0),
+            read_uint32 = function (addr) return addr == POINTER and BASE or addr == BASE and P1 or 0 end,
+            read_uint8 = function (addr) return icons[addr] or 0 end } })
+        local ok, u = pcall(function () return unit(read(), P1) end)
+        rawset(_G, 'AshitaCore', core)
+        rawset(_G, 'ashita', ash)
+        assert(ok, u)
+        return u
+    end
+    shows(255)
+    eq(read_icons().max_known, true)            -- seen at full: 1000
+    shows(WEAKNESS)
+    p1.hp = 750                                 -- raised: Weakness, max 750, at full
+    local u = read_icons()
+    eq({ u.buffs[WEAKNESS], u.max_hp, u.max_known }, { true, 750, false })
+    shows(255)
+    p1.hpp = 75                                 -- worn off: 750 of 1000
+    u = read_icons()
+    eq({ u.max_hp, u.hp, u.max_known }, { 1000, 750, false })
+end)
+
 test('a max HP seen at full that HP and HP% now disagree with is forgotten (a status missed)', function ()
     reset()
     -- A party member's statuses come from the client's list (none here): Weakness unseen.
