@@ -212,6 +212,95 @@ test('the alliance\'s other parties: slots 6-17, statuses from packets, forgotte
     eq(unit(read(), 600).buffs, {})  -- back, with nothing stale
 end)
 
+-- Weakness (after a raise) and Curse lower max HP while they stand. A max seen at
+-- 100% then mustn't outlive them: the deficit (heal sizing) and the efficient band
+-- would read a member well under the threshold as near full.
+test('max HP seen at full under Weakness or a Curse is forgotten once it goes', function ()
+    reset()
+    local WEAKNESS, CURSE = 1, 9
+    local bea = { sid = 700, tidx = 0x510, name = 'Bea', hpp = 100, hp = 1000, mpp = 80, mp = 400 }
+    world.party[7] = bea
+    world.ents[0x510] = { sid = 700, name = 'Bea', hpp = 100, dist = 7 }
+    eq({ unit(read(), 700).max_hp, unit(read(), 700).max_known }, { 1000, true })
+    buffs.gain(700, WEAKNESS, now)            -- raised: Weakness, max 750, at full
+    bea.hp = 750
+    local u = unit(read(), 700)
+    eq({ u.max_hp, u.max_known }, { 750, false })  -- estimated, not kept
+    buffs.lose(700, WEAKNESS)                 -- worn off: max back to 1000, HP where it was
+    bea.hpp = 75
+    u = unit(read(), 700)
+    eq({ u.max_hp, u.hp, u.max_known }, { 1000, 750, false })
+    bea.hpp, bea.hp = 100, 1000
+    eq(unit(read(), 700).max_known, true)     -- seen at full again
+    buffs.gain(700, CURSE, now)
+    bea.hpp, bea.hp = 100, 800
+    eq(unit(read(), 700).max_hp, 800)
+    buffs.lose(700, CURSE)
+    bea.hpp = 80
+    eq(unit(read(), 700).max_hp, 1000)
+end)
+
+test('a party player raised with Weakness, shown in the client\'s status icons: max HP forgotten once it goes', function ()
+    reset()
+    local WEAKNESS, POINTER, BASE, P1 = 1, 0x10, 0x1000, 160
+    local p1 = { sid = P1, tidx = 0x402, name = 'P1', hpp = 100, hp = 1000, mpp = 50, mp = 100 }
+    world.party[2] = p1
+    world.ents[0x402] = { sid = P1, name = 'P1', dist = 3 }
+    local icons = {}  -- the party's status icon list: entry 0 is P1's, low bytes at +16
+    local function shows(id) for k = 0, 31 do icons[BASE + 16 + k] = 255 end; icons[BASE + 16] = id end
+    local function read_icons()
+        local core, ash = rawget(_G, 'AshitaCore'), rawget(_G, 'ashita')
+        rawset(_G, 'AshitaCore', { GetMemoryManager = const(mm), GetPointerManager = const({ Get = const(POINTER) }) })
+        rawset(_G, 'ashita', { memory = { find = const(0),
+            read_uint32 = function (addr) return addr == POINTER and BASE or addr == BASE and P1 or 0 end,
+            read_uint8 = function (addr) return icons[addr] or 0 end } })
+        local ok, u = pcall(function () return unit(read(), P1) end)
+        rawset(_G, 'AshitaCore', core)
+        rawset(_G, 'ashita', ash)
+        assert(ok, u)
+        return u
+    end
+    shows(255)
+    eq(read_icons().max_known, true)            -- seen at full: 1000
+    shows(WEAKNESS)
+    p1.hp = 750                                 -- raised: Weakness, max 750, at full
+    local u = read_icons()
+    eq({ u.buffs[WEAKNESS], u.max_hp, u.max_known }, { true, 750, false })
+    shows(255)
+    p1.hpp = 75                                 -- worn off: 750 of 1000
+    u = read_icons()
+    eq({ u.max_hp, u.hp, u.max_known }, { 1000, 750, false })
+end)
+
+test('a max HP seen at full that HP and HP% now disagree with is forgotten (a status missed)', function ()
+    reset()
+    -- A party member's statuses come from the client's list (none here): Weakness unseen.
+    local p1 = { sid = 160, tidx = 0x402, name = 'P1', hpp = 100, hp = 800, mpp = 50, mp = 100 }
+    world.party[2] = p1
+    world.ents[0x402] = { sid = 160, name = 'P1', dist = 3 }
+    eq(unit(read(), 160).max_hp, 800)
+    p1.hpp, p1.hp = 60, 900                   -- Weakness gone: 900 of 1500
+    local u = unit(read(), 160)
+    eq({ u.max_hp, u.hp, u.max_known }, { 1500, 900, false })
+    eq(game.missing(160), 600)
+    p1.hpp, p1.hp = 100, 1500
+    eq(unit(read(), 160).max_hp, 1500)
+    p1.hpp, p1.hp = 33, 500                   -- whole HP%: within a point is the same max
+    eq({ unit(read(), 160).max_hp, unit(read(), 160).max_known }, { 1500, true })
+    for _, r in ipairs({ { 1, 15 }, { 1, 22 }, { 2, 22 }, { 1, 29 }, { 2, 29 } }) do  -- floored, rounded or ceiled
+        p1.hpp, p1.hp = r[1], r[2]
+        eq({ r, unit(read(), 160).max_known }, { r, true })
+    end
+    p1.hpp, p1.hp = 100, 1490                 -- seen at "100%" a little short of 1500
+    read()
+    p1.hpp, p1.hp = 99, 1490
+    eq(unit(read(), 160).max_known, true)
+    p1.hpp, p1.hp = 100, 1125                 -- under an unseen Weakness: 1125
+    read()
+    p1.hpp, p1.hp = 5, 75                     -- gone, and low: 75 of 1500 would read 6% of 1125
+    eq({ unit(read(), 160).max_hp, unit(read(), 160).max_known }, { 1500, false })
+end)
+
 test('a tracked player who joins the alliance is a member of it while they stay, marked tracked', function ()
     reset()
     world.ents[0x450] = { sid = OUT, name = 'Out', hpp = 90, dist = 5 }

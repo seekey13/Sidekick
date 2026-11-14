@@ -11,7 +11,7 @@
              immune (a trust that can't be hurt: Moogle, Sakura, Kupofried...; core/engine.lua hides it from behaviors),
              mpp, mp, tp, uses_mp (yours: max MP > 0; your party's: a job with MP, main or
              sub, or seen with MP on these jobs; the alliance's: seen with MP),
-             max_known (max_hp is real: yours, or seen at full HP),
+             max_known (max_hp is real: yours, or seen at full HP with no Weakness or Curse, and HP% agrees),
              jobs = { main, main_lv, sub, sub_lv } (you and your party's players),
              in_zone, dist, pos = { x, y, z },
              status (entity), alive, buffs = { [id] = true },
@@ -139,6 +139,9 @@ local function day()
 end
 
 local max_hp = {}  -- [sid] = HP seen at 100%: heal sizing needs the deficit
+-- Statuses that move max HP while they stand: Weakness, Curse, Curse II, Bane, Max HP
+-- Boost, Max HP Down. A max seen at 100% under one isn't theirs once it goes.
+local MAX_HP_SHIFTS = { 1, 9, 20, 30, 88, 144 }
 local has_mp = {}  -- ['sid main/sub'] = true once seen with MP on those jobs: a WAR's 0% isn't an empty tank
 local move = { at = -math.huge, moved = -math.huge }
 local motion = {}  -- [sid] = { x, y, z, moved }: where each other unit and the battle target last were
@@ -494,9 +497,18 @@ function game.sent(action)
 end
 
 -- Max HP of party member `sid`: as seen at full, else estimated from HP%. Rough at
--- low HP, good enough to score.
+-- low HP, good enough to score. A max seen at full that their HP and HP% now
+-- disagree with (a Weakness or Curse gone, gear, a level) is forgotten. HP% is whole,
+-- however the server rounds it: the real max puts them within a point of it, and one
+-- seen at "100%" may be up to 1% short (SHORT). Closer than that HP% can't tell.
+local SHORT = 1.011
 local function max_of(sid, hp, hpp)
-    return max_hp[sid] or (hpp > 0 and hp > 0 and math.floor(hp * 100 / hpp)) or nil
+    local known = max_hp[sid]
+    if known and hp > 0 and hpp > 0
+        and (hp > known * SHORT or hp * 100 >= known * (hpp + 1) * SHORT or hp * 100 <= known * (hpp - 1)) then
+        max_hp[sid], known = nil, nil
+    end
+    return known or (hpp > 0 and hp > 0 and math.floor(hp * 100 / hpp)) or nil
 end
 
 -- HP party member `sid` is missing as the client shows it now, or nil when it isn't
@@ -524,9 +536,6 @@ local function member(party, player, em, i, zone, now)
         in_zone = party:GetMemberZone(i) == zone,
     }
     u.immune = sid >= TRUST and IMMUNE[(u.name:gsub(' ', ''))] or nil
-    if u.hpp == 100 and u.hp > 0 then max_hp[sid] = u.hp end
-    if i == 0 and player:GetHPMax() > 0 then max_hp[sid] = player:GetHPMax() end
-    u.max_known = max_hp[sid] ~= nil
     if i <= 5 then
         u.jobs = { party:GetMemberMainJob(i), party:GetMemberMainJobLevel(i),
                    party:GetMemberSubJob(i), party:GetMemberSubJobLevel(i) }
@@ -540,7 +549,6 @@ local function member(party, player, em, i, zone, now)
         local j = u.jobs or {}
         u.uses_mp = has_mp[key] == true or MP_JOBS[j[1]] == true or (j[4] or 0) > 0 and MP_JOBS[j[3]] == true
     end
-    u.max_hp = max_of(sid, u.hp, u.hpp)
     -- Only one the client draws: out of its range a member has no entity, and
     -- would read as 0 yalms away. Then dist and pos are unknown: out of reach.
     if u.in_zone and tidx > 0 and (i == 0 or present(em, tidx)) then
@@ -555,6 +563,13 @@ local function member(party, player, em, i, zone, now)
         if not u.alive then buffs.forget(sid) end  -- a death clears statuses silently
         u.buffs = buffs.of(sid, now)
     end
+    -- Under Weakness or a Curse their max is for now: none is kept, it's estimated from HP%
+    -- until they're seen at full again without it. Yours the client gives whole.
+    if any(u.buffs, MAX_HP_SHIFTS) then max_hp[sid] = nil
+    elseif u.hpp == 100 and u.hp > 0 then max_hp[sid] = u.hp end
+    if i == 0 and player:GetHPMax() > 0 then max_hp[sid] = player:GetHPMax(); u.max_hp = max_hp[sid]
+    else u.max_hp = max_of(sid, u.hp, u.hpp) end
+    u.max_known = max_hp[sid] ~= nil
     u.hot = observed.hot(sid, now, u.buffs[REGEN])
     return u
 end
