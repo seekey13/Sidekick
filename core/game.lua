@@ -498,11 +498,14 @@ end
 
 -- Max HP of party member `sid`: as seen at full, else estimated from HP%. Rough at
 -- low HP, good enough to score. A max seen at full that their HP and HP% now
--- disagree with (a Weakness or Curse gone, gear, a level) is forgotten: HP% is
--- whole, so the real max can't put them more than a point or so off it.
+-- disagree with (a Weakness or Curse gone, gear, a level) is forgotten. HP% is whole,
+-- however the server rounds it: the real max puts them within a point of it, and one
+-- seen at "100%" may be up to 1% short (SHORT). Closer than that HP% can't tell.
+local SHORT = 1.011
 local function max_of(sid, hp, hpp)
     local known = max_hp[sid]
-    if known and hp > 0 and hpp > 0 and (hp > known or math.abs(hp * 100 / known - hpp) > 2) then
+    if known and hp > 0 and hpp > 0
+        and (hp > known * SHORT or hp * 100 >= known * (hpp + 1) * SHORT or hp * 100 <= known * (hpp - 1)) then
         max_hp[sid], known = nil, nil
     end
     return known or (hpp > 0 and hp > 0 and math.floor(hp * 100 / hpp)) or nil

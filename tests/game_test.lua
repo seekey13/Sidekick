@@ -287,6 +287,18 @@ test('a max HP seen at full that HP and HP% now disagree with is forgotten (a st
     eq(unit(read(), 160).max_hp, 1500)
     p1.hpp, p1.hp = 33, 500                   -- whole HP%: within a point is the same max
     eq({ unit(read(), 160).max_hp, unit(read(), 160).max_known }, { 1500, true })
+    for _, r in ipairs({ { 1, 15 }, { 1, 22 }, { 2, 22 }, { 1, 29 }, { 2, 29 } }) do  -- floored, rounded or ceiled
+        p1.hpp, p1.hp = r[1], r[2]
+        eq({ r, unit(read(), 160).max_known }, { r, true })
+    end
+    p1.hpp, p1.hp = 100, 1490                 -- seen at "100%" a little short of 1500
+    read()
+    p1.hpp, p1.hp = 99, 1490
+    eq(unit(read(), 160).max_known, true)
+    p1.hpp, p1.hp = 100, 1125                 -- under an unseen Weakness: 1125
+    read()
+    p1.hpp, p1.hp = 5, 75                     -- gone, and low: 75 of 1500 would read 6% of 1125
+    eq({ unit(read(), 160).max_hp, unit(read(), 160).max_known }, { 1500, false })
 end)
 
 test('a tracked player who joins the alliance is a member of it while they stay, marked tracked', function ()
