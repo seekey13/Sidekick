@@ -83,3 +83,17 @@ test('the modules plug in where the shared code had them: rows, behaviors, setti
     eq(ids, { 'profile', 'follow', 'heal', 'revive', 'wake', 'remove', 'buff', 'roll', 'song', 'geo', 'rune', 'pet',
               'maneuver', 'recover', 'rest', 'track', 'afk', 'ui' })
 end)
+
+test('first: the first module that answers, its two results; one that answers nil or false is passed over', function ()
+    local n = #jobs.all
+    jobs.all[n + 1] = { probe = function () return nil end }
+    jobs.all[n + 2] = { probe = function () return false end }
+    jobs.all[n + 3] = { probe = function (x, y) return x + y, 'why', 'dropped' end }
+    jobs.all[n + 4] = { probe = function () return 'later' end }
+    local ok, err = pcall(function ()
+        eq({ jobs.first('probe', 1, 2) }, { 3, 'why' })
+        eq({ jobs.first('probe_none', 1) }, {})
+    end)
+    for i = n + 4, n + 1, -1 do jobs.all[i] = nil end
+    if not ok then error(err, 0) end
+end)

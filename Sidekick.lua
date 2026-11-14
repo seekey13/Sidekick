@@ -153,7 +153,7 @@ local snap = { loading = true, now = 0, tracks = {} }
 local zoned_in, stopped_early = false, false
 
 -- After zone stop: automation stopped, and said, when it was running.
-local function zone_stop()
+local function stop_for_zone()
     if not status.running then return end
     status.running = false
     printf('Automation stopped: you zoned (After zone stop).')
@@ -166,7 +166,7 @@ local function refresh(now)
     zoned_in = zoned_in or snap.loading
     -- After zone stop: a zone (a logout too) stops automation as it begins. A logout's stop reaches no file (the
     -- settings library has already moved to the next character's), so the login stops it too (zoned_in).
-    if snap.loading and not was_loading and cfg and cfg.ui.zone_stop == true then zone_stop() end
+    if snap.loading and not was_loading and cfg and cfg.ui.zone_stop == true then stop_for_zone() end
     if not snap.loading then
         current_catalog()
         packet_ctx.me, packet_ctx.pet, packet_ctx.tracks = snap.me.sid, snap.pet and snap.pet.sid, snap.tracks
@@ -183,7 +183,7 @@ local function refresh(now)
         -- character left it with Always load stopped off. A job change leaves it as it is.
         if first or relog then
             if zoned_in and cfg.ui.zone_stop == true then
-                zone_stop()
+                stop_for_zone()
             elseif cfg.ui.load_stopped == false and not stopped_early and status.running ~= (cfg.ui.running == true) then
                 status.running = cfg.ui.running == true
                 printf('Automation %s, as it was left (Always load stopped is off).',

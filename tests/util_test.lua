@@ -22,6 +22,16 @@ test('a shallow copy is a new table, its values shared', function ()
     eq({ c ~= t, c[1], rawequal(c.k, inner) }, { true, 1, true })
 end)
 
+test('a copy is a new table at every level; anything but a table as it is', function ()
+    local inner = { 2 }
+    local t = { 1, k = inner }
+    local c = util.copy(t)
+    eq(c, t)
+    eq({ c ~= t, c.k ~= inner, util.copy(5), util.copy('a'), util.copy(nil) }, { true, true, 5, 'a', nil })
+    c.k[1] = 3
+    eq(inner[1], 2)
+end)
+
 test('an overlay reads its own fields, else the base\'s, and never writes the base', function ()
     local base = { a = 1, b = 2 }
     local o = util.overlay(base, { b = 3 })

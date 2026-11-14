@@ -162,7 +162,8 @@ local function busy(mem, t) mem.busy_until = math.max(mem.busy_until or -math.hu
 local function up(a, g) return not can.lacks(a, g.me) end
 
 -- The Double-Up of `roll`, standing at g.roll's total, as an intent: nil while DOUBLE_GAP since the last one or
--- Double-Up's recast holds it (busy till then). `snake`: Snake Eye fired first. `once`: a commanded roll's.
+-- Double-Up's recast holds it (busy till then). `snake`: Snake Eye's record when it's fired first, else nil or false.
+-- `once`: true for a commanded roll's, sent while automation is stopped too.
 local function double_up(g, mem, st, roll, double, snake, once)
     local r = g.roll
     local gap = math.max(st.doubled or -math.huge, r.doubled and r.at or -math.huge) + cor.DOUBLE_GAP
