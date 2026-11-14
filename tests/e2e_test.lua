@@ -67,13 +67,14 @@ local e2e = require('tools.e2e')
 e2e.say = function () end
 
 -- One frame of the game: the clock on, Sidekick handing on its status, the runner's step.
--- `world.react`, when set, plays the game's and Sidekick's side each frame; `world.units` are the units Sidekick decides on.
+-- `world.react`, when set, plays the game's and Sidekick's side each frame; `world.units` are the units Sidekick decides on,
+-- `world.catalog` its actions.
 local function frame(dt)
     now = now + (dt or 0.1)
     if world.react then world.react() end
     share.tick({}, now, status, {})
     engine.decide({ units = world.units or {} },
-        { { name = 'Poisona' }, { name = 'Cursna', role = 'remove', family = 'Cursna', kind = 'ma' } },
+        world.catalog or { { name = 'Poisona' }, { name = 'Cursna', role = 'remove', family = 'Cursna', kind = 'ma' } },
         { buff = { hold_aoe = false }, remove = { on = true, skip = {} }, rows = world.rows or {},
           heal = world.heal or { on = true, skip = {} }, gates = world.gates or {} }, {})
     handlers.d3d_present()
@@ -439,6 +440,135 @@ test('cursna_tracked: a tracked player\'s HP that doesn\'t fall (no GM level 4) 
     world.ents[0x402], world.units, tracked.list = nil, nil, {}
     eq({ r.result, r.why }, { 'skip', 'Tracked\'s HP didn\'t fall: a tracked player\'s is set by !exec, which needs GM level 4' })
     for _, line in ipairs(packets) do eq(line:find('addeffect', 1, true), nil, line) end
+end)
+
+-- The max_hp scenarios against a fake game: a player of 1200 HP whose max falls under the status (Weakness 75%,
+-- Curse by its power) and comes back once it's taken off, their HP left where it was; a fake Sidekick reading their
+-- max as core/game.lua does, and healing whoever it reads under 75%. Your party's status shows in its icons a moment
+-- after their HP moves; the alliance's is missed here (no packet told of it), the case the fix's second half is for.
+-- `how`: nil = as fixed; stale = as before the fix (a max seen at full kept for good); no_heal = their max read right,
+-- no heal sent; left = the status on them from before.
+local OWN = 1200
+local function max_hp_game(name, how)
+    local alliance = name == 'max_hp_alliance'
+    local slot = alliance and 7 or 2
+    local p = alliance and { name = 'Alliance', sid = 3, tidx = 0x402, hp = OWN, hpp = 100, mp = 300, mpp = 100 }
+        or world.party[2]
+    if alliance then world.party[7], world.ents[0x402] = p, 'Alliance' end
+    local u = { name = p.name, buffs = {}, alive = true }
+    world.units = { { name = 'Dev', buffs = {} }, u }
+    world.heal = { on = true, skip = {}, danger = 50, threshold = 75 }
+    world.catalog = world.catalog or { { name = 'Cure III', role = 'heal', family = 'Cure', kind = 'ma', potency = 300, area = 0 } }
+    status.running, status.sent, packets, queued = false, {}, {}, {}
+    local settings = require('core.settings')
+    local save = settings.save
+    settings.save = function () end
+    local max, known, pending, seen_lines, healing = OWN, nil, {}, 0, false
+    local id_of = { [1] = true, [9] = true }
+    if how == 'left' then u.buffs[1] = true end
+    local function later(dt, fn) pending[#pending + 1] = { at = now + dt, fn = fn } end
+    local function set_hp(hp) p.hp = math.min(hp, max); p.hpp = math.floor(p.hp * 100 / max) end
+    world.react = function ()
+        for i = #pending, 1, -1 do
+            if now >= pending[i].at then local x = table.remove(pending, i); x.fn() end
+        end
+        while seen_lines < #packets do
+            seen_lines = seen_lines + 1
+            local line = packets[seen_lines]
+            local id, power = line:match('^!addeffect ' .. p.name .. ' (%d+) (%d+) ')
+            local gone = line:match('^!deleffect ' .. p.name .. ' (%d+)')
+            if line == '!hp 99999 ' .. p.name then
+                set_hp(max)
+            elseif id and id_of[tonumber(id)] then
+                later(0.3, function ()
+                    max = math.floor(OWN * (tonumber(id) == 1 and 0.25 or (100 - tonumber(power)) / 100))
+                    set_hp(p.hp)
+                end)
+                if not alliance then later(0.6, function () u.buffs[tonumber(id)] = true end) end
+            elseif gone then
+                later(0.3, function () max = OWN; set_hp(p.hp) end)
+                later(0.5, function () u.buffs[tonumber(gone)] = nil end)
+            end
+        end
+        -- Sidekick's reading: a max seen at full, none kept under a status it reads, one HP and HP% disagree with
+        -- dropped (core/game.lua); before the fix, the HP seen at 100% whatever stood.
+        local shifted = u.buffs[1] or u.buffs[9]
+        if how ~= 'stale' and shifted then known = nil elseif p.hpp == 100 then known = p.hp end
+        if how ~= 'stale' and known and (p.hp > known * 1.011 or p.hp * 100 >= known * (p.hpp + 1) * 1.011
+            or p.hp * 100 <= known * (p.hpp - 1)) then
+            known = nil
+        end
+        u.hp, u.hpp, u.max_known = p.hp, p.hpp, known ~= nil
+        u.max_hp = known or math.floor(p.hp * 100 / p.hpp)
+        if status.running and not healing and u.hp * 100 < 75 * u.max_hp and how ~= 'no_heal' then
+            healing = true
+            later(0.5, function () sidekick_sends('Cure III', p.name, 'heal') end)
+            later(2.5, function ()
+                handlers.packet_in(action_packet(1, 4, 3, { { p.sid, 7, 300 } }))
+                set_hp(p.hp + 300)
+                healing = false
+            end)
+        end
+    end
+    local r = run_to_end(name)[1]
+    world.react, world.units, world.heal, world.catalog, settings.save = nil, nil, nil, nil, save
+    world.party[2].hp, world.party[2].hpp = OWN, 100
+    if alliance then world.party[7], world.ents[0x402] = nil, nil end
+    return r
+end
+
+test('max_hp_weakness: Weakness on Test, taken off: their own max read again, a heal that lands, cleaned up', function ()
+    local r = max_hp_game('max_hp_weakness')
+    eq({ r.result, r.why, r.timings.read_gone ~= nil, r.timings.heal ~= nil }, { 'pass', nil, true, true })
+    eq(noted(r, '^Test\'s max HP: 1200; under Weakness, 300$'), true)
+    eq(noted(r, '^Weakness gone: 300 HP, 25%%, Sidekick\'s max 1200$'), true)
+    eq({ unpack(packets, #packets - 4) },  -- the scene, then the cleanup
+       { '!addeffect Test 1 1 300', '!deleffect Test 1', '!deleffect Test 1', '!hp 99999 Test', '!mp 99999 Test' })
+end)
+
+test('max_hp_weakness: a max kept from full under Weakness fails, as before the fix', function ()
+    local r = max_hp_game('max_hp_weakness', 'stale')
+    eq({ r.result, r.why }, { 'fail', 'Sidekick kept 300 as Test\'s max HP under Weakness, seen at full: their own is 1200' })
+end)
+
+test('max_hp_weakness: Weakness left on Test from before fails, saying so, before any is given', function ()
+    local r = max_hp_game('max_hp_weakness', 'left')
+    eq({ r.result, r.why }, { 'fail', 'Test has Weakness already, before any was given' })
+    for _, line in ipairs(packets) do eq(line:find('addeffect', 1, true), nil, line) end
+end)
+
+test('max_hp_weakness: no heal once it goes fails, saying what Sidekick was doing', function ()
+    status.why = 'nothing to do'
+    local r = max_hp_game('max_hp_weakness', 'no_heal')
+    status.why = nil
+    eq({ r.result, r.why }, { 'fail', 'a send {behavior=heal on=Test}: not within 10s (Sidekick: nothing to do)' })
+end)
+
+test('max_hp_curse: Curse leaves Test halfway between danger and threshold; read right, healed', function ()
+    local r = max_hp_game('max_hp_curse')
+    eq({ r.result, r.why }, { 'pass', nil })
+    eq(noted(r, '^Curse gone: 744 HP, 62%%, Sidekick\'s max 1200$'), true)
+    eq(packets[#packets - 4], '!addeffect Test 9 38 300')  -- 62% of the max left: (50 + 75) / 2
+    eq(noted(r, '^remove%.on set for this scenario$'), true)
+    local stale = max_hp_game('max_hp_curse', 'stale')
+    eq({ stale.result, stale.why }, { 'fail', 'Sidekick kept 744 as Test\'s max HP under Curse, seen at full: their own is 1200' })
+end)
+
+test('max_hp_curse: no heal for efficient healing to use on Test skips, before any Curse', function ()
+    world.catalog = { { name = 'Cursna', role = 'remove', family = 'Cursna', kind = 'ma' } }
+    local r = max_hp_game('max_hp_curse')
+    eq({ r.result, r.why }, { 'skip', 'efficient healing has no heal to use on Test (Heal under)' })
+    for _, line in ipairs(packets) do eq(line:find('addeffect', 1, true), nil, line) end
+end)
+
+test('max_hp_alliance: their Weakness unread, the max seen under it kept, then dropped once it goes; healed', function ()
+    local r = max_hp_game('max_hp_alliance')
+    eq({ r.result, r.why }, { 'pass', nil })
+    eq(noted(r, '^under Weakness: Sidekick can\'t read it on Alliance, and keeps 300 as their max$'), true)
+    eq(noted(r, '^Weakness gone: 300 HP, 25%%, Sidekick\'s max 1200$'), true)
+    local stale = max_hp_game('max_hp_alliance', 'stale')
+    eq({ stale.result, stale.why }, { 'fail', 'Sidekick reads Alliance\'s max HP as 300 once Weakness went (300 HP, 25%): '
+        .. 'their own is 1200, the max seen under Weakness kept' })
 end)
 
 test('unwatch waits for a scenario running: aborted, cleaned up, then unhooked', function ()
