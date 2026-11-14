@@ -212,6 +212,51 @@ test('the alliance\'s other parties: slots 6-17, statuses from packets, forgotte
     eq(unit(read(), 600).buffs, {})  -- back, with nothing stale
 end)
 
+-- Weakness (after a raise) and Curse lower max HP while they stand. A max seen at
+-- 100% then mustn't outlive them: the deficit (heal sizing) and the efficient band
+-- would read a member well under the threshold as near full.
+test('max HP seen at full under Weakness or a Curse is forgotten once it goes', function ()
+    reset()
+    local WEAKNESS, CURSE = 1, 9
+    local bea = { sid = 700, tidx = 0x510, name = 'Bea', hpp = 100, hp = 1000, mpp = 80, mp = 400 }
+    world.party[7] = bea
+    world.ents[0x510] = { sid = 700, name = 'Bea', hpp = 100, dist = 7 }
+    eq({ unit(read(), 700).max_hp, unit(read(), 700).max_known }, { 1000, true })
+    buffs.gain(700, WEAKNESS, now)            -- raised: Weakness, max 750, at full
+    bea.hp = 750
+    local u = unit(read(), 700)
+    eq({ u.max_hp, u.max_known }, { 750, false })  -- estimated, not kept
+    buffs.lose(700, WEAKNESS)                 -- worn off: max back to 1000, HP where it was
+    bea.hpp = 75
+    u = unit(read(), 700)
+    eq({ u.max_hp, u.hp, u.max_known }, { 1000, 750, false })
+    bea.hpp, bea.hp = 100, 1000
+    eq(unit(read(), 700).max_known, true)     -- seen at full again
+    buffs.gain(700, CURSE, now)
+    bea.hpp, bea.hp = 100, 800
+    eq(unit(read(), 700).max_hp, 800)
+    buffs.lose(700, CURSE)
+    bea.hpp = 80
+    eq(unit(read(), 700).max_hp, 1000)
+end)
+
+test('a max HP seen at full that HP and HP% now disagree with is forgotten (a status missed)', function ()
+    reset()
+    -- A party member's statuses come from the client's list (none here): Weakness unseen.
+    local p1 = { sid = 160, tidx = 0x402, name = 'P1', hpp = 100, hp = 800, mpp = 50, mp = 100 }
+    world.party[2] = p1
+    world.ents[0x402] = { sid = 160, name = 'P1', dist = 3 }
+    eq(unit(read(), 160).max_hp, 800)
+    p1.hpp, p1.hp = 60, 900                   -- Weakness gone: 900 of 1500
+    local u = unit(read(), 160)
+    eq({ u.max_hp, u.hp, u.max_known }, { 1500, 900, false })
+    eq(game.missing(160), 600)
+    p1.hpp, p1.hp = 100, 1500
+    eq(unit(read(), 160).max_hp, 1500)
+    p1.hpp, p1.hp = 33, 500                   -- whole HP%: within a point is the same max
+    eq({ unit(read(), 160).max_hp, unit(read(), 160).max_known }, { 1500, true })
+end)
+
 test('a tracked player who joins the alliance is a member of it while they stay, marked tracked', function ()
     reset()
     world.ents[0x450] = { sid = OUT, name = 'Out', hpp = 90, dist = 5 }
