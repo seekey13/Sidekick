@@ -77,4 +77,13 @@ function jobs.each(field, job)
     return ipairs(l)
 end
 
+-- What the first module whose `field` (a function) answers gives for these arguments: its first two results, or nil
+-- when none answers. For the hooks one module at most speaks to (tp, tools, lasts, short, renew, reserves).
+function jobs.first(field, ...)
+    for _, f in jobs.each(field) do
+        local a, b = f(...)
+        if a then return a, b end
+    end
+end
+
 return jobs

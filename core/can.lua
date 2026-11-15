@@ -95,30 +95,18 @@ end
 
 -- core.jobs is required on first use, not above: the job modules require this file.
 local jobs
-local function hooks(field)
+local function hook(field, ...)
     jobs = jobs or require('core.jobs')
-    return jobs.each(field)
+    return jobs.first(field, ...)
 end
 
 -- The TP `a` needs from you now: its own, unless a job module waives some
 -- (core/jobs.lua: `tp`, Trance's).
-function can.tp(a, g)
-    for _, f in hooks('tp') do
-        local tp = f(a, g)
-        if tp then return tp end
-    end
-    return math.max(a.tp or 0, 0)
-end
+function can.tp(a, g) return hook('tp', a, g) or math.max(a.tp or 0, 0) end
 
 -- How many casts of `a` (one with a `tool`) the tools you carry pay for
 -- (core/jobs.lua: `tools`); else the tool itself, counted in your inventory.
-function can.tools(a, g)
-    for _, f in hooks('tools') do
-        local n = f(a, g)
-        if n then return n end
-    end
-    return (g.items or {})[a.tool] or 0
-end
+function can.tools(a, g) return hook('tools', a, g) or (g.items or {})[a.tool] or 0 end
 
 -- The gate `a` has built in, which no setting changes: its own (core/knowledge.lua: Berserk in combat, Spectral Jig
 -- out of it), or combat for one aimed at the enemy, which needs a battle target anyway. nil when it has none.

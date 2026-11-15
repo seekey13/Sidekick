@@ -296,21 +296,25 @@ function game.find_player(name)
     end
 end
 
--- Your current target (not one being picked) when it's a player.
-local function player_target(mm, em)
+-- The entity index of your current target, not of one being picked.
+local function target_index(mm)
     local t = mm:GetTarget()
-    local i = t:GetTargetIndex(t:GetIsSubTargetActive() == 0 and 0 or 1)
+    return t:GetTargetIndex(t:GetIsSubTargetActive() == 0 and 0 or 1)
+end
+
+-- Your current target when it's a player.
+local function player_target(mm, em)
+    local i = target_index(mm)
     if i < PC_FIRST or i > PC_LAST or not present(em, i) then return nil end
     return player_at(em, i)
 end
 
--- Your current target (not one being picked) when it's a living mob, as <t> names it,
+-- Your current target when it's a living mob, as <t> names it,
 -- and one nobody outside the alliance (`listed`, by server id) claimed: the server
 -- refuses to send your pet at another party's mob, and the send would only repeat.
 -- Claims are compared on their low word, as claimed_target's.
 local function mob_target(mm, em, listed)
-    local t = mm:GetTarget()
-    local i = t:GetTargetIndex(t:GetIsSubTargetActive() == 0 and 0 or 1)
+    local i = target_index(mm)
     if not i or i == 0 or bit.band(em:GetSpawnFlags(i), MOB) == 0 or em:GetHPPercent(i) == 0
         or not present(em, i) then return nil end
     local c = bit.band(em:GetClaimStatus(i), 0xFFFF)

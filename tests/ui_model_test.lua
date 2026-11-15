@@ -48,12 +48,7 @@ local function flags(n, at)
     return out
 end
 
-local function copy(t)
-    if type(t) ~= 'table' then return t end
-    local out = {}
-    for k, v in pairs(t) do out[k] = copy(v) end
-    return out
-end
+local copy = require('core.util').copy
 
 test('WHM 75 / BLM 37: every section, in order, each under its header, then UI / Log', function ()
     local view = build(whm)
@@ -1086,12 +1081,12 @@ end)
 
 test('no_efficient: once every heal efficient healing could use is off; never on a job without one', function ()
     local cfg = settings.defaults()
-    local function flags(view) return { view.heal.no_efficient, view.heal.no_focus_efficient } end
-    eq(flags(build(whm, cfg)), { false, false })
+    local function off(view) return { view.heal.no_efficient, view.heal.no_focus_efficient } end
+    eq(off(build(whm, cfg)), { false, false })
     for _, a in ipairs(whm) do if a.role == 'heal' then cfg.rows[settings.key(a)] = { on = false } end end
-    eq(flags(build(whm, cfg)), { true, true })
+    eq(off(build(whm, cfg)), { true, true })
     cfg.rows.Drain = nil
-    eq(flags(build(whm, cfg)), { false, true })  -- Drain heals only you
+    eq(off(build(whm, cfg)), { false, true })  -- Drain heals only you
     eq(build(fake.catalog(9, 75, 1, 37, { 'Wild Carrot' }), settings.defaults()).heal.no_efficient, false)  -- BST: a Ready move
 end)
 

@@ -151,6 +151,14 @@ local snap = { loading = true, now = 0, tracks = {} }
 -- since Sidekick loaded (you came in by a login or a zone, which After zone stop stops); `stopped_early`, /sk stop was
 -- said while loading, which the load doesn't undo.
 local zoned_in, stopped_early = false, false
+
+-- After zone stop: automation stopped, and said, when it was running.
+local function stop_for_zone()
+    if not status.running then return end
+    status.running = false
+    printf('Automation stopped: you zoned (After zone stop).')
+end
+
 local function refresh(now)
     if now - snap.now < 0.1 and not snap.loading then return snap, false end
     local was_loading = snap.loading
@@ -158,10 +166,7 @@ local function refresh(now)
     zoned_in = zoned_in or snap.loading
     -- After zone stop: a zone (a logout too) stops automation as it begins. A logout's stop reaches no file (the
     -- settings library has already moved to the next character's), so the login stops it too (zoned_in).
-    if snap.loading and not was_loading and status.running and cfg and cfg.ui.zone_stop == true then
-        status.running = false
-        printf('Automation stopped: you zoned (After zone stop).')
-    end
+    if snap.loading and not was_loading and cfg and cfg.ui.zone_stop == true then stop_for_zone() end
     if not snap.loading then
         current_catalog()
         packet_ctx.me, packet_ctx.pet, packet_ctx.tracks = snap.me.sid, snap.pet and snap.pet.sid, snap.tracks
@@ -178,10 +183,7 @@ local function refresh(now)
         -- character left it with Always load stopped off. A job change leaves it as it is.
         if first or relog then
             if zoned_in and cfg.ui.zone_stop == true then
-                if status.running then
-                    status.running = false
-                    printf('Automation stopped: you zoned (After zone stop).')
-                end
+                stop_for_zone()
             elseif cfg.ui.load_stopped == false and not stopped_early and status.running ~= (cfg.ui.running == true) then
                 status.running = cfg.ui.running == true
                 printf('Automation %s, as it was left (Always load stopped is off).',
@@ -436,7 +438,7 @@ local function follow_command(w, g)
         printf('That\'s you: /sk follow <name> follows someone on the Leader list.')
         return
     else
-        f.on, f.target = true, toggle:sub(1, 1):upper() .. toggle:sub(2)
+        f.on, f.target = true, util.capitalize(toggle)
     end
     settings.save()
     if not f.on then printf('Follow off.')
@@ -904,7 +906,7 @@ local COMMANDS = {
         for _, u in ipairs(g.units) do
             if u.kind ~= 'self' and can.in_party(u) and u.name:lower() == name:lower() then member = u end
         end
-        if member then name = member.name elseif name ~= '' then name = name:sub(1, 1):upper() .. name:sub(2):lower() end
+        if member then name = member.name else name = util.capitalize(name:lower()) end
         cfg.recover.target = name
         settings.save()
         if name == '' then printf('Devotion on whoever is lowest on MP.') return end

@@ -41,36 +41,26 @@ local buff = {}
 
 -- core.jobs is required on first use, not above: a job module (jobs/cor.lua) requires this file.
 local jobs
-local function hooks(field)
+local function job_modules()
     jobs = jobs or require('core.jobs')
-    return jobs.each(field)
+    return jobs
 end
 
 -- Whether a buff row may spend `a` now, by every job module's `spare` (core/jobs.lua).
 local function spare(a, g, cfg)
-    for _, f in hooks('spare') do
+    for _, f in job_modules().each('spare') do
         if not f(a, g, cfg) then return false end
     end
     return true
 end
 
 -- When modifiers `mods` fired together need more charges than there are, the one to
--- name, by every job module's `short` (core/jobs.lua); nil when there are enough.
-local function short(mods, g, cfg)
-    for _, f in hooks('short') do
-        local m = f(mods, g, cfg)
-        if m then return m end
-    end
-end
+-- name, by the job modules' `short` (core/jobs.lua); nil when there are enough.
+local function short(mods, g, cfg) return job_modules().first('short', mods, g, cfg) end
 
 -- A self buff `a` up on you that's due again anyway (Utsusemi at its last shadow), by
 -- the job modules' `renew` (core/jobs.lua): why, and a status to cancel into the cast.
-local function renew(a, g, cfg)
-    for _, f in hooks('renew') do
-        local why, cancel = f(a, g, cfg)
-        if why then return why, cancel end
-    end
-end
+local function renew(a, g, cfg) return job_modules().first('renew', a, g, cfg) end
 
 local AREA_RADIUS = 10  -- yalms around you
 local OTHERS_FIRST = 15  -- seconds your own Invisible waits at most for other work pending

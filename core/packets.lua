@@ -135,14 +135,6 @@ local function parse_action(e, ctx)
     return limit ~= 0 and p or nil
 end
 
--- How long your spell `a` lasts as it lands, when a job module knows (core/jobs.lua: `lasts`).
-local function lasting(a, ctx)
-    for _, f in jobs.each('lasts') do
-        local s = f(a, ctx)
-        if s then return s end
-    end
-end
-
 -- A parsed 0x028 (tests hand one in directly).
 -- ctx: { me = your server id, pet = your pet's or nil, tracks = { [server id] = true }
 -- for units whose statuses come from packets, duration = function(spell id) -> seconds or nil,
@@ -184,8 +176,9 @@ function packets.action(p, ctx, now)
             elseif GAINS_028[r.message] then
                 -- Only a spell's id names a catalog duration; an ability's or TP move's doesn't.
                 local spell = p.category == SPELL_FINISH
-                -- Your song lasts twice as long under Troubadour (jobs/brd.lua).
-                local lasts = mine and lasting(mine, ctx) or spell and ctx.duration(p.param) or nil
+                -- How long yours lasts as it lands, when a job module knows (core/jobs.lua: `lasts`): a song twice
+                -- as long under Troubadour (jobs/brd.lua).
+                local lasts = mine and jobs.first('lasts', mine, ctx) or spell and ctx.duration(p.param) or nil
                 if tracked then buffs.gain(t.id, r.param, now, lasts, mine and mine.role == 'song') end
                 if key and spell then observed.landed(key, t.id, now) end
                 if mine then landed[#landed + 1] = t.id end
