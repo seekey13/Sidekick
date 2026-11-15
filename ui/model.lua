@@ -420,6 +420,7 @@ local function build_rows(s, g, cat, cfg, units, outsiders, statuses)
         row.also = elsewhere[key]  -- its `on` and gate are that row's too: one key
         if s.id == 'remove' and not row.count then
             row.remover = true
+            row.mod = acts_of[key][1].role == 'remove_mod' or nil  -- Divine Caress: fired before a removal, removes nothing
             for _, a in ipairs(cat) do  -- a family with another role (Chakra heals too) shares its row
                 if settings.key(a) == key and a.role == 'heal' then row.shared = true end
             end
@@ -431,6 +432,11 @@ local function build_rows(s, g, cat, cfg, units, outsiders, statuses)
         table.sort(rows, function (x, y) return place[x.key] < place[y.key] end)
     end
     if s.id == 'remove' then
+        -- Divine Caress, catalogued after the items, goes up with the other removers.
+        local first, rest = {}, {}
+        for _, row in ipairs(rows) do table.insert(row.remover and first or rest, row) end
+        for _, row in ipairs(rest) do first[#first + 1] = row end
+        rows = first
         local at = 1
         while rows[at] and rows[at].remover do at = at + 1 end
         for i, d in ipairs(debuff_rows(g, cat, cfg, statuses)) do table.insert(rows, at + i - 1, d) end

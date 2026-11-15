@@ -287,16 +287,21 @@ local function boosts_best(b, ctx, ready, members)
     return c ~= nil and boosts(b, c.a)
 end
 
--- Critical, before the heal: your own guard when you are critical yourself (Mana Wall), heal
--- or no heal; a boost for the heal that will land with it up, an aimed save on the worst
--- member, then the other emergencies when a heal will follow.
-local function emergency(ctx, list, best, emergencies, ready, members)
+-- Critical, before anything else: your own guard when you are critical yourself (Mana Wall),
+-- heal or no heal, a boost up or not.
+local function guard(ctx, emergencies, members)
     local g = ctx.g
     for _, e in ipairs(emergencies) do
         if e.guards and members[g.me] and can.lacks(e, g.me) and can.use(e, g) then
             return { action = e, why = ('critical: %s %d%%'):format(g.me.name, g.me.hpp) }
         end
     end
+end
+
+-- Critical, before the heal: a boost for the heal that will land with it up, an
+-- aimed save on the worst member, then the other emergencies when a heal will follow.
+local function emergency(ctx, list, best, emergencies, ready, members)
+    local g = ctx.g
     for _, e in ipairs(emergencies) do
         if e.boost and e.boost.factor > 1 and can.use(e, g) and boosts_best(e.boost, ctx, ready, members) then
             return { action = e, expect = e.status, why = ('critical: %s %d%%'):format(list[1].name, list[1].hpp) }
@@ -363,7 +368,8 @@ local function want(g, cat, cfg, bands)
         local members, list = members_of(band, ctx)
         if list[1] and not (invisible and band == 'efficient') then
             local best = best_of(band, ctx, ready, members)
-            local e = band == 'critical' and not ctx.factor_up and emergency(ctx, list, best, emergencies, ready, members)
+            local e = band == 'critical' and (guard(ctx, emergencies, members)
+                or not ctx.factor_up and emergency(ctx, list, best, emergencies, ready, members))
             if e then return e end
             if best then return intent(best, ctx) end
             if band == 'danger' then

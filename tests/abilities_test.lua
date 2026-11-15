@@ -71,6 +71,11 @@ test('Mana Wall: when you are critical yourself, in combat, ahead of the heal an
     g.me.buffs[MANA_WALL] = true
     eq(fake.decide(g, blm):match('^/ma "Cure'), '/ma "Cure')
     eq(fake.decide(hurt(20, nil, nil, { ['Mana Wall'] = 300 }), blm):match('^/ma "Cure'), '/ma "Cure')
+    -- With a boost already up and no cure to send (silenced), still.
+    local whm = fake.catalog(WHM, 75, BLM, 37, { 'Mana Wall', 'Divine Seal' })
+    g = hurt(20, nil, { combat = true, silenced = true })
+    g.me.buffs[78] = true
+    eq(fake.decide(g, whm), '/ja "Mana Wall" <me>')
     -- A BLM with no heal still guards.
     local alone = fake.catalog(BLM, 75, NIN, 37, { 'Mana Wall' })
     eq(fake.decide(hurt(20), alone), '/ja "Mana Wall" <me>')
@@ -101,6 +106,11 @@ test('Divine Caress: opt-in; fired before a -na spell, which then goes; skipped 
     eq({ cmd, intent.behavior, intent.why }, { '/ja "Divine Caress" <me>', 'remove', 'for Paralyna -> A: A' })
     eq(fake.decide(sick(), whm, cfg, mem), '/ma "Paralyna" 101')  -- its status expected
     eq(fake.decide(sick({ ['Divine Caress'] = 40 }), whm, cfg), '/ma "Paralyna" 101')  -- no hold
+    cfg.gates['Divine Caress'] = 'combat'
+    eq(fake.decide(sick(), whm, cfg), '/ma "Paralyna" 101')  -- gated to combat: the -na goes without it
+    local me = snap()
+    me.me.buffs[PARALYSIS] = true
+    eq(fake.decide(me, whm, on('Divine Caress')), '/ja "Divine Caress" <me>')  -- for your own too
 end)
 
 test('Divine Caress: not before Erase or Esuna, nor for someone Doomed', function ()
@@ -120,8 +130,13 @@ test('Divine Caress: a row of its own under Debuff removal, after the removers, 
         { job = function () return 'WHM' end, statuses = fake.res.statuses })
     local rows
     for _, s in ipairs(view.sections) do if s.id == 'remove' then rows = s.rows end end
-    local removers
-    for i, r in ipairs(rows) do if r.remover then removers = i end end
-    local r = rows[removers]
-    eq({ r.key, r.label, r.on, r.remover, r.shared }, { 'Divine Caress', 'Divine Caress (before a -na spell)', false, true, nil })
+    local at, last
+    for i, r in ipairs(rows) do
+        if r.key == 'Divine Caress' then at = i end
+        if r.remover then last = i end
+    end
+    local r = rows[at]
+    eq({ r.label, r.on, r.remover, r.mod, r.shared }, { 'Divine Caress (before a -na spell)', false, true, true, nil })
+    eq({ rows[at - 1].key, at == last, rows[at + 1].debuff }, { 'Erase', true, true })  -- then the debuffs, then the items
+    eq(rows[at - 1].mod, nil)
 end)

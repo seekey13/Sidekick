@@ -410,6 +410,8 @@ ja.words = {
     ['\nShared with its row under %s: set here, it is set there too.'] =
         '\n%sの行と共通です。ここで設定すると、そちらでも設定されます。',
     ['REMOVERS'] = '回復手段', ['DEBUFFS'] = '弱体', ['ACTIONS'] = 'アクション', ['ITEMS'] = 'アイテム',
+    ['Tick to use it just before the spell it fits, when it is ready; the spell never waits for it.'] =
+        'オンにすると、使用可能な時に対象の魔法の直前に使います。魔法がこれを待つことはありません。',
     ['Untick to never use it: the debuffs only it removes are greyed out below.'] =
         'オフにすると使いません。これでしか回復できない弱体は下で灰色になります。',
     ['\nIt heals too: unticked here, it is unticked under Heal.'] = '\n回復にも使います。ここでオフにすると回復でもオフになります。',
