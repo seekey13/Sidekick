@@ -16,7 +16,7 @@
 
     An intent may also carry:
       mods    modifiers to fire first (stratagems, Snake Eye, Blaze of Glory, Entrust,
-              Embolden, Pianissimo). One not on you that can go now goes first,
+              Embolden, Pianissimo; Divine Caress before a -na, behaviors/remove.lua). One not on you that can go now goes first,
               alone; its status is then taken as on you for EXPECT seconds, so the
               next decision sends the spell. One that can't go is skipped: the spell
               goes without it. An action's `via` (Enlightenment for an Addendum spell

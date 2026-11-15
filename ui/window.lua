@@ -1452,6 +1452,7 @@ local function family_row(pg, sid, r)
 end
 
 local REMOVER_TIP = 'Untick to never use it: the debuffs only it removes are greyed out below.'
+local MOD_TIP = 'Tick to use it just before the spell it fits, when it is ready; the spell never waits for it.'
 local DEBUFF_TIP = 'Untick to leave it on: worth it for what doesn\'t matter to your job (MP Down on a Warrior).'
 
 -- Debuff removal's spells and abilities, a checkbox each: its name, then ready or why not at the right.
@@ -1462,7 +1463,7 @@ local function remover_row(pg, sid, r)
     local gates, room = gate_order(r, reveal, lead), gate_room(r)
     local on, flipped = kit.checkbox(r.label .. '##' .. sid .. '_with_' .. r.key, pg.lx, cy, r.on, true, pg.alpha)
     if flipped then act.row(r.key, on) end
-    kit.tip(t(REMOVER_TIP) .. (r.shared and t('\nIt heals too: unticked here, it is unticked under Heal.') or ''))
+    kit.tip(t(r.mod and MOD_TIP or REMOVER_TIP) .. (r.shared and t('\nIt heals too: unticked here, it is unticked under Heal.') or ''))
     local lx = pg.lx + S(kit.CB) + S(10)
     local ax = row_readiness(pg, r, r.label, lx, pg.right, cy, room)
     local name = kit.fit(r.label, ax - S(12) - lx - room - S(8), kit.fonts.text, S(BODY))

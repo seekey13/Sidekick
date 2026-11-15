@@ -239,7 +239,7 @@ local function due(g, cat, cfg, mem, stage)
                     elseif near then
                         return { action = a, mods = mods, why = ('%s lacks it'):format(near.name) }
                     end
-                elseif can.self_only(a) then
+                elseif can.only_you(a) then  -- its row has no targets to pick: a toggle
                     local why, cancel = renew(a, g, cfg)
                     if c.on_me and (why or lacks(a, g.me)) then
                         return { action = a, mods = mods, why = (why or '%s lacks it'):format(g.me.name), cancel = cancel }

@@ -24,6 +24,7 @@ can.SPELL_THROTTLE = 3.1  -- ...and after a spell, counted from when it lands
 -- party, in your alliance or not: Cure, Protect, Haste, the -na spells and
 -- Raise have it; Regen, Erase, Curaga don't.
 local SELF, PARTY, ALLY, ENEMY, CORPSE = 1, 4, 8, 32, 128
+local ENGAGED = 1  -- entity status, your pet's
 
 -- Range index -> yalms: index * multiplier (the client's lookup); 13+ are self-range.
 local RANGE_MULT = { [2] = 1.70, [3] = 1.490909, [4] = 1.44, [5] = 1.377778, [6] = 1.30, [7] = 1.20,
@@ -69,6 +70,8 @@ end
 function can.at_enemy(a) return a.targets == ENEMY end
 -- Only ever on you (Protectra, Esuna, most job abilities).
 function can.self_only(a) return a.targets == SELF end
+-- Lands on no player but you, whatever else its flags allow (Spur and Spirit Bond: you and your pet).
+function can.only_you(a) return has(a.targets, SELF) and not has(a.targets, PARTY + ALLY) end
 -- Can go on a player outside your party (the alliance's other parties, a tracked player).
 function can.outside(a) return has(a.targets, ALLY) end
 -- A heal that wakes a sleeper it lands on (behaviors/wake.lua): not a pet's, nor one aimed at the enemy (Drain).
@@ -146,6 +149,7 @@ function can.use(a, g)
         if not g.pet then return false, 'no pet' end
         if a.pet_range and (g.pet.dist or math.huge) > a.pet_range then return false, 'pet too far' end
         if type(a.pet) == 'table' and not util.contains(a.pet, g.pet.name) then return false, 'wrong pet' end
+        if a.pet_fights and g.pet.status ~= ENGAGED then return false, 'pet not fighting' end
     end
     -- Catalogued by level though the server lists it only at times (core/catalog.lua):
     -- goes only once the client lists it (a jug's Ready move it lacks, a merit not taken).

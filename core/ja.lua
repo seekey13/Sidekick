@@ -24,7 +24,7 @@ ja.words = {
     ['Wake'] = '起こす', ['Roll'] = 'ロール', ['Rune'] = 'ルーン', ['Geo'] = '風水', ['Song'] = '歌',
     ['Maneuver'] = 'マニューバ', ['Rest'] = 'ヒーリング', ['Stand'] = '立つ',
     -- /sk catalog's roles, besides those
-    ['emergency'] = '緊急', ['modifier'] = '補助', ['ward'] = 'ワード', ['pet_heal'] = 'ペット回復',
+    ['emergency'] = '緊急', ['modifier'] = '補助', ['remove_mod'] = '治療補助', ['ward'] = 'ワード', ['pet_heal'] = 'ペット回復',
     ['pet_remove'] = 'ペット治療', ['unknown'] = '対象外',
 
     -- Automation's state ---------------------------------------------------------------------
@@ -48,6 +48,7 @@ ja.words = {
     ['half the MP'] = '消費MP半減', ['half the casting time'] = '詠唱時間半減', ['longer duration'] = '効果時間延長',
     ['on everyone near you'] = '近くの全員に', ['on everyone near you, at twice the MP'] = '近くの全員に、消費MP2倍',
     ['more potent'] = '効果アップ', ['the next die rolls 1'] = '次の出目が1', ['the next song on one member'] = '次の歌を1人に',
+    ['when you are critical'] = '自分が瀕死の時', ['before a -na spell'] = 'ナ系魔法の前に',
     ['recall the luopan'] = '羅盤を戻す', ['before a luopan'] = '羅盤の前に', ['an Indi- on a member'] = 'インデ系をメンバーに',
     -- what a song gives
     ['+ATK'] = '攻撃力+', ['+DEF'] = '防御力+', ['+Regen'] = 'リジェネ', ['+Refresh'] = 'リフレシュ', ['+ACC'] = '命中+',
@@ -82,7 +83,7 @@ ja.words = {
     ['every tier unticked'] = 'すべての段階がオフ',
     ['MP'] = 'MP不足', ['TP'] = 'TP不足', ['no ammo'] = '矢弾なし', ['no tools'] = '忍具なし', ['none left'] = '所持なし',
     ['combat only'] = '戦闘中のみ', ['idle only'] = '戦闘外のみ', ['no pet'] = 'ペットなし', ['pet too far'] = 'ペットが遠い',
-    ['wrong pet'] = 'ペットが違う', ['not listed'] = '使用できません', ['no battle target'] = '戦闘対象なし',
+    ['wrong pet'] = 'ペットが違う', ['pet not fighting'] = 'ペットが非戦闘中', ['not listed'] = '使用できません', ['no battle target'] = '戦闘対象なし',
     ['target out of range'] = '対象が射程外', ['a status'] = '強化',
 
     -- The HUD ----------------------------------------------------------------------------------
@@ -409,6 +410,8 @@ ja.words = {
     ['\nShared with its row under %s: set here, it is set there too.'] =
         '\n%sの行と共通です。ここで設定すると、そちらでも設定されます。',
     ['REMOVERS'] = '回復手段', ['DEBUFFS'] = '弱体', ['ACTIONS'] = 'アクション', ['ITEMS'] = 'アイテム',
+    ['Tick to use it just before the spell it fits, when it is ready; the spell never waits for it.'] =
+        'オンにすると、使用可能な時に対象の魔法の直前に使います。魔法がこれを待つことはありません。',
     ['Untick to never use it: the debuffs only it removes are greyed out below.'] =
         'オフにすると使いません。これでしか回復できない弱体は下で灰色になります。',
     ['\nIt heals too: unticked here, it is unticked under Heal.'] = '\n回復にも使います。ここでオフにすると回復でもオフになります。',

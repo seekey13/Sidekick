@@ -3,8 +3,9 @@
     is a candidate covering the units in its area; a band picks who counts and how
     candidates rank. Bands run worst first, and one with nothing usable falls
     through, so a unit out of reach never stalls the rest.
-      critical   under heal.critical: a boost first (Divine Seal...), then an aimed
-                 save (Martyr), then the danger score over critical units
+      critical   under heal.critical: your own guard first when it's you (Mana Wall), a
+                 boost (Divine Seal...), then an aimed save (Martyr), then the danger
+                 score over critical units
       danger     under heal.danger: HP% restored per second locked out, the cheaper
                  of heals restoring the same (a faster Cure VI doesn't take a Cure
                  III's need); holds for a heal nearly off recast
@@ -14,7 +15,7 @@
                  for the pet's attacks; not while you're Invisible
     heal.urgent (critical, danger) and heal.efficient are behaviors of their own,
     with debuff removal between them. The focus member has its own three lines;
-    skipped members count for nothing. The alliance's other parties are healed
+    skipped members count for nothing (your own guard still goes for you). The alliance's other parties are healed
     whenever a heal reaches them. An area heal lands on its target's party alone, so
     each party is scored on its own; a tracked player's party is unknown, so a
     spread Cure counts them alone and Accession is never fired for them.
@@ -286,6 +287,18 @@ local function boosts_best(b, ctx, ready, members)
     return c ~= nil and boosts(b, c.a)
 end
 
+-- Before anything else: your own guard when you are under your critical line yourself (Mana
+-- Wall), heal or no heal, a boost up or not, and skipped by healing or not: it spends no cure.
+local function guard(ctx, emergencies)
+    local g = ctx.g
+    if not g.me.alive or g.me.hpp >= lines(g.me, ctx) then return nil end
+    for _, e in ipairs(emergencies) do
+        if e.guards and can.lacks(e, g.me) and can.use(e, g) then
+            return { action = e, why = ('critical: %s %d%%'):format(g.me.name, g.me.hpp) }
+        end
+    end
+end
+
 -- Critical, before the heal: a boost for the heal that will land with it up, an
 -- aimed save on the worst member, then the other emergencies when a heal will follow.
 local function emergency(ctx, list, best, emergencies, ready, members)
@@ -304,7 +317,7 @@ local function emergency(ctx, list, best, emergencies, ready, members)
     end
     if not best then return nil end
     for _, e in ipairs(emergencies) do
-        if not e.boost and can.self_only(e) and can.use(e, g) then
+        if not e.boost and not e.guards and can.self_only(e) and can.use(e, g) then
             return { action = e, why = ('critical: %s %d%%'):format(list[1].name, list[1].hpp) }
         end
     end
@@ -351,6 +364,8 @@ local function want(g, cat, cfg, bands)
     end
     for _, u in ipairs(g.units) do ctx.regen_for[u] = regen_for(u, ctx) end
 
+    local guarding = bands == URGENT and guard(ctx, emergencies)
+    if guarding then return guarding end
     local invisible = g.me.buffs[status.INVISIBLE]
     for _, band in ipairs(bands) do
         local members, list = members_of(band, ctx)
