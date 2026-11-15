@@ -5,7 +5,7 @@ local settings = require('core.settings')
 local fake = require('tests.fake')
 
 local WAR, WHM, BLM, RDM, BST, RNG, NIN = 1, 3, 4, 5, 9, 11, 13
-local POISON, PARALYSIS, DOOM, MANA_WALL, CARESS = 3, 4, 15, 437, 453
+local WEAKNESS, POISON, PARALYSIS, DOOM, MANA_WALL, CARESS = 1, 3, 4, 15, 437, 453
 local snap, named = fake.snap, fake.named
 
 local function on(...)
@@ -40,12 +40,18 @@ end
 test('Spur: a pet command, in combat, only while your pet fights; again whenever it is off recast', function ()
     local cat = fake.catalog(BST, 75, WAR, 37, { 'Spur' })
     local spur = named(cat, 'Spur')
-    eq({ spur.kind, spur.role, spur.gate, spur.status, spur.pet, spur.pet_fights }, { 'pet', 'buff', 'combat', nil, true, true })
+    eq({ spur.kind, spur.role, spur.gate, spur.status, spur.pet_fights }, { 'pet', 'buff', 'combat', nil, true })
     local cfg = on('Spur')
     local function g(pet, waits) return snap(nil, { main = BST, sub = WAR, combat = true, pet = pet }, waits) end
     eq(fake.decide(g(jug()), cat, cfg), '/pet "Spur" 1')
     eq({ fake.decide(g(jug({ status = 0 })), cat, cfg) }, { nil, 'nothing to do' })  -- out, not fighting
     eq({ fake.decide(g(nil), cat, cfg) }, { nil, 'nothing to do' })
+    -- Not for an avatar, an automaton or a charmed mob: the server refuses it with no recast.
+    for _, name in ipairs({ 'Carbuncle', 'ValoredgeFrame', 'Wild Rabbit' }) do
+        eq({ fake.decide(g(jug({ name = name })), cat, cfg) }, { nil, 'nothing to do' })
+        eq({ require('core.can').use(spur, g(jug({ name = name }))) }, { false, 'wrong pet' })
+    end
+    eq(fake.decide(g(jug({ name = 'SheepFamiliar' })), cat, cfg), '/pet "Spur" 1')
     eq({ fake.decide(g(jug(), { Spur = 120 }), cat, cfg) }, { nil, 'nothing to do' })
     eq({ require('core.can').use(spur, g(jug({ status = 0 }))) }, { false, 'pet not fighting' })
     local out = snap(nil, { main = BST, sub = WAR, pet = jug() })
@@ -79,6 +85,22 @@ test('Mana Wall: when you are critical yourself, in combat, ahead of the heal an
     -- A BLM with no heal still guards.
     local alone = fake.catalog(BLM, 75, NIN, 37, { 'Mana Wall' })
     eq(fake.decide(hurt(20), alone), '/ja "Mana Wall" <me>')
+end)
+
+test('Mana Wall: though healing skips you; never while weakened (a raise in a fight)', function ()
+    local blm = fake.catalog(BLM, 75, WHM, 37, { 'Mana Wall' })
+    local cfg = settings.defaults()
+    cfg.heal.skip.Me = true
+    eq(fake.decide(hurt(20), blm, cfg), '/ja "Mana Wall" <me>')
+    cfg.heal.on = false
+    eq({ fake.decide(hurt(20), blm, cfg) }, { nil, 'nothing to do' })  -- Healing's switch is its too
+    local g = hurt(20)
+    g.me.buffs[WEAKNESS] = true
+    eq(fake.decide(g, blm):match('^/ma "Cure'), '/ma "Cure')
+    -- Your own lines as the focus member.
+    cfg = settings.defaults()
+    cfg.heal.focus = 'Me'
+    eq(fake.decide(hurt(35), blm, cfg), '/ja "Mana Wall" <me>')
 end)
 
 test('Mana Wall: not for a member\'s critical HP, not in danger only, not out of combat, not with its row off', function ()

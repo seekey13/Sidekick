@@ -15,7 +15,7 @@
                  for the pet's attacks; not while you're Invisible
     heal.urgent (critical, danger) and heal.efficient are behaviors of their own,
     with debuff removal between them. The focus member has its own three lines;
-    skipped members count for nothing. The alliance's other parties are healed
+    skipped members count for nothing (your own guard still goes for you). The alliance's other parties are healed
     whenever a heal reaches them. An area heal lands on its target's party alone, so
     each party is scored on its own; a tracked player's party is unknown, so a
     spread Cure counts them alone and Accession is never fired for them.
@@ -287,12 +287,13 @@ local function boosts_best(b, ctx, ready, members)
     return c ~= nil and boosts(b, c.a)
 end
 
--- Critical, before anything else: your own guard when you are critical yourself (Mana Wall),
--- heal or no heal, a boost up or not.
-local function guard(ctx, emergencies, members)
+-- Before anything else: your own guard when you are under your critical line yourself (Mana
+-- Wall), heal or no heal, a boost up or not, and skipped by healing or not: it spends no cure.
+local function guard(ctx, emergencies)
     local g = ctx.g
+    if not g.me.alive or g.me.hpp >= lines(g.me, ctx) then return nil end
     for _, e in ipairs(emergencies) do
-        if e.guards and members[g.me] and can.lacks(e, g.me) and can.use(e, g) then
+        if e.guards and can.lacks(e, g.me) and can.use(e, g) then
             return { action = e, why = ('critical: %s %d%%'):format(g.me.name, g.me.hpp) }
         end
     end
@@ -363,13 +364,14 @@ local function want(g, cat, cfg, bands)
     end
     for _, u in ipairs(g.units) do ctx.regen_for[u] = regen_for(u, ctx) end
 
+    local guarding = bands == URGENT and guard(ctx, emergencies)
+    if guarding then return guarding end
     local invisible = g.me.buffs[status.INVISIBLE]
     for _, band in ipairs(bands) do
         local members, list = members_of(band, ctx)
         if list[1] and not (invisible and band == 'efficient') then
             local best = best_of(band, ctx, ready, members)
-            local e = band == 'critical' and (guard(ctx, emergencies, members)
-                or not ctx.factor_up and emergency(ctx, list, best, emergencies, ready, members))
+            local e = band == 'critical' and not ctx.factor_up and emergency(ctx, list, best, emergencies, ready, members)
             if e then return e end
             if best then return intent(best, ctx) end
             if band == 'danger' then

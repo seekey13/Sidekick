@@ -113,6 +113,29 @@ local SHURIKEN = { 17301, 17302, 17303, 17304, 18712, 22999 }
 local PANACEA = { 4, 11, 12, 21, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142,
     144, 145, 147, 148, 149, 167, 168, 174, 175 }
 
+-- The jug pets, as the client names them (LSB's pet_list): Spur is for no other pet, and the server refuses it
+-- with no recast. A charmed mob, an avatar and an automaton are not among them.
+-- ponytail: a jug pet CatsEyeXI adds or renames is missing here until it's added: Spur then shows 'wrong pet'.
+local JUGS = {
+    'SheepFamiliar', 'HareFamiliar', 'CrabFamiliar', 'CourierCarrie', 'Homunculus', 'FlytrapFamiliar',
+    'TigerFamiliar', 'FlowerpotBill', 'EftFamiliar', 'LizardFamiliar', 'MayflyFamiliar', 'FunguarFamiliar',
+    'BeetleFamiliar', 'AntlionFamiliar', 'MiteFamiliar', 'LullabyMelodia', 'KeenearedSteffi', 'FlowerpotBen',
+    'SaberSiravarde', 'ColdbloodComo', 'ShellbusterOrob', 'VoraciousAudrey', 'AmbusherAllie',
+    'LifedrinkerLars', 'PanzerGalahad', 'ChopsueyChucky', 'AmigoSabotender', 'CraftyClyvonne',
+    'BloodclawShasr', 'LuckyLulush', 'FatsoFargann', 'DiscreetLouise', 'SwiftSieghard', 'DipperYuly',
+    'FlowerpotMerle', 'NurseryNazuna', 'MailbusterCeta', 'AudaciousAnna', 'PrestoJulio', 'BugeyedBroncha',
+    'GooeyGerard', 'GorefangHobs', 'FaithfulFalcor', 'CrudeRaphie', 'DapperMac', 'SlipperySilas',
+    'TurbidToloi', 'SweetCaroline', 'AmiableRoche', 'HeadbreakerKen', 'AnklebiterJedd', 'CursedAnnabelle',
+    'BrainyWaluis', 'SlimeFamiliar', 'SultryPatrice', 'GenerousArthur', 'RedolentCandi', 'AlluringHoney',
+    'LynxFamiliar', 'VivaciousGaston', 'CaringKiyomaro', 'VivaciousVickie', 'SuspiciousAlice', 'SurgingStorm',
+    'SubmergedIyo', 'WarlikePatrick', 'RhymingShizuna', 'BlackbeardRandy', 'ThreestarLynn', 'HurlerPercival',
+    'AcuexFamiliar', 'FluffyBredo', 'WeevilFamiliar', 'StalwartAngelina', 'FleetReinhard', 'SharpwitHermes',
+    'P.CrabFamiliar', 'JovialEdwin', 'AttentiveIbuki', 'SwoopingZhivago', 'SunburstMalfik', 'AgedAngus',
+    'ScissorlegXerin', 'BouncingBertha', 'SpiderFamiliar', 'GussyHachirobe', 'ColibriFamiliar', 'ChoralLeera',
+    'DroopyDortwin', 'PonderingPeter', 'HeraldHenry', 'Hip.Familiar', 'DaringRoland', 'MosquitoFamiliar',
+    'Left-HandedYoko', 'BraveHeroGlenn', 'Y.BeetleFamiliar', 'EnergizedSefina',
+}
+
 -- Jobs, for `learn`.
 local BST, SMN, PUP, SCH = 9, 15, 18, 20
 
@@ -177,8 +200,11 @@ local K = {
     -- Accession: jobs/sch.lua
     -- A merit: listed at 75 whether merited or not, sent only once the client lists it.
     ['Tranquility']  = { role = 'emergency', requires = LIGHT, learn = { [SCH] = 75 } },
-    -- Mana Wall: for you alone, and in combat only, so a raise's low HP never spends its 10 minutes.
-    ['Mana Wall']    = { role = 'emergency', guards = true, gate = 'combat', status = 'Mana Wall', note = 'when you are critical' },
+    -- Mana Wall: for you alone; in combat only and never while weakened, so a raise's low HP never spends
+    -- its 10 minutes.
+    -- ponytail: no MP floor: retail's takes the damage from MP, LSB's is a flat -50% with no MP; check CatsEyeXI's in game.
+    ['Mana Wall']    = { role = 'emergency', guards = true, gate = 'combat', status = 'Mana Wall', blocked_by = 'weakness',
+                         note = 'when you are critical' },
 
     -- remove -------------------------------------------------------------------
     ['Poisona']       = { role = 'remove', removes = 'Poison' },
@@ -357,8 +383,7 @@ local K = {
     ['Bounty Shot']= { role = 'buff' },
     ['Velocity Shot'] = { role = 'buff', gate = 'combat', main_only = true },
     -- Spur: Store TP for a jug pet, on the pet (nothing to read on you), and only while it fights.
-    -- ponytail: a charmed pet can't be told from a jug pet, and the server refuses Spur for one with no recast: leave the row off then.
-    ['Spur'] = { role = 'buff', gate = 'combat', pet = true, pet_fights = true, status = false },
+    ['Spur'] = { role = 'buff', gate = 'combat', pet = JUGS, pet_fights = true, status = false },
 }
 
 -- Pick-one groups whose members each show the status named like them: the key, then its members.
