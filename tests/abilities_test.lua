@@ -43,15 +43,24 @@ test('Spur: a pet command, in combat, only while your pet fights; again whenever
     eq({ spur.kind, spur.role, spur.gate, spur.status, spur.pet_fights }, { 'pet', 'buff', 'combat', nil, true })
     local cfg = on('Spur')
     local function g(pet, waits) return snap(nil, { main = BST, sub = WAR, combat = true, pet = pet }, waits) end
-    eq(fake.decide(g(jug()), cat, cfg), '/pet "Spur" 1')
+    eq(fake.decide(g(jug()), cat, cfg), '/pet "Spur" <me>')
     eq({ fake.decide(g(jug({ status = 0 })), cat, cfg) }, { nil, 'nothing to do' })  -- out, not fighting
+    -- A toggle: no target chips, and targets saved on its row count for nothing.
+    local view = model.build(g(jug()), cat, cfg, { running = false, log = true, sent = {} },
+        { job = function () return 'BST' end, statuses = fake.res.statuses })
+    for _, sec in ipairs(view.sections) do
+        for _, r in ipairs(sec.id == 'buff' and sec.rows or {}) do eq({ r.key, r.on, r.targets }, { 'Spur', true, nil }) end
+    end
+    cfg.rows.Spur.targets = { [1] = true }
+    eq(fake.decide(g(jug()), cat, cfg), '/pet "Spur" <me>')
+    cfg.rows.Spur.targets = nil
     eq({ fake.decide(g(nil), cat, cfg) }, { nil, 'nothing to do' })
     -- Not for an avatar, an automaton or a charmed mob: the server refuses it with no recast.
     for _, name in ipairs({ 'Carbuncle', 'ValoredgeFrame', 'Wild Rabbit' }) do
         eq({ fake.decide(g(jug({ name = name })), cat, cfg) }, { nil, 'nothing to do' })
         eq({ require('core.can').use(spur, g(jug({ name = name }))) }, { false, 'wrong pet' })
     end
-    eq(fake.decide(g(jug({ name = 'SheepFamiliar' })), cat, cfg), '/pet "Spur" 1')
+    eq(fake.decide(g(jug({ name = 'SheepFamiliar' })), cat, cfg), '/pet "Spur" <me>')
     eq({ fake.decide(g(jug(), { Spur = 120 }), cat, cfg) }, { nil, 'nothing to do' })
     eq({ require('core.can').use(spur, g(jug({ status = 0 }))) }, { false, 'pet not fighting' })
     local out = snap(nil, { main = BST, sub = WAR, pet = jug() })

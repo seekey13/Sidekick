@@ -211,13 +211,13 @@ local function player_chips(units, outsiders, outside, on)
     return out
 end
 
--- Target chips for a buff that can go on others. Party only when every tier stays
+-- Target chips for a buff that can go on others (none for one on you and your pet alone: Spur, Spirit Bond). Party only when every tier stays
 -- in the party (Regen). A spell that can go outside always lists both alliance
 -- parties, empty slots included, then the tracked players.
 local function chips(acts, r, units, outsiders)
     local reaches, outside = false, false
     for _, a in ipairs(acts) do
-        reaches = reaches or not (can.self_only(a) or can.at_enemy(a))
+        reaches = reaches or not (can.only_you(a) or can.at_enemy(a))
         outside = outside or can.outside(a)
     end
     if not reaches then return nil end

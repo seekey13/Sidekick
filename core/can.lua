@@ -70,6 +70,8 @@ end
 function can.at_enemy(a) return a.targets == ENEMY end
 -- Only ever on you (Protectra, Esuna, most job abilities).
 function can.self_only(a) return a.targets == SELF end
+-- Lands on no player but you, whatever else its flags allow (Spur and Spirit Bond: you and your pet).
+function can.only_you(a) return has(a.targets, SELF) and not has(a.targets, PARTY + ALLY) end
 -- Can go on a player outside your party (the alliance's other parties, a tracked player).
 function can.outside(a) return has(a.targets, ALLY) end
 -- A heal that wakes a sleeper it lands on (behaviors/wake.lua): not a pet's, nor one aimed at the enemy (Drain).
