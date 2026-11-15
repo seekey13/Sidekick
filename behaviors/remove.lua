@@ -12,6 +12,9 @@
     ITEM_WAIT seconds. A remover that just had no effect on a status (someone else took
     it off, or it can't) leaves it be while the client still shows it (unit.futile,
     core/removal.lua); another remover may still try it.
+    Divine Caress (a remove_mod row, opt-in) goes just before a -na spell when it can, fired
+    first by the engine as a buff's modifiers are; never for someone Doomed, whose Cursna
+    can't wait for it.
 ]]--
 
 local can = require('core.can')
@@ -75,8 +78,19 @@ local function worth(a, me, skip)
     return a.one_of and n > 1 and m / n or w
 end
 
+-- The remove_mod rows that are on and go before `a` on `u`, or nil.
+local function mods_for(a, u, boosts)
+    if u.buffs[DOOM] then return nil end
+    local out
+    for _, m in ipairs(boosts) do
+        if m.applies(a) then out = out or {}; out[#out + 1] = m end
+    end
+    return out
+end
+
 return function (g, cat, cfg, mem)
     local rm = cfg.remove or {}
+    local boosts = settings.enabled(cat, cfg, 'remove_mod')
     local removers, worths = settings.enabled(cat, cfg, 'remove'), {}
     local mine = skip_of(rm, g.me)
     for _, a in ipairs(removers) do worths[a] = a.kind == 'item' and worth(a, g.me, mine) or 0 end
@@ -102,7 +116,7 @@ return function (g, cat, cfg, mem)
                             return { action = a, why = ('%s near you'):format(u.name) }
                         end
                     elseif can.reach(a, u) then
-                        return { action = a, target = u, why = u.name }
+                        return { action = a, target = u, mods = mods_for(a, u, boosts), why = u.name }
                     end
                 end
             end

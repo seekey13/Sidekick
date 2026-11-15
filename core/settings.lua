@@ -11,7 +11,7 @@
                       match = true }  -- enspells, storms: Auto, the tier matching the sky, `pick` when none does (core/sky.lua)
     A tracked player's name stays on the row after they're untracked, so tracking
     them again brings their buffs back. A row never saved uses its default: on, but
-    for buffs (a luopan's Geo- spells too), sending the pet in and items.
+    for buffs (a luopan's Geo- spells too), sending the pet in, items and Divine Caress.
     gates[key] = 'combat' | 'idle': the row goes only in combat, or only out of it
     (can.gate), one or the other; none, any time. Kept apart from `rows` so setting
     one never makes a row whose `on` would have to be guessed. An action's own gate
@@ -76,7 +76,7 @@ local UI_FILE = 'ui'
 -- pick_one before label: labelled members of one group (geo_ja) stay one row.
 function settings.key(a) return a.pick_one or a.label or a.family end
 
-local OPT_IN = { buff = true, pet_send = true }
+local OPT_IN = { buff = true, pet_send = true, remove_mod = true }
 
 local OPT_IN_LUOPAN = { buff = true, debuff = true }  -- a Geo- spell, like a buff
 

@@ -121,7 +121,7 @@ function catalog.build(res, player, K)
             assert(not (addendum and use.requires), ('%s: an Addendum spell can\'t require more'):format(row.en))
             if not (use.main_only and from == 'sub') then
                 local status = use.status
-                if status == nil and (use.role == 'buff' or use.role == 'modifier' or use.lucky or use.boost) then
+                if status == nil and (use.role == 'buff' or use.role == 'modifier' or use.role == 'remove_mod' or use.lucky or use.boost) then
                     status = idx[row.en:lower()] or idx[family:lower()]
                 end
                 out[#out + 1] = {
@@ -145,7 +145,7 @@ function catalog.build(res, player, K)
                     applies = use.applies, spreads = use.spreads, addendum = addendum or nil,
                     lucky = use.lucky, unlucky = use.unlucky, luopan = use.luopan, decide = use.decide, rune = use.rune,
                     priority = use.priority or 0, pet = use.pet, travel = use.travel, mob_skill = use.mob_skill,
-                    hidden = use.learn ~= nil or nil, first = use.first,
+                    hidden = use.learn ~= nil or nil, first = use.first, guards = use.guards, pet_fights = use.pet_fights,
                     -- the client blocks casts by this cost, so it is the one to trust
                     mp = (kind == 'ja' and CHARGES[row.type] or row.type == READY_MOVE) and 0 or row.mp,
                     tp = row.tp, charges = row.type == READY_MOVE and row.mp or nil,

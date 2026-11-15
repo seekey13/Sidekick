@@ -10,11 +10,13 @@
     A row is one use, or a list of uses when one action does several jobs
     (Chakra heals and cures). An exact name ("Healing Ruby II") beats its family.
 
-    role       heal | pet_heal | remove | pet_remove | pet_send | emergency | revive | roll |
+    role       heal | pet_heal | remove | remove_mod | pet_remove | pet_send | emergency | revive | roll |
                recover | buff | modifier | geo | rune | ward | maneuver | song
                (roll, geo, rune, ward, maneuver and song: a job module's, jobs/cor.lua,
                geo.lua, run.lua, pup.lua and brd.lua)
                (a modifier is a JA fired just before the spell it changes: core/engine.lua)
+               (a remove_mod is a JA fired just before the removal it changes, when it can go:
+               Divine Caress, a row of its own under Debuff removal, opt-in; behaviors/remove.lua)
                (a heal's area comes from the DAT: Curaga is a heal like Cure)
     status     what a buff shows: status name (lowest id with that name wins), id,
                or a list (any one counts). Omitted = the status named like the
@@ -28,6 +30,8 @@
                blue magic cures, 'waltz') heal
                x factor and +potency %, and a Cure up to tier `tiers` covers `area`
                yalms at `mp` x the cost (behaviors/heal.lua)
+    guards     an emergency for yourself: fired when you are under your own critical line, whether
+               or not a heal follows (Mana Wall; behaviors/heal.lua)
     wakes      the heal also cures sleep
     gives      'tp' for a recover that restores TP (default MP)
     costs_hp   paid for with your HP: only while you're over the danger line
@@ -62,6 +66,7 @@
                member's: a lasting stance healing is cheaper or possible under
                (Light Arts, Addendum: White; behaviors/buff.lua)
     pet        needs a pet out (true) or one of these pets
+    pet_fights needs that pet fighting: the server refuses it otherwise, starting no recast (Spur)
     kind       'ma' | 'ja' | 'pet': this use only for that command kind
     label      UI name when one action has several uses
     note       short UI hint
@@ -70,6 +75,7 @@
     duration   seconds a buff lasts (or per tier), for statuses read off packets (trusts)
     mob_skill  the id a jug pet's move carries in its action packet (the server's mob skill)
     applies    a modifier's test of a catalog record: which spells a buff row may turn it on for
+               (a remove_mod's: which removals it goes before)
     spreads    { area =, mp =, others = }: the modifier makes a single-target spell land on everyone
                in your party within `area` yalms of you, at `mp` x the cost (Accession, Diffusion);
                `others`: only while someone but you lacks it (Diffusion's long recast)
@@ -109,6 +115,11 @@ local PANACEA = { 4, 11, 12, 21, 128, 129, 130, 131, 132, 133, 134, 135, 136, 13
 
 -- Jobs, for `learn`.
 local BST, SMN, PUP, SCH = 9, 15, 18, 20
+
+-- What Divine Caress works on (retail's list): the -na spells, not Erase or Esuna.
+-- ponytail: CatsEyeXI's own list is unknown until it has the ability; check in game which spells spend the status.
+local NA = { Poisona = true, Paralyna = true, Blindna = true, Silena = true, Stona = true, Viruna = true, Cursna = true }
+local function na(a) return a.kind == 'ma' and NA[a.family] == true end
 
 local LIGHT = { 'Light Arts', 'Addendum: White' }
 local DARK = { 'Dark Arts', 'Addendum: Black' }
@@ -166,6 +177,8 @@ local K = {
     -- Accession: jobs/sch.lua
     -- A merit: listed at 75 whether merited or not, sent only once the client lists it.
     ['Tranquility']  = { role = 'emergency', requires = LIGHT, learn = { [SCH] = 75 } },
+    -- Mana Wall: for you alone, and in combat only, so a raise's low HP never spends its 10 minutes.
+    ['Mana Wall']    = { role = 'emergency', guards = true, gate = 'combat', status = 'Mana Wall', note = 'when you are critical' },
 
     -- remove -------------------------------------------------------------------
     ['Poisona']       = { role = 'remove', removes = 'Poison' },
@@ -178,6 +191,8 @@ local K = {
     ['Erase']         = { role = 'remove', removes = ERASABLE },
     ['Esuna']         = { role = 'remove', removes = ESUNA },
     ['Healing Waltz'] = { role = 'remove', removes = WALTZ, blocked_by = 'Saber Dance', trance = true },
+    -- Divine Caress: the target then resists what the -na took off. Its status on you is the lower id (453).
+    ['Divine Caress'] = { role = 'remove_mod', applies = na, note = 'before a -na spell' },
 
     -- remove: items, on you only and after any spell. behaviors/remove.lua orders them by what
     -- they'd clear on you, then by priority: cheap and specific first.
@@ -341,6 +356,9 @@ local K = {
     ['Scavenge']   = { role = 'buff' },
     ['Bounty Shot']= { role = 'buff' },
     ['Velocity Shot'] = { role = 'buff', gate = 'combat', main_only = true },
+    -- Spur: Store TP for a jug pet, on the pet (nothing to read on you), and only while it fights.
+    -- ponytail: a charmed pet can't be told from a jug pet, and the server refuses Spur for one with no recast: leave the row off then.
+    ['Spur'] = { role = 'buff', gate = 'combat', pet = true, pet_fights = true, status = false },
 }
 
 -- Pick-one groups whose members each show the status named like them: the key, then its members.
@@ -375,7 +393,7 @@ for _, name in ipairs({
     'Impetus', 'Perfect Counter', 'Conspirator', 'Assassin\'s Charge', 'Feint', 'Fealty', 'Rampart',
     'Sentinel', 'Holy Circle', 'Arcane Circle', 'Last Resort', 'Souleater', 'Consume Mana',
     'Diabolic Eye', 'Ancient Circle', 'Sharpshot', 'Unlimited Shot', 'Flashy Shot', 'Stealth Shot',
-    'Warding Circle', 'Third Eye', 'Swordplay',
+    'Warding Circle', 'Third Eye', 'Swordplay', 'Restraint', 'Saboteur', 'Double Shot', 'Issekigan',
 }) do
     K[name] = { role = 'buff', gate = 'combat' }
 end

@@ -3,8 +3,9 @@
     is a candidate covering the units in its area; a band picks who counts and how
     candidates rank. Bands run worst first, and one with nothing usable falls
     through, so a unit out of reach never stalls the rest.
-      critical   under heal.critical: a boost first (Divine Seal...), then an aimed
-                 save (Martyr), then the danger score over critical units
+      critical   under heal.critical: your own guard first when it's you (Mana Wall), a
+                 boost (Divine Seal...), then an aimed save (Martyr), then the danger
+                 score over critical units
       danger     under heal.danger: HP% restored per second locked out, the cheaper
                  of heals restoring the same (a faster Cure VI doesn't take a Cure
                  III's need); holds for a heal nearly off recast
@@ -286,10 +287,16 @@ local function boosts_best(b, ctx, ready, members)
     return c ~= nil and boosts(b, c.a)
 end
 
--- Critical, before the heal: a boost for the heal that will land with it up, an
--- aimed save on the worst member, then the other emergencies when a heal will follow.
+-- Critical, before the heal: your own guard when you are critical yourself (Mana Wall), heal
+-- or no heal; a boost for the heal that will land with it up, an aimed save on the worst
+-- member, then the other emergencies when a heal will follow.
 local function emergency(ctx, list, best, emergencies, ready, members)
     local g = ctx.g
+    for _, e in ipairs(emergencies) do
+        if e.guards and members[g.me] and can.lacks(e, g.me) and can.use(e, g) then
+            return { action = e, why = ('critical: %s %d%%'):format(g.me.name, g.me.hpp) }
+        end
+    end
     for _, e in ipairs(emergencies) do
         if e.boost and e.boost.factor > 1 and can.use(e, g) and boosts_best(e.boost, ctx, ready, members) then
             return { action = e, expect = e.status, why = ('critical: %s %d%%'):format(list[1].name, list[1].hpp) }
@@ -304,7 +311,7 @@ local function emergency(ctx, list, best, emergencies, ready, members)
     end
     if not best then return nil end
     for _, e in ipairs(emergencies) do
-        if not e.boost and can.self_only(e) and can.use(e, g) then
+        if not e.boost and not e.guards and can.self_only(e) and can.use(e, g) then
             return { action = e, why = ('critical: %s %d%%'):format(list[1].name, list[1].hpp) }
         end
     end

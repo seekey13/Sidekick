@@ -48,7 +48,7 @@ model.SECTIONS = {
     { id = 'heal', title = 'Healing', roles = { 'heal', 'emergency' }, header = 'Heal' },
     { id = 'revive', title = 'Revive', roles = { 'revive' }, header = 'Heal' },
     { id = 'wake', title = 'Wake sleepers', header = 'Remove' },
-    { id = 'remove', title = 'Debuff removal', roles = { 'remove' }, header = 'Remove' },
+    { id = 'remove', title = 'Debuff removal', roles = { 'remove', 'remove_mod' }, header = 'Remove' },
     { id = 'buff', title = 'Buffs', roles = { 'buff' }, header = 'Buff' },
     { id = 'pet', title = 'Pet', roles = { 'pet_heal', 'pet_remove', 'pet_send' }, header = 'Pet' },
     { id = 'recover', title = 'Recovery', roles = { 'recover' }, header = 'Recover' },
@@ -421,7 +421,7 @@ local function build_rows(s, g, cat, cfg, units, outsiders, statuses)
         if s.id == 'remove' and not row.count then
             row.remover = true
             for _, a in ipairs(cat) do  -- a family with another role (Chakra heals too) shares its row
-                if settings.key(a) == key and a.role ~= 'remove' then row.shared = true end
+                if settings.key(a) == key and a.role == 'heal' then row.shared = true end
             end
         end
         rows[#rows + 1] = row

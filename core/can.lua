@@ -24,6 +24,7 @@ can.SPELL_THROTTLE = 3.1  -- ...and after a spell, counted from when it lands
 -- party, in your alliance or not: Cure, Protect, Haste, the -na spells and
 -- Raise have it; Regen, Erase, Curaga don't.
 local SELF, PARTY, ALLY, ENEMY, CORPSE = 1, 4, 8, 32, 128
+local ENGAGED = 1  -- entity status, your pet's
 
 -- Range index -> yalms: index * multiplier (the client's lookup); 13+ are self-range.
 local RANGE_MULT = { [2] = 1.70, [3] = 1.490909, [4] = 1.44, [5] = 1.377778, [6] = 1.30, [7] = 1.20,
@@ -146,6 +147,7 @@ function can.use(a, g)
         if not g.pet then return false, 'no pet' end
         if a.pet_range and (g.pet.dist or math.huge) > a.pet_range then return false, 'pet too far' end
         if type(a.pet) == 'table' and not util.contains(a.pet, g.pet.name) then return false, 'wrong pet' end
+        if a.pet_fights and g.pet.status ~= ENGAGED then return false, 'pet not fighting' end
     end
     -- Catalogued by level though the server lists it only at times (core/catalog.lua):
     -- goes only once the client lists it (a jug's Ready move it lacks, a merit not taken).

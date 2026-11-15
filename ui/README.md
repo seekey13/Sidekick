@@ -144,7 +144,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'heal'` | Healing | Heal | `view.heal`, rows |
 | `'revive'` | Revive | Heal | rows |
 | `'wake'` | Wake sleepers | Remove | its switch only |
-| `'remove'` | Debuff removal | Remove | `who` (the slot chips removal runs on), rows: its spells and abilities (`remover`), the debuffs they and its items clear (`debuff`), then the items |
+| `'remove'` | Debuff removal | Remove | `who` (the slot chips removal runs on), rows: its spells and abilities (`remover`; Divine Caress, fired before a -na spell, is one of them, off until switched on), the debuffs they and its items clear (`debuff`), then the items |
 | `'buff'` | Buffs | Buff | `view.buff`, rows |
 | `'roll'` | Rolls | Buff | `view.roll` (a job with rolls only) |
 | `'song'` | Songs | Buff | `view.song` (a job with songs only) |
@@ -178,7 +178,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `remover` | bool or nil | Debuff removal's spell and ability rows (Paralyna, Erase, Healing Waltz...), switched with `act.row` as any row: true. The standard window draws them as checkboxes, above the debuffs, which it draws as chips |
 | `shared` | bool or nil | `remover` rows whose family has another role too (Chakra heals): true. Its row is one, so unticking it here stops its healing too |
 | `ready` | bool | It could go right now |
-| `avail` | string | `'ready'` (or, for a pet care row or Sange whose ammo you hold but don't wear, `'equips <item>'`: it's equipped first, then the row goes), or why not: `'recast 12s'`, `'MP'`, `'TP'`, `'silenced'`, `'combat only'`, `'idle only'`, `'no ammo'`, `'no tools'`, `'pet too far'`, `'none left'`, `'pick one'`, `'not available'`, `'every tier unticked'` (a heal row whose every `tiers` entry is unticked)... |
+| `avail` | string | `'ready'` (or, for a pet care row or Sange whose ammo you hold but don't wear, `'equips <item>'`: it's equipped first, then the row goes), or why not: `'recast 12s'`, `'MP'`, `'TP'`, `'silenced'`, `'combat only'`, `'idle only'`, `'no ammo'`, `'no tools'`, `'pet too far'`, `'pet not fighting'`, `'none left'`, `'pick one'`, `'not available'`, `'every tier unticked'` (a heal row whose every `tiers` entry is unticked)... |
 | `tiers` | list or nil | Healing rows with more than one tier (Cure, Curaga, Regen, the waltzes, Drain, Healing Ruby), in the catalog's order: `{ name, label, on, wakes }`, one per name. `on` is false once unticked (`act.heal_spell`, stored in `heal.never`): healing never uses it, while the row's other tiers still go and waking still may, when `wakes` (true for a heal that wakes a sleeper: not a Regen, Drain or a pet's). A heal alone on its row, or a Ready move, is listed only once unticked, so it can be ticked again. The standard window draws them as checkboxes under the row's name |
 | `action` | string or nil | When ready, the spell, ability or item it would use, as the client names it: `'Cure V'` (a `debuff` row: what clears it) |
 | `count` | number or nil | Item rows (`'Echo Drops'`, `'Remedy'`...): how many you carry |

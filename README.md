@@ -18,7 +18,7 @@ Sidekick v3 is a ground-up rewrite of Sidekick v2. Instead of hand-written job f
 
 ## Features
 
-- **Urgency-based healing**: the most HP per MP when someone is hurt, the fastest cure when they're in danger, a boost (Divine Seal, Accession, Majesty) when they're critical. Weighs area cures and Regen against single-target, and learns what your cures actually heal.
+- **Urgency-based healing**: the most HP per MP when someone is hurt, the fastest cure when they're in danger, a boost (Divine Seal, Accession, Majesty) when they're critical, and your own guard (Mana Wall) when it's you. Weighs area cures and Regen against single-target, and learns what your cures actually heal.
 - **Status removal**: -na spells, Erase, Esuna, waltzes and (opt-in) items, with per-player, per-debuff control.
 - **Wake, raise and buff**: wakes sleepers, raises the KO'd and keeps up the buffs you choose on the targets you choose.
 - **Recovery**: MP and TP through Convert, Devotion, Aspir, Chivalry, Meditate, resting and more.
@@ -148,7 +148,7 @@ Choose **Auto** at the top of your enspell's list and it casts the enspell your 
 <details>
 <summary><b>Other jobs</b></summary>
 
-White Mage, Paladin, Summoner, Dragoon and the rest are handled by the shared engine: Divine Seal and Martyr, Convert, Majesty and Chivalry, Healing Ruby, Spirit Link and more, all read from the game.
+White Mage, Paladin, Summoner, Dragoon and the rest are handled by the shared engine: Divine Seal and Martyr, Divine Caress before a -na spell (opt-in, under Debuff removal), Mana Wall, Convert, Majesty and Chivalry, Healing Ruby, Spirit Link and more, all read from the game.
 </details>
 
 ## Configuration
