@@ -72,12 +72,12 @@ return {
         t.note('charmed at 40%%: nothing sent on %s for %ds', who, QUIET)
 
         t.gm.uneffect(who, 'charm')
-        local ok, gone = pcall(t.wait_for, function () return not charmed() end, GONE, 'Charm gone')
-        if not ok and type(gone) == 'table' and (gone.why or ''):find(': not within ', 1, true) then
+        local ok, err, gone = pcall(t.wait_for, function () return not charmed() end, GONE, 'Charm gone')
+        if not ok and type(err) == 'table' and (err.why or ''):find(': not within ', 1, true) then
             t.fail('Sidekick still read Charm on %s %ds after it wore off: their update (0x00D) wasn\'t read, so it\'s '
                 .. 'held up to %ds', who, GONE, buffs.CHARM_HOLD)
         elseif not ok then
-            error(gone, 0)
+            error(err, 0)
         end
         t.time('charm_gone', gone)
         t.note('Charm read gone %.1fs after it wore off', gone)
