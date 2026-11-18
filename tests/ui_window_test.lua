@@ -946,6 +946,28 @@ test('the panel reaches past buttons spilling under the last line, so its auto-s
     eq(calls('AddRectFilled')[1].args[2][2], top - 18 + 40 + 8)
 end)
 
+test('two sessions\' rows one after another: the second comes down for its buttons to clear the first\'s', function ()
+    close_settings()
+    local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
+    st.sessions = { A = { running = false, members = { { sid = 301, name = 'A' } } },
+                    B = { running = false, members = { { sid = 302, name = 'B' } } } }
+    cfg.ui.ally_hp_height, cfg.ui.icon_size = 10, 24
+    local function hud()
+        render(cfg, st, nil, model.build(fake.snap({ { name = 'P' }, { kind = 'alliance', name = 'A' },
+            { kind = 'alliance', name = 'B' }, { kind = 'alliance', name = 'C' } }), cat, cfg, st, NAMES))
+    end
+    hud()
+    -- 24px buttons on a 10px row, 7 over it above and below. A's row from y 50 + 25 + 72 + 8 + 72 + 8, its buttons from
+    -- 7 over it; B's comes down from 3 under A's (not 13 to its buttons' 4 over A's) to 3 under A's buttons.
+    local a = 50 + 25 + 72 + 8 + 72 + 8
+    eq({ box('##sk_run_A')[2], box('##sk_run_B')[2], box('##sk_cog_B')[2] }, { a - 7, a - 7 + 24 + 3, a - 7 + 24 + 3 })
+    -- B's buttons spill onto C's row, 3 under B's 10px bar: there they keep their tooltip (the fake hovers everything).
+    eq({ tipped('Start B\'s automation'), tipped('C (alliance') }, { true, false })
+    cfg.ui.icon_size = 8  -- buttons inside the bar: C's row has its own tooltip
+    hud()
+    eq(tipped('C (alliance'), true)
+end)
+
 test('a button\'s tooltip replaces the card\'s', function ()
     close_settings()
     render(settings.defaults(), status())  -- the fake hovers everything: the buttons win

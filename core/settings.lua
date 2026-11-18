@@ -84,8 +84,10 @@ local UI_FILE = 'ui'
 
 -- HUD sizes a ui file saved before them lacks, each from what drew that part then, so the HUD looks as it did: an
 -- alliance row was the HP bar's width and the MP bar's height, its text the text's size; run and the cog took
--- 1.25 times the text's size, as far as the HP bar fitted them; each of a pet's bars was an alliance row's size.
--- In order: a pet's come from the alliance row's, filled in first.
+-- 1.25 times the text's size, as far as the HP bar fitted them (held to the icon size's 8 to 64); each of a pet's bars
+-- was an alliance row's size. In order: a pet's come from the alliance row's, filled in first. A new install, with no
+-- ui file, gets them this way too, from the defaults of the keys they come from: those match theirs (a test holds them
+-- to it).
 local function row_width(ui) return tonumber(ui.ally_hp_width) end
 local function row_height(ui) return tonumber(ui.ally_hp_height) end
 local UI_SINCE = {
@@ -94,7 +96,8 @@ local UI_SINCE = {
     { 'ally_text_size', function (ui) return tonumber(ui.text_size) end },
     { 'icon_size', function (ui)
         local text, h, w = tonumber(ui.text_size), tonumber(ui.hp_height), tonumber(ui.hp_width)
-        return text and h and w and math.min(math.floor(text * 1.25), h - 4, math.floor((w - 8) / 2)) or nil
+        return text and h and w and util.clamp(math.min(math.floor(text * 1.25), h - 4, math.floor((w - 8) / 2)), 8, 64)
+            or nil
     end },
     { 'pet_hp_width', row_width }, { 'pet_mp_width', row_width }, { 'pet_tp_width', row_width },
     { 'pet_hp_height', row_height }, { 'pet_mp_height', row_height }, { 'pet_tp_height', row_height },

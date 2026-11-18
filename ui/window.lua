@@ -490,20 +490,21 @@ local function draw_hud(view)
     local pw = math.max(2 * HUD_PAD + bars,
                         math.ceil(HUD_PAD + kit.measure(TITLE, kit.fonts.semi, ui.text_size) + 8 + s + HUD_PAD))  -- the title row fits
     -- Each line's `top` (from y0), its HP bar's `bar_w` and its height `h`; on your card and on another session's card
-    -- or row, run and the cog `icon` across, their top `icon_dy` from the bar's. They may spill past a thin bar: the
-    -- first line comes down for them to clear the title row, and the panel reaches past the lowest.
+    -- or row, run and the cog `icon` across, their top `icon_dy` from the bar's. They may spill past a thin bar: a line
+    -- with them comes down for them to clear the title row and, by BAR_GAP, the icons above (`clear`), and the panel
+    -- reaches past the lowest.
     local lines = lines_of(view)
-    local below, low = th, 0
+    local below, clear = th, th
     for i, l in ipairs(lines) do
         local bar_h
         l.bar_w, bar_h, l.h = line_size(ui, l)
         if not l.pet and (l.p.kind == 'self' or l.p.session) then l.icon, l.icon_dy = icon_box(ui, l.bar_w, bar_h) end
         if i > 1 then below = below + gap_between(ui, lines[i - 1], l) end
-        if i == 1 and l.icon then below = below + math.max(0, -l.icon_dy) end
+        if l.icon then below = math.max(below, clear - l.icon_dy) end
         l.top, below = below, below + l.h
-        if l.icon then low = math.max(low, l.top + l.icon_dy + l.icon) end
+        if l.icon then clear = l.top + l.icon_dy + l.icon + BAR_GAP end
     end
-    local ph = math.max(below, low) + HUD_PAD
+    local ph = math.max(below, clear - BAR_GAP) + HUD_PAD
     -- The panel is solid while the mouse is over the window (last frame's rect, as IsWindowHovered reads it) and gone
     -- off it. The bars stay.
     local chrome = kit.ease('chrome', imgui.IsWindowHovered() and 1 or 0)
@@ -514,12 +515,13 @@ local function draw_hud(view)
         local draw = l.row and row or l.pet and pet_card or card
         draw(dl, ui, l, x0, y0 + l.top, chrome)
     end
+    local icon_low = -math.huge  -- a hovered icon's bottom: the line it's on, or spills onto, keeps its tooltip
     for _, l in ipairs(lines) do
         local y = y0 + l.top
-        local on_icon = l.icon and line_icons(view, l, x0 + HUD_PAD, y)
+        if l.icon and line_icons(view, l, x0 + HUD_PAD, y) then icon_low = y + l.icon_dy + l.icon end
         imgui.SetCursorScreenPos({ x0 + HUD_PAD, y })
         imgui.Dummy({ pw - 2 * HUD_PAD, l.h })
-        if not on_icon then kit.tip(l.pet and pet_tip(l.pet) or member_tip(l.p)) end
+        if y >= icon_low then kit.tip(l.pet and pet_tip(l.pet) or member_tip(l.p)) end
         draw_labels(labels_at(view, l), ui.text_size, x0 + pw, y + l.h / 2)
     end
     imgui.SetCursorScreenPos({ x0, y0 + ph - HUD_PAD })

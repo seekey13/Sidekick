@@ -90,6 +90,9 @@ test('HUD sizes a ui file from before them lacks come from what drew those parts
         settings.save()
         eq({ lib.files.ui.ally_hp_width, lib.files.ui.icon_size, lib.files.ui.pet_tp_height }, { 300, 8, 10 })
     end)
+    with_lib({ ui = { hp_height = 10 } }, function (settings)  -- 10 less 4 is under the icon size's 8: held to it
+        eq(settings.load('WHM_BLM').ui.icon_size, 8)
+    end)
     with_lib({ ui = { hp_width = 300, ally_hp_width = 150, icon_size = 30, pet_mp_height = 4 } }, function (settings)
         local ui = settings.load('WHM_BLM').ui  -- saved since: kept, and a pet's others from the alliance row's
         eq({ ui.ally_hp_width, ui.icon_size, ui.ally_hp_height, ui.ally_text_size }, { 150, 30, 18, 14 })
