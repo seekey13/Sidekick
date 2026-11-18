@@ -723,6 +723,19 @@ test('Pet\'s settings size each of a pet\'s bars and set each its offset in from
     eq(frame.extent.Sidekick, { 100 + 2 * 8 + 20 + 250, 155 + 12 + 3 + 6 + 3 + 5 + 8 })
 end)
 
+test('the panel is as wide as a pet\'s or a row\'s bars only while one is drawn', function ()
+    close_settings()
+    local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
+    cfg.ui.pet_hp_offset, cfg.ui.ally_hp_width = 100, 300
+    local pet = { name = 'Ifrit', hpp = 100, mpp = 40, tp = 1000, dist = 3, uses_mp = true }
+    local function width(members, opts)
+        render(cfg, st, nil, model.build(fake.snap(members, opts), cat, cfg, st, NAMES))
+        return frame.extent.Sidekick[1] - 100
+    end
+    eq({ width({}), width({}, { pet = pet }), width({ { kind = 'alliance', name = 'Bea' } }),
+         width({ { kind = 'tracked', name = 'Far' } }) }, { 236, 2 * 8 + 100 + 220, 2 * 8 + 300, 2 * 8 + 300 })
+end)
+
 test('the arrow\'s label points at the card the next action is for: amber running, grey stopped, none idle', function ()
     close_settings()
     render(settings.defaults(), status())

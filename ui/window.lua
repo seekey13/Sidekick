@@ -485,15 +485,23 @@ local function draw_hud(view)
     local dl = imgui.GetWindowDrawList()
     local x0, y0 = imgui.GetCursorScreenPos()
     local th, s = math.floor(ui.text_size * 1.8), math.floor(ui.text_size * 1.25)
-    local bars = math.max(ui.hp_width, ui.mp_offset + ui.mp_width, ui.tp_offset + ui.tp_width, ui.ally_hp_width,
-        ui.pet_hp_offset + ui.pet_hp_width, ui.pet_mp_offset + ui.pet_mp_width, ui.pet_tp_offset + ui.pet_tp_width)
+    local lines = lines_of(view)
+    -- The panel as wide as the bars drawn: a card's always (yours always is), a pet's and a row's only while one is
+    -- out, as an area of the window no one sees still takes the game's clicks.
+    local bars = math.max(ui.hp_width, ui.mp_offset + ui.mp_width, ui.tp_offset + ui.tp_width)
+    for _, l in ipairs(lines) do
+        if l.row then bars = math.max(bars, ui.ally_hp_width)
+        elseif l.pet then
+            bars = math.max(bars, ui.pet_hp_offset + ui.pet_hp_width, ui.pet_mp_offset + ui.pet_mp_width,
+                ui.pet_tp_offset + ui.pet_tp_width)
+        end
+    end
     local pw = math.max(2 * HUD_PAD + bars,
                         math.ceil(HUD_PAD + kit.measure(TITLE, kit.fonts.semi, ui.text_size) + 8 + s + HUD_PAD))  -- the title row fits
     -- Each line's `top` (from y0), its HP bar's `bar_w` and its height `h`; on your card and on another session's card
     -- or row, run and the cog `icon` across, their top `icon_dy` from the bar's. They may spill past a thin bar: a line
     -- with them comes down for them to clear the title row and, by BAR_GAP, the icons above (`clear`), and the panel
     -- reaches past the lowest.
-    local lines = lines_of(view)
     local below, clear = th, th
     for i, l in ipairs(lines) do
         local bar_h
