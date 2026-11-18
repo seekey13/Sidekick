@@ -76,6 +76,14 @@ test('the Geo row: a target on the move waits; one with the aura is passed over;
     eq({ decide(snap({ TANK }), cfg_with({ geo = { on = false, pick = 'Geo-Haste' } }), {}) }, { nil, 'nothing to do' })
 end)
 
+test('the Geo row: a charmed target is passed over for the next; once it wears off, theirs again', function ()
+    local row = { on = true, pick = 'Geo-Haste', targets = { [1] = true, [2] = true } }
+    local cfg = cfg_with({ geo = row, ['Blaze of Glory'] = { on = false } })
+    eq(decide(snap({ { name = 'Tank', buffs = { [14] = true } }, { name = 'Mage' } }), cfg, {}), '/ma "Geo-Haste" 102')
+    eq({ decide(snap({ { name = 'Tank', buffs = { [17] = true } } }), cfg, {}) }, { nil, 'nothing to do' })
+    eq(decide(snap({ { name = 'Tank' }, { name = 'Mage' } }), cfg, {}), '/ma "Geo-Haste" 101')
+end)
+
 test('a trust that can\'t be hurt (Moogle) anchors a luopan and keeps it; Entrust passes it over', function ()
     local MOOGLE = { name = 'Moogle', kind = 'trust', immune = true, pos = { 2, 0, 0 } }
     local cfg, mem = cfg_with({ geo = HASTE_ROW, ['Blaze of Glory'] = { on = false } }), {}

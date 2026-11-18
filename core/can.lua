@@ -3,6 +3,7 @@
       can.use(a, g)            is action `a` usable right now (cost, recast, ailments, gates)
       can.reach(a, u)          can `a` land on unit `u` (target kind, alive, in range)
       can.in_party(u)          is `u` in your party: area effects from you land on no one else
+      can.charmed(u)           is `u` charmed: the enemy's, left out of support until it wears off
       can.together(c, u)       does an area effect aimed at `c` land on `u` (the same party)
       can.command(a, u, j, bt, at) the chat command that does it
       can.spare_hp(a, g, cfg)  can you pay what `a` costs in HP

@@ -103,14 +103,15 @@ function brd.stamps() return stamps end
 function brd.clear() stamps = {} end  -- a job change: your songs go with it
 
 -- Drop the stamps a death or a list we can read says are gone, and those of
--- any no longer in the snapshot (a trust released or gone, one who left).
+-- any no longer in the snapshot (a trust released or gone, one who left). The whole
+-- snapshot (`everyone`): one charmed a while keeps theirs.
 local function prune(g)
-    local listed = {}
-    for _, u in ipairs(g.units) do listed[u.sid or false] = true end
+    local all, listed = g.everyone or g.units, {}
+    for _, u in ipairs(all) do listed[u.sid or false] = true end
     for sid in pairs(stamps) do
         if not listed[sid] then stamps[sid] = nil end
     end
-    for _, u in ipairs(g.units) do
+    for _, u in ipairs(all) do
         local rows = u.sid and stamps[u.sid]
         if rows and u.in_zone and not u.alive then
             stamps[u.sid] = nil

@@ -124,9 +124,11 @@ end
 -- `units` without the trusts that can't be hurt (core/game.lua: `immune`) and
 -- without anyone charmed (can.charmed) until it wears off: no behavior heals,
 -- buffs, cleanses, wakes, raises, recovers or counts them, nor Entrusts them.
--- (Charmed yourself, you're incapacitated: nothing runs.) Follow and a Geo-
--- luopan's anchor (jobs/geo.lua) go by `everyone`, the whole list, and so do
--- the HUD, /sk state and AFK (the snapshot as read).
+-- (Charmed yourself, you're incapacitated: nothing runs.) Follow, a Geo-
+-- luopan's anchor (jobs/geo.lua: never put down on the charmed), the member
+-- Devotion is kept for (behaviors/recover.lua) and your songs' stamps
+-- (jobs/brd.lua) go by `everyone`, the whole list, and so do the HUD,
+-- /sk state and AFK (the snapshot as read).
 local function left_out(u) return u.immune or can.charmed(u) end
 local function supported(units)
     local out

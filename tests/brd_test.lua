@@ -351,6 +351,16 @@ test('a stamp goes once a list we can read stops showing its song, or its member
     eq(brd.stamps()[101], nil)
 end)
 
+test('a member charmed a while keeps their stamps: their song is sung again when due', function ()
+    local cfg = cfg_with({ area_1 = 'Valor Minuet IV' })
+    cfg.song.duration = 100
+    brd.landed(song('Valor Minuet IV'), { 1, 101 }, 1000, {}, 2)
+    decide(snap({ player({ name = 'A' }, { MINUET, 14 }) }, { MINUET }, { now = 1050 }), cfg)
+    eq(brd.stamps()[101]['Valor Minuet IV'].at, 1000)
+    local cmd, intent = decide(snap({ player({ name = 'A' }, { MINUET }) }, { MINUET }, { now = 1100 }), cfg)
+    eq({ cmd, intent.why }, { '/ma "Valor Minuet IV" <me>', 'Me +1 are due' })
+end)
+
 test('Song Duration: of two one-kind songs, the one due goes', function ()
     local cfg = cfg_with({ area_1 = 'Victory March', area_2 = 'Advancing March' })
     cfg.song.duration = 100

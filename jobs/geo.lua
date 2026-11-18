@@ -108,13 +108,14 @@ local function holder(l, g, targets)
     end
 end
 
--- The Geo row's luopan on the first of its targets who lacks it.
+-- The Geo row's luopan on the first of its targets who lacks it, passing over one
+-- who's charmed (the enemy's until it wears off).
 local function place(g, cat, cfg, st, mods)
     local a, row = picked(cat, cfg, 'geo')
     if not (a and can.use(a, g)) then return nil end
     local targets = row.targets or { [0] = true }
     for _, u in ipairs(anchors(g)) do
-        if targets[u.slot] and can.reach(a, u) and lacks(a, u) then
+        if targets[u.slot] and not can.charmed(u) and can.reach(a, u) and lacks(a, u) then
             if u.moving then return nil end
             return { action = a, target = u, mods = mods, why = u.name, sent = put(st, a, u) }
         end

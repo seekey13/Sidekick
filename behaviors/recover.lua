@@ -27,12 +27,12 @@ local function drained(a, g, line, only)
     return pick
 end
 
--- Who Devotion is kept for: `target` while they're in your party, in another zone or
--- dead too; '' (anyone) once they aren't, so a target from another group never keeps
--- it from this one.
+-- Who Devotion is kept for: `target` while they're in your party, in another zone,
+-- dead or charmed too (`everyone`: core/engine.lua leaves the charmed out of `units`);
+-- '' (anyone) once they aren't, so a target from another group never keeps it from this one.
 local function kept_for(g, target)
     if target == '' then return '' end
-    for _, u in ipairs(g.units) do
+    for _, u in ipairs(g.everyone or g.units) do
         if u.kind ~= 'self' and can.in_party(u) and u.name:lower() == target:lower() then return target end
     end
     return ''

@@ -132,6 +132,15 @@ test('recover: Devotion with a target goes only on them, under the MP line, and 
     eq(decide(g, cfg, cat), '/ja "Devotion" 101')  -- named in any case, as focus and Entrust are
 end)
 
+test('recover: Devotion with a target who is charmed waits for them, not on the next lowest', function ()
+    local cat = fake.catalog(WHM, 75, nil, 0, { 'Devotion' })
+    local cfg = cfg_with({ ['recover.target'] = 'A' })
+    local g = snap({ { name = 'A', mpp = 25, buffs = { [14] = true } }, { name = 'B', mpp = 10 } })
+    eq({ decide(g, cfg, cat) }, { nil, 'nothing to do' })
+    g.units[2].buffs = {}  -- A; worn off
+    eq(decide(g, cfg, cat), '/ja "Devotion" 101')
+end)
+
 test('recover: Devotion with a target not in your party goes on whoever is lowest until they are', function ()
     local cat = fake.catalog(WHM, 75, nil, 0, { 'Devotion' })
     local cfg = cfg_with({ ['recover.target'] = 'Gone' })
