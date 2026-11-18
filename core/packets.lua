@@ -3,7 +3,7 @@
       - when your own cast or item use starts, finishes or is interrupted (the cast lock and
         the post-action throttle in core/engine.lua),
       - statuses gained and lost by units with no readable status list
-        (core/buffs.lua),
+        (core/buffs.lua), and a player's charm by their update (0x00D),
       - what your own heals restored and where your Regens landed (core/observed.lua),
       - a /check's answer: a tracked player's jobs and levels (core/tracked.lua),
       - for the job modules (core/jobs.lua): your own job abilities' results on you
@@ -244,12 +244,30 @@ local function on_extended_job(e)
     for _, f in jobs.each('extended', d:byte(0x04 + 1)) do f(d) end
 end
 
+-- 0x00D, a player's update (char_update.cpp: GP_SERV_CHAR_PC), sent to all in range as they
+-- come into view and as their charm ends; their wear-off goes to them alone. With its general
+-- section (SendFlg 0x04, at 0x0A) it carries CharmFlag (0x08 of the byte at 0x27).
+local GENERAL, CHARMED = 0x04, 0x08
+local function on_player(e, ctx, now)
+    local d = e.data
+    if #d < 0x27 + 1 then return end
+    local sid = struct.unpack('i4', d, 0x04 + 1)
+    if not ctx.tracks[sid] or bit.band(d:byte(0x0A + 1), GENERAL) == 0 then return end
+    if bit.band(d:byte(0x27 + 1), CHARMED) ~= 0 then
+        buffs.gain(sid, status.CHARM[1], now)
+    else
+        for _, id in ipairs(status.CHARM) do buffs.lose(sid, id) end
+    end
+end
+
 function packets.handle(e, ctx, now)
     if e.id == 0x028 then
         local p = parse_action(e, ctx)
         if p then packets.action(p, ctx, now) end
     elseif e.id == 0x029 then
         on_message(e, ctx, now)
+    elseif e.id == 0x00D then
+        on_player(e, ctx, now)
     elseif e.id == 0x0C9 then
         on_check(e)
     elseif e.id == 0x044 then

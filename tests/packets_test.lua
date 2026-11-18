@@ -227,6 +227,50 @@ test('a paralyzed item use: a spell-style finish, then the interrupt, so the sho
     eq({ packets.casting(21), packets.last_finish() }, { false, 21, false })
 end)
 
+-- A 0x00D as the server builds it (char_update.cpp): the player at 0x04, SendFlg at 0x0A
+-- (0x04: the general section), CharmFlag 0x08 of the byte at 0x27.
+local function player_update(sid, general, charmed)
+    local b = {}
+    for i = 1, 0x30 do b[i] = 0 end
+    for i = 0, 3 do b[0x04 + i + 1] = math.floor(sid / 0x100 ^ i) % 0x100 end
+    b[0x0A + 1] = general and 0x04 or 0x01
+    b[0x27 + 1] = charmed and 0x08 or 0
+    return { id = 0x00D, data = string.char(unpack(b)) }
+end
+
+test('a player\'s Charm from packets: off by their update (their wear-off is theirs alone), else after CHARM_HOLD',
+    function ()
+    local PLAYER, CHARM, CHARM_II = 0x0001234, 14, 17
+    local c = ctx()
+    c.tracks[PLAYER] = true
+    with_struct(function ()
+        buffs.clear()
+        packets.action(action(MOB, MOB_SKILL, 1234, { { PLAYER, 242, CHARM } }), c, 0)
+        eq(buffs.of(PLAYER, 30), { [CHARM] = true })
+        packets.handle(player_update(PLAYER, false, false), c, 31)  -- position only: says nothing
+        eq(buffs.of(PLAYER, 31), { [CHARM] = true })
+        packets.handle(player_update(PLAYER, true, true), c, 32)    -- still charmed
+        eq(buffs.of(PLAYER, 32), { [CHARM] = true })
+        packets.handle(player_update(PLAYER, true, false), c, 40)   -- worn off
+        eq(buffs.of(PLAYER, 40), {})
+        -- Charm II goes the same way.
+        buffs.gain(PLAYER, CHARM_II, 50)
+        packets.handle(player_update(PLAYER, true, false), c, 51)
+        eq(buffs.of(PLAYER, 51), {})
+        -- Into view charmed, with no gain seen: charmed.
+        packets.handle(player_update(PLAYER, true, true), c, 60)
+        eq(buffs.of(PLAYER, 60), { [CHARM] = true })
+        -- One not tracked: nothing.
+        packets.handle(player_update(STRANGER, true, true), c, 61)
+        eq(buffs.of(STRANGER, 61), {})
+        -- Ended out of sight: gone CHARM_HOLD after it was last seen, a catalog duration or not.
+        eq(buffs.of(PLAYER, 60 + buffs.CHARM_HOLD - 0.1), { [CHARM] = true })
+        eq(buffs.of(PLAYER, 60 + buffs.CHARM_HOLD), {})
+        buffs.gain(PLAYER, CHARM_II, 300, 600)
+        eq(buffs.of(PLAYER, 300 + buffs.CHARM_HOLD), {})
+    end)
+end)
+
 test('only a spell\'s id names a duration', function ()
     buffs.clear()
     local c = ctx({ [1234] = 10 })
