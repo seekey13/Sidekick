@@ -60,8 +60,17 @@ local DEFAULTS = {
     rows = {},
     gates = {},  -- [row key] = 'combat' | 'idle' (the header)
     profiles = {}, profile = '', parked = {},  -- named snapshots (core/profiles.lua)
+    -- The HUD: a card's bars (the MP and TP bars' `offset` in from the HP bar's left), its name, and its slot (ME,
+    -- P1...), the title and the action labels at `text_size`; a pet's card's bars `pet_*` (each `offset` in from the
+    -- cards' left); an alliance member's or tracked player's row `ally_*`, a pet's text at its size too; run and the
+    -- cog `icon_size` across, spilling past a thinner bar.
     ui = { open = false, hp_width = 220, hp_height = 40, mp_width = 220, mp_height = 18, tp_width = 220, tp_height = 8,
-           name_size = 22, text_size = 14, gap = 8, locked = false,
+           mp_offset = 0, tp_offset = 0, name_size = 22, text_size = 14,
+           pet_hp_width = 220, pet_hp_height = 18, pet_hp_offset = 0, pet_mp_width = 220, pet_mp_height = 18,
+           pet_mp_offset = 0, pet_tp_width = 220, pet_tp_height = 18, pet_tp_offset = 0,
+           ally_hp_width = 220, ally_hp_height = 18, ally_text_size = 14, icon_size = 17,
+           show_slot = true,  -- the slot on each bar: ME, P1, B0, T1, PET
+           gap = 8, locked = false,
            hide_mp = true,  -- leave out the MP bar of a member or pet with no MP (0/0)
            widget = false,  -- the widget, v2's floating one (/sk widget)
            widget_size = 16,  -- its text and icons' height, in pixels
@@ -72,6 +81,27 @@ local DEFAULTS = {
            japanese = false },  -- send spell, ability and item names in Japanese
 }
 local UI_FILE = 'ui'
+
+-- HUD sizes a ui file saved before them lacks, each from what drew that part then, so the HUD looks as it did: an
+-- alliance row was the HP bar's width and the MP bar's height, its text the text's size; run and the cog took
+-- 1.25 times the text's size, as far as the HP bar fitted them (held to the icon size's 8 to 64); each of a pet's bars
+-- was an alliance row's size. In order: a pet's come from the alliance row's, filled in first. A new install, with no
+-- ui file, gets them this way too, from the defaults of the keys they come from: those match theirs (a test holds them
+-- to it).
+local function row_width(ui) return tonumber(ui.ally_hp_width) end
+local function row_height(ui) return tonumber(ui.ally_hp_height) end
+local UI_SINCE = {
+    { 'ally_hp_width', function (ui) return tonumber(ui.hp_width) end },
+    { 'ally_hp_height', function (ui) return tonumber(ui.mp_height) end },
+    { 'ally_text_size', function (ui) return tonumber(ui.text_size) end },
+    { 'icon_size', function (ui)
+        local text, h, w = tonumber(ui.text_size), tonumber(ui.hp_height), tonumber(ui.hp_width)
+        return text and h and w and util.clamp(math.min(math.floor(text * 1.25), h - 4, math.floor((w - 8) / 2)), 8, 64)
+            or nil
+    end },
+    { 'pet_hp_width', row_width }, { 'pet_mp_width', row_width }, { 'pet_tp_width', row_width },
+    { 'pet_hp_height', row_height }, { 'pet_mp_height', row_height }, { 'pet_tp_height', row_height },
+}
 
 -- pick_one before label: labelled members of one group (geo_ja) stay one row.
 function settings.key(a) return a.pick_one or a.label or a.family end
@@ -207,12 +237,17 @@ function settings.load(job_pair)
     lib = lib or require('settings')
     alias = job_pair
     local d = T_(settings.defaults())
-    local ui = d.ui
+    local ui, since = d.ui, {}
     d.ui = nil
     loaded = lib.load(d, alias)
     detach(d)
+    for _, s in ipairs(UI_SINCE) do since[s[1]], ui[s[1]] = ui[s[1]], nil end  -- out of the defaults: missing, the file is older
     loaded.ui = lib.load(ui, UI_FILE)
     detach(ui)
+    for _, s in ipairs(UI_SINCE) do
+        local k = s[1]
+        if loaded.ui[k] == nil then loaded.ui[k] = s[2](loaded.ui) or since[k] end
+    end
     -- A pair's own Japanese client from before it moved to `ui`: carried over when
     -- on, and saved at once so the pair's file no longer holds it.
     local old = loaded.japanese

@@ -67,7 +67,7 @@ Automation starts **off** after a load; turn off **Always load stopped** (Sideki
 
 ## Interface
 
-- **HUD**: a card per party member and pet with HP/MP/TP bars, the alliance below, and a label showing the next action and who it's for. Target a player outside your alliance and an **Add Tracked** pill at your card tracks them in one click.
+- **HUD**: a card per party member and pet with HP/MP/TP bars, the alliance and tracked players below as HP rows, and a label showing the next action and who it's for. Its look is set under **UI / Log** in four groups: General, Party, Pet, and Alliance / Tracked. Target a player outside your alliance and an **Add Tracked** pill at your card tracks them in one click.
 - **Widget**: a compact pill per character with run/stop and settings, handy beside another party list, and the same Add Tracked pill.
 - **Sidekick Settings** (`/sk`, or the cog on your card or the widget): one page per behavior (Heal, Remove, Buff, Pet, Recover, Follow, AFK...), with on/off switches per section. Point at a spell or ability to limit it to **Combat** (only while there's a battle target, and a few seconds after) or **Idle** (only out of combat); the one picked stays shown beside its name. Some come that way already, like Berserk (Combat) or Spectral Jig and Sneak (Idle).
 

@@ -494,7 +494,7 @@ test('sizes out of their sliders\' range, set by hand or by a custom UI, are hel
     eq(calls('AddRectFilled')[1].args[2][1], 100 + 2 * 8 + 600)
 end)
 
-test('a name turns yellow at 75% HP, orange at 50% and red at 25%; away greys it, low MP the tag', function ()
+test('a name turns yellow at 75% HP, orange at 50% and red at 25%; away greys it and the slot, low MP doesn\'t', function ()
     close_settings()
     local cfg, st = settings.defaults(), status()
     local g = fake.snap({
@@ -510,8 +510,8 @@ test('a name turns yellow at 75% HP, orange at 50% and red at 25%; away greys it
     eq({ fill('Me'), fill('High'), fill('Yel'), fill('Mid') },
         { u32(P.white), u32(P.white), u32(P.yellow), u32(P.yellow) })
     eq({ fill('Org'), fill('P3'), fill('Low'), fill('Red') },
-        { u32(P.orange), u32(P.rose), u32(P.orange), u32(P.red) })
-    eq({ fill('Gone'), fill('P5') }, { u32(P.dim), u32(P.dim) })
+        { u32(P.orange), u32(P.white), u32(P.orange), u32(P.red) })  -- Org's MP under the Recover line: still white
+    eq({ fill('Gone'), fill('P5'), fill('T2') }, { u32(P.dim), u32(P.dim), u32(P.white) })  -- a row's slot as a card's
 end)
 
 -- The TP fills drawn: each one's corners and colour, in the order drawn.
@@ -551,7 +551,7 @@ test('your pet\'s card sits under yours, before P1: its HP, MP and TP, and its o
     -- Its three bars an alliance row's size, 220 by 18, 3 apart, from y 155; A's card 8 under them.
     eq({ hp_fill(108, 75), hp_fill(108, 155), hp_fill(108, 223) }, { { 328, 115 }, { 108 + 110, 173 }, { 328, 263 } })
     eq({ bar_edge(108, 155, 220, 18), bar_edge(108, 176, 220, 18) }, { true, true })
-    eq({ fill('Ifrit'), fill('PET') }, { u32(P.orange), u32(P.text2) })  -- 50% HP: the name is orange
+    eq({ fill('Ifrit'), fill('PET') }, { u32(P.orange), u32(P.white) })  -- 50% HP: the name is orange
     eq(tp_fills(), { { { 108, 197 }, { 179, 215 }, u32(P.tp, BAR_FILL) } })  -- 1000 TP: one part, full
     eq(tipped('Ifrit (pet)\nHP 50%  MP 40%  TP 1000  3.0y'), true)
     g.pet.hpp = 76
@@ -582,17 +582,17 @@ test('a member with no MP (0/0) has no MP bar, its TP bar up under its HP bar; e
     local cfg, st = settings.defaults(), status()
     local g = fake.snap({ { name = 'War', mpp = 0, uses_mp = false, tp = 1500 }, { kind = 'tracked', name = 'Out' } })
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    -- Yours from y 75, its TP bar from 139; War's from 155, its TP bar from 198, 3 under its HP bar; Out's from 214.
+    -- Yours from y 75, its TP bar from 139; War's from 155, its TP bar from 198, 3 under its HP bar; Out's row from 214.
     eq({ at('ME'), at('P1') }, { { 114, tag_top('ME', 139, 8) }, { 114, tag_top('P1', 198, 8) } })
     eq({ bar_edge(108, 198, 220, 18) or false, bar_edge(108, 198, 71, 8) }, { false, true })
     eq(tp_fills()[1], { { 108, 198 }, { 179, 206 }, u32(P.tp, BAR_FILL) })
-    eq(bar_edge(108, 257, 220, 18), true)  -- a tracked player's MP can't be read: its bar stays, empty
-    eq(frame.extent.Sidekick, { 100 + 236, 50 + 25 + 72 + 51 + 72 + 2 * 8 + 8 })
+    eq(bar_edge(108, 214, 220, 18), true)  -- a tracked player's: a row, its HP alone
+    eq(frame.extent.Sidekick, { 100 + 236, 50 + 25 + 72 + 51 + 18 + 2 * 8 + 8 })
     eq(tipped('War\nHP 100%  TP 1500  5.0y'), true)
     cfg.ui.hide_mp = false  -- HUD settings' switch off: every card keeps its MP bar
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
     eq({ bar_edge(108, 198, 220, 18), at('P1') }, { true, { 114, tag_top('P1', 219, 8) } })
-    eq(frame.extent.Sidekick, { 100 + 236, 50 + 25 + 3 * 72 + 2 * 8 + 8 })
+    eq(frame.extent.Sidekick, { 100 + 236, 50 + 25 + 2 * 72 + 18 + 2 * 8 + 8 })
 end)
 
 test('a pet with no MP, as a wyvern, has no MP bar; another session\'s once its file says so', function ()
@@ -637,11 +637,103 @@ test('the alliance gets a thin HP row each under the cards, a gap before each pa
     local b, c = cards + 8, cards + 8 + 18 + 3 + 18 + 8  -- each party's first bar top: after a gap
     eq(frame.extent.Sidekick, { 100 + 236, 50 + c + 18 + 8 })  -- the panel still fits its items exactly
     eq(calls('AddRectFilled')[1].args[2][2], 50 + c + 18 + 8)
-    eq({ fill('B0 Bea'), fill('B1 Bo'), fill('C0 Cy'), fill('20%') }, { u32(P.red), u32(P.yellow), u32(P.dim), nil })
+    -- The name coloured by its HP, the slot white (grey away), the name after it on the same line.
+    eq({ fill('Bea'), fill('Bo'), fill('Cy'), fill('20%') }, { u32(P.red), u32(P.yellow), u32(P.dim), nil })
+    eq({ fill('B0'), fill('B1'), fill('C0') }, { u32(P.white), u32(P.white), u32(P.dim) })
+    local after = math.floor(114 + kit.measure('B0 ', kit.fonts.semi, 14) + 0.5)
+    eq({ at('B0'), at('Bea') }, { { 114, tag_top('B0', 50 + b, 18) }, { after, tag_top('Bea', 50 + b, 18) } })
     eq(tipped('Bea (alliance)\nHP 20%  MP 100%  TP 0  5.0y'), true)
     local arrow = calls('AddTriangleFilled', 'background')
     eq({ #arrow, arrow[1].args[1] }, { 1, { 100 + 236 + 2, 50 + b + 18 + 3 + 9 } })  -- its point: Bo's row, its middle
     eq(fill('Heal:Cure IV', 'background') ~= nil, true)
+end)
+
+test('a tracked player gets a row as the alliance\'s, after theirs: HP alone; another session\'s has run and the cog', function ()
+    close_settings()
+    local cfg = settings.defaults()
+    local st = status({ intent = { at = 990, action = 'Cure IV', target = 'Far', behavior = 'heal', why = 'Far' }, sent = {} })
+    st.sessions = { Out = { running = false, members = { { sid = 202, name = 'Out' } } } }
+    local g = fake.snap({ { kind = 'tracked', name = 'Far', hpp = 40 }, { kind = 'tracked', name = 'Out' },
+        { kind = 'alliance', name = 'Bea' } })
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    -- Your card from y 75; Bea's row a gap under it, from 155; the tracked ones a gap under that, 3 apart: 181 and 202.
+    eq({ bar_edge(108, 155, 220, 18), bar_edge(108, 181, 220, 18), bar_edge(108, 202, 220, 18) }, { true, true, true })
+    eq(frame.extent.Sidekick, { 100 + 236, 202 + 18 + 8 })  -- no MP or TP bar under them
+    eq({ fill('Far'), fill('T1'), fill('T2'), tipped('Far (tracked)\nHP 40%  5.0y') },
+       { u32(P.orange), u32(P.white), u32(P.white), true })
+    eq({ button('##sk_run_Far'), (box('##sk_run_Out')), (box('##sk_cog_Out')) },
+       { false, { 108 + 220 - 6 - 34, 202, 17, 17 }, { 108 + 220 - 2 - 17, 202, 17, 17 } })
+    eq(calls('AddTriangleFilled', 'background')[1].args[1], { 100 + 236 + 2, 181 + 9 })  -- the arrow at Far's row
+end)
+
+test('the MP and TP bars sit their offsets in from the HP bar\'s left, the slot on the TP bar; the panel fits them', function ()
+    close_settings()
+    local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
+    cfg.ui.mp_offset, cfg.ui.tp_offset = 20, 40
+    render(cfg, st, nil, model.build(fake.snap({}), cat, cfg, st, NAMES))
+    -- Your card from y 75: HP from x 108, MP from 128 at y 118, TP from 148 at y 139, ME on it.
+    eq({ bar_edge(108, 75, 220, 40), bar_edge(128, 118, 220, 18), bar_edge(148, 139, 71, 8) }, { true, true, true })
+    eq(at('ME'), { 154, tag_top('ME', 139, 8) })
+    eq(frame.extent.Sidekick, { 100 + 2 * 8 + 40 + 220, 75 + 72 + 8 })
+end)
+
+test('Show player slot off leaves the slot off every card, row and pet\'s card; each name stays where it was', function ()
+    close_settings()
+    local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
+    local g = fake.snap({ { name = 'A' }, { kind = 'alliance', name = 'Bea' }, { kind = 'tracked', name = 'Far' } },
+        { pet = { name = 'Ifrit', hpp = 100, mpp = 40, tp = 0, dist = 3, uses_mp = true } })
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    local names = { at('Me'), at('A'), at('Ifrit'), at('Far')[2] }
+    cfg.ui.show_slot = false
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq({ fill('ME'), fill('P1'), fill('PET'), fill('B0'), fill('T1') }, { nil, nil, nil, nil, nil })
+    eq({ at('Me'), at('A'), at('Ifrit'), at('Far')[2] }, names)
+    eq({ at('Bea')[1], at('Far')[1] }, { 114, 114 })  -- a row's name at its start
+end)
+
+test('Alliance / Tracked\'s sizes size the rows and their text, a pet\'s text too, not its bars; the MP bar\'s no longer', function ()
+    close_settings()
+    local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
+    cfg.ui.ally_hp_width, cfg.ui.ally_hp_height, cfg.ui.ally_text_size, cfg.ui.mp_height = 150, 10, 11, 30
+    local g = fake.snap({ { kind = 'alliance', name = 'Bea', hpp = 50 } },
+        { pet = { name = 'Ifrit', hpp = 50, mpp = 40, tp = 1000, dist = 3, uses_mp = true } })
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    -- Your card 40 + 3 + 30 + 3 + 8 from y 75; your pet's bars 220 by 18, 3 apart, from 167; Bea's row from 235.
+    eq({ bar_edge(108, 167, 220, 18), bar_edge(108, 188, 220, 18), bar_edge(108, 235, 150, 10) }, { true, true, true })
+    eq(hp_fill(108, 235), { 108 + 75, 245 })
+    local _, h = kit.measure('Bea', kit.fonts.semi, 11)
+    eq({ at('B0'), at('Bea')[2], at('Ifrit')[2] },
+       { { 114, math.floor(235 + (10 - h) / 2 + 0.5) }, math.floor(235 + (10 - h) / 2 + 0.5), math.floor(167 + (18 - h) / 2 + 0.5) })
+    eq(frame.extent.Sidekick, { 100 + 236, 235 + 10 + 8 })
+end)
+
+test('Pet\'s settings size each of a pet\'s bars and set each its offset in from the cards\' left; the panel fits them', function ()
+    close_settings()
+    local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
+    local ui = cfg.ui
+    ui.pet_hp_width, ui.pet_hp_height, ui.pet_hp_offset = 250, 12, 20
+    ui.pet_mp_width, ui.pet_mp_height, ui.pet_mp_offset = 150, 6, 30
+    ui.pet_tp_width, ui.pet_tp_height, ui.pet_tp_offset = 120, 5, 40
+    local g = fake.snap({}, { pet = { name = 'Ifrit', hpp = 100, mpp = 40, tp = 1000, dist = 3, uses_mp = true } })
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    -- Your pet's card from y 155: HP from x 128, MP from 138 at y 170, TP from 148 at y 179 (its first part 38 wide).
+    eq({ bar_edge(128, 155, 250, 12), bar_edge(138, 170, 150, 6), bar_edge(148, 179, 38, 5) }, { true, true, true })
+    eq({ bar_edge(108, 75, 220, 40), bar_edge(108, 118, 220, 18) }, { true, true })  -- your card as it was
+    eq({ at('Ifrit')[1], at('PET') }, { 134, { 154, tag_top('PET', 179, 5) } })
+    eq(frame.extent.Sidekick, { 100 + 2 * 8 + 20 + 250, 155 + 12 + 3 + 6 + 3 + 5 + 8 })
+end)
+
+test('the panel is as wide as a pet\'s or a row\'s bars only while one is drawn', function ()
+    close_settings()
+    local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
+    cfg.ui.pet_hp_offset, cfg.ui.ally_hp_width = 100, 300
+    local pet = { name = 'Ifrit', hpp = 100, mpp = 40, tp = 1000, dist = 3, uses_mp = true }
+    local function width(members, opts)
+        render(cfg, st, nil, model.build(fake.snap(members, opts), cat, cfg, st, NAMES))
+        return frame.extent.Sidekick[1] - 100
+    end
+    eq({ width({}), width({}, { pet = pet }), width({ { kind = 'alliance', name = 'Bea' } }),
+         width({ { kind = 'tracked', name = 'Far' } }) }, { 236, 2 * 8 + 100 + 220, 2 * 8 + 300, 2 * 8 + 300 })
 end)
 
 test('the arrow\'s label points at the card the next action is for: amber running, grey stopped, none idle', function ()
@@ -758,7 +850,7 @@ test('another session\'s pet has a card under that session\'s: its MP and TP onc
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
     -- Yours from y 75, A's from 155 and its pet's three bars from 235, each 220 by 18, 3 apart.
     eq({ hp_fill(108, 155), hp_fill(108, 235), fill('Garuda'), fill('PET') },
-       { { 328, 195 }, { 108 + 110, 253 }, u32(P.orange), u32(P.text2) })
+       { { 328, 195 }, { 108 + 110, 253 }, u32(P.orange), u32(P.white) })
     eq({ mp_fill(256), tp_fills(), tipped('Garuda (pet)\nHP 50%  6.0y') }, { nil, {}, true })  -- not known yet: empty
     eq(frame.extent.Sidekick, { 100 + 236, 50 + 25 + 2 * 72 + 60 + 2 * 8 + 8 })  -- yours, A's and its pet's
     st.sessions.A.pet = { sid = 0x1000701, name = 'Garuda', mpp = 40, tp = 1000, uses_mp = true }
@@ -837,17 +929,56 @@ test('run and the cog sit at the top right of your own HP bar, the title row kee
     close_settings()
 end)
 
-test('a short HP bar shrinks the buttons to fit it', function ()
+test('the buttons are the icon size whatever the bar\'s height: on a thinner bar they spill past it, centred on it', function ()
     close_settings()
     local cfg = settings.defaults()
+    cfg.ui.icon_size = 24
+    render(cfg, status())
+    eq(discs()[1][2], 75 + 2 + 12)  -- 24px, 2px from the 40px bar's top
     cfg.ui.hp_height = 12
     render(cfg, status())
-    local c = discs()
-    eq(c[1][2] - 75, 2 + 4)  -- 8px buttons, 2px from the bar's top
-    cfg.ui.hp_height, cfg.ui.hp_width, cfg.ui.text_size = 120, 80, 48  -- big text on a narrow bar: both still fit across it
+    -- Centred on your 12px bar, 6 over it above and below: your card comes down 6 so they clear the title row.
+    eq({ hp_fill(108, 81) ~= nil, discs()[1][2] }, { true, 81 + 6 })
+    eq(hp_fill(108, 81 + 12 + 3 + 18 + 3 + 8 + 8) ~= nil, true)  -- your pet's card a gap under yours
+    cfg.ui.hp_height, cfg.ui.hp_width, cfg.ui.icon_size = 120, 80, 64  -- big icons on a narrow bar: both still fit across it
     render(cfg, status())
-    c = discs()
+    local c = discs()
     eq({ c[1][1] - 18, c[2][1] + 18 }, { 108 + 80 - 2 - 36 - 4 - 36, 108 + 80 - 2 })  -- 36px buttons, from the bar's left to its right
+end)
+
+test('the panel reaches past buttons spilling under the last line, so its auto-size fits them', function ()
+    close_settings()
+    local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
+    st.sessions = { A = { running = false, members = { { sid = 301, name = 'A' } } } }  -- A's session, in the alliance
+    cfg.ui.ally_hp_height, cfg.ui.icon_size = 4, 40
+    render(cfg, st, nil, model.build(fake.snap({ { name = 'P' }, { kind = 'alliance', name = 'A' } }), cat, cfg, st, NAMES))
+    -- Yours and P's cards, then A's row 4 high from y 25 + 72 + 8 + 72 + 8: 40px buttons from 18 over it to 18 under.
+    local top = 50 + 25 + 72 + 8 + 72 + 8
+    eq({ box('##sk_run_A')[2], box('##sk_run_A')[4] }, { top - 18, 40 })
+    eq(frame.extent.Sidekick, { 100 + 236, top - 18 + 40 + 8 })
+    eq(calls('AddRectFilled')[1].args[2][2], top - 18 + 40 + 8)
+end)
+
+test('two sessions\' rows one after another: the second comes down for its buttons to clear the first\'s', function ()
+    close_settings()
+    local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
+    st.sessions = { A = { running = false, members = { { sid = 301, name = 'A' } } },
+                    B = { running = false, members = { { sid = 302, name = 'B' } } } }
+    cfg.ui.ally_hp_height, cfg.ui.icon_size = 10, 24
+    local function hud()
+        render(cfg, st, nil, model.build(fake.snap({ { name = 'P' }, { kind = 'alliance', name = 'A' },
+            { kind = 'alliance', name = 'B' }, { kind = 'alliance', name = 'C' } }), cat, cfg, st, NAMES))
+    end
+    hud()
+    -- 24px buttons on a 10px row, 7 over it above and below. A's row from y 50 + 25 + 72 + 8 + 72 + 8, its buttons from
+    -- 7 over it; B's comes down from 3 under A's (not 13 to its buttons' 4 over A's) to 3 under A's buttons.
+    local a = 50 + 25 + 72 + 8 + 72 + 8
+    eq({ box('##sk_run_A')[2], box('##sk_run_B')[2], box('##sk_cog_B')[2] }, { a - 7, a - 7 + 24 + 3, a - 7 + 24 + 3 })
+    -- B's buttons spill onto C's row, 3 under B's 10px bar: there they keep their tooltip (the fake hovers everything).
+    eq({ tipped('Start B\'s automation'), tipped('C (alliance') }, { true, false })
+    cfg.ui.icon_size = 8  -- buttons inside the bar: C's row has its own tooltip
+    hud()
+    eq(tipped('C (alliance'), true)
 end)
 
 test('a button\'s tooltip replaces the card\'s', function ()
@@ -1086,14 +1217,14 @@ end)
 test('UI / Log turns the widget on and off; Lock position keeps it still too', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
-    eq(render(cfg, st, on('UI / Log', { ['Widget##sk_ui_widget'] = true })), 1)
+    eq(render(cfg, st, on('UI / Log', { ['Show the widget##sk_ui_widget'] = true })), 1)
     eq(cfg.ui.widget, true)
     render(cfg, st)
     local free = frame.flags['SK Widget']
     cfg.ui.locked = true
     render(cfg, st)
     eq(frame.flags['SK Widget'] - free, ImGuiWindowFlags_NoMove)
-    eq(render(cfg, st, on('UI / Log', { ['Widget##sk_ui_widget'] = true })), 1)
+    eq(render(cfg, st, on('UI / Log', { ['Show the widget##sk_ui_widget'] = true })), 1)
     eq(cfg.ui.widget, false)
     close_settings()
 end)
@@ -1456,10 +1587,28 @@ end)
 test('UI / Log: the sliders size the HUD and Sidekick Settings, Lock position keeps the HUD still', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
-    eq(render(cfg, st, on('UI / Log', { ['HP bar width##sk_ui_hp_width'] = 300, ['Name font size##sk_ui_name_size'] = 30,
+    eq(render(cfg, st, on('UI / Log', { ['HP bar width##sk_ui_hp_width'] = 300, ['Name text size##sk_ui_name_size'] = 30,
         ['TP bar width##sk_ui_tp_width'] = 250, ['TP bar height##sk_ui_tp_height'] = 12,
         ['Size##sk_ui_scale'] = 150 })), 5)
     eq({ cfg.ui.hp_width, cfg.ui.name_size, cfg.ui.tp_width, cfg.ui.tp_height, cfg.ui.scale }, { 300, 30, 250, 12, 150 })
+    -- General's, Party's and Alliance / Tracked's, each under its own heading.
+    eq(render(cfg, st, on('UI / Log', { ['Icon size##sk_ui_icon_size'] = 20, ['Slot text size##sk_ui_text_size'] = 12,
+        ['MP bar offset##sk_ui_mp_offset'] = 10, ['TP bar offset##sk_ui_tp_offset'] = 20,
+        ['Name/slot text size##sk_ui_ally_text_size'] = 11, ['HP bar width##sk_ui_ally_hp_width'] = 150,
+        ['HP bar height##sk_ui_ally_hp_height'] = 9, ['Show player slot##sk_ui_show_slot'] = true,
+        ['HP bar offset##sk_ui_pet_hp_offset'] = 12, ['TP bar height##sk_ui_pet_tp_height'] = 6 })), 10)
+    eq({ cfg.ui.icon_size, cfg.ui.text_size, cfg.ui.mp_offset, cfg.ui.tp_offset, cfg.ui.ally_text_size,
+         cfg.ui.ally_hp_width, cfg.ui.ally_hp_height, cfg.ui.show_slot, cfg.ui.pet_hp_offset, cfg.ui.pet_tp_height },
+       { 20, 12, 10, 20, 11, 150, 9, false, 12, 6 })
+    eq({ cfg.ui.hp_width, cfg.ui.tp_height }, { 300, 12 })  -- Pet's are its own: the cards' stay
+    local letters = {}  -- a heading is drawn a letter at a time
+    for _, d in ipairs(calls('AddText')) do letters[#letters + 1] = d.args[5] end
+    letters = table.concat(letters)
+    local function place(s) return letters:find(s, 1, true) or false end
+    -- In order, Alliance / Tracked last, as their rows are in the HUD; then the widget's.
+    local order = { place('HUD - GENERAL'), place('HUD - PARTY'), place('HUD - PET'), place('HUD - ALLIANCE / TRACKED'),
+                    place('WIDGET') }
+    for i = 2, #order do eq(order[i - 1] and order[i] and order[i - 1] < order[i], true, 'heading ' .. i) end
     eq(button('Background opacity##sk_ui_opacity'), false)  -- the panel is solid while hovered: nothing to set
     local free = frame.flags.Sidekick
     eq(render(cfg, st, on('UI / Log', { ['Lock position##sk_ui_locked'] = true })), 1)
@@ -1561,7 +1710,7 @@ test('Classic is ui/classic.lua; Party State\'s Theme lists every theme, a click
     eq({ err, combo, theme_calls }, { nil, true, { 'window' } })
 end)
 
-test('a tracked player\'s card has its tag; Tracked lists them to untrack, and offers your target', function ()
+test('a tracked player\'s row has its slot; Tracked lists them to untrack, and offers your target', function ()
     local g = fake.snap({ { name = 'A', tracked = true }, { kind = 'tracked', name = 'Out', hpp = 80, main = 3, main_lv = 75, sub = 4, sub_lv = 37 } },
         { target = { sid = 900, tidx = 1200, name = 'Stranger' } })
     local cfg, st = settings.defaults(), status()
@@ -1587,7 +1736,7 @@ test('alliance members are listed under Heal and Buff; Tracked lists one in the 
     eq({ button('B1##sk_heal_7'), button('C0##sk_heal_12') }, { false, false })  -- their empty slots aren't
     eq(render(cfg, st, on('Buff', { ['B0##buff_Haste6'] = true }), model.build(g, cat, cfg, st, NAMES)), 1)
     eq(cfg.rows.Haste.targets, { [0] = true, [6] = true })
-    eq({ fill('Bea'), fill('B0 Bea') }, { nil, u32(P.white) })  -- no card in the HUD: a row
+    eq({ fill('Bea'), hp_fill(108, 50 + 25 + 2 * 72 + 8 + 8) ~= nil }, { u32(P.white), true })  -- a row in the HUD
     render(cfg, st, on('Tracked'), model.build(g, cat, cfg, st, NAMES))
     eq(drew('B0 Bea  (in your alliance)'), true)
     eq(button('Heal the alliance##sk_heal_alliance'), false)

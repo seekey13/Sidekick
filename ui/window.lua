@@ -40,19 +40,41 @@ local P, S = kit.P, kit.S
 local BODY, SMALL = kit.BODY, kit.SMALL
 local t, f, game_text = lang.t, lang.f, lang.text
 
--- { label, key, min, max, help, unit } for view.ui: sizes in pixels.
+-- { label, key, min, max, help } for view.ui's HUD sizes, in pixels: General's, Party's, Pet's, then Alliance /
+-- Tracked's.
+local OFFSET_HELP = 'Pixels in from the HP bar\'s left edge, to stagger the bars.'
+local PET_OFFSET_HELP = 'Pixels in from the cards\' left edge, to indent or stagger the bars.'
 local UI_SLIDERS = {
-    { 'HP bar width', 'hp_width', 80, 600, 'Pixels.', 'px' },
-    { 'HP bar height', 'hp_height', 10, 120, 'Pixels.', 'px' },
-    { 'MP bar width', 'mp_width', 80, 600, 'Pixels.', 'px' },
-    { 'MP bar height', 'mp_height', 4, 80, 'Pixels.', 'px' },
-    { 'TP bar width', 'tp_width', 80, 600, 'Pixels: its three parts, 1000 TP each, together.', 'px' },
-    { 'TP bar height', 'tp_height', 4, 80, 'Pixels.', 'px' },
-    { 'Name font size', 'name_size', 8, 64, 'Pixels.', 'px' },
-    { 'Text font size', 'text_size', 8, 48, 'Pixels: the title, the tags, the alliance\'s names and the action labels; '
-        .. 'the buttons follow it, as far as the HP bar fits them.', 'px' },
-    { 'Spacing', 'gap', 0, 40, 'Pixels between members.', 'px' },
+    { 'Icon size', 'icon_size', 8, 64, 'Pixels: run and the cog on your bar and on each other Sidekick session\'s, in '
+        .. 'your party, alliance or tracked; at most half the bar\'s width each. Taller than the bar, they spill past it.' },
+    { 'Spacing', 'gap', 0, 40, 'Pixels between members.' },
+    { 'Name text size', 'name_size', 8, 64, 'Pixels: the name on each card\'s HP bar.' },
+    { 'Slot text size', 'text_size', 8, 48, 'Pixels: the slot on each card (ME, P1-P5); the title, its close button and '
+        .. 'the action labels too.' },
+    { 'HP bar width', 'hp_width', 80, 600, 'Pixels.' },
+    { 'HP bar height', 'hp_height', 10, 120, 'Pixels.' },
+    { 'MP bar width', 'mp_width', 80, 600, 'Pixels.' },
+    { 'MP bar height', 'mp_height', 4, 80, 'Pixels.' },
+    { 'MP bar offset', 'mp_offset', 0, 300, OFFSET_HELP },
+    { 'TP bar width', 'tp_width', 80, 600, 'Pixels: its three parts, 1000 TP each, together.' },
+    { 'TP bar height', 'tp_height', 4, 80, 'Pixels.' },
+    { 'TP bar offset', 'tp_offset', 0, 300, OFFSET_HELP },
+    { 'HP bar width', 'pet_hp_width', 80, 600, 'Pixels.' },
+    { 'HP bar height', 'pet_hp_height', 4, 80, 'Pixels.' },
+    { 'HP bar offset', 'pet_hp_offset', 0, 300, PET_OFFSET_HELP },
+    { 'MP bar width', 'pet_mp_width', 80, 600, 'Pixels.' },
+    { 'MP bar height', 'pet_mp_height', 4, 80, 'Pixels.' },
+    { 'MP bar offset', 'pet_mp_offset', 0, 300, PET_OFFSET_HELP },
+    { 'TP bar width', 'pet_tp_width', 80, 600, 'Pixels: its three parts, 1000 TP each, together.' },
+    { 'TP bar height', 'pet_tp_height', 4, 80, 'Pixels.' },
+    { 'TP bar offset', 'pet_tp_offset', 0, 300, PET_OFFSET_HELP },
+    { 'Name/slot text size', 'ally_text_size', 8, 48, 'Pixels: the slot and name on each alliance member\'s and '
+        .. 'tracked player\'s row, and on a pet\'s card.' },
+    { 'HP bar width', 'ally_hp_width', 80, 600, 'Pixels.' },
+    { 'HP bar height', 'ally_hp_height', 4, 80, 'Pixels.' },
 }
+local UI_SLIDER = {}  -- by key
+for _, l in ipairs(UI_SLIDERS) do UI_SLIDER[l[2]] = l end
 
 local JOINED = { party = '  (in your party)', alliance = '  (in your alliance)' }  -- a tracked player's note
 
@@ -207,16 +229,23 @@ local function title_row(dl, view, ts, x0, y0, pw, th, s, chrome)
     if clicked then act.close() end  -- Sidekick Settings stay: /sk has them
 end
 
--- Run and the cog at the top right of the HP bar of your card, or of another session's, s pixels across (at most
--- what the bar fits). Returns whether one is hovered, so the card's own tooltip gives way.
-local function card_icons(view, ui, p, x, y, s)
-    s = math.min(s, ui.hp_height - 4, math.floor((ui.hp_width - 8) / 2))
-    local r = p.session
+-- Run and the cog on an HP bar `w` wide and `h` high: `ui.icon_size` across, at most half the bar's width each.
+-- Returns their size and their top's offset from the bar's: 2 down, or once they're taller than the bar less that
+-- margin, centred on it, spilling past it above and below.
+local function icon_box(ui, w, h)
+    local s = math.min(ui.icon_size, math.floor((w - 8) / 2))
+    return s, math.min(2, math.floor((h - s) / 2))
+end
+
+-- Run and the cog at the top right of the HP bar of your card, or of another session's card or row: line `l`, its
+-- bar's left at `x`, its top at `y`. Returns whether one is hovered, so the line's own tooltip gives way.
+local function line_icons(view, l, x, y)
+    local p, r = l.p, l.p.session
     local c = r and { name = r.name, running = r.running, shown = r.open, remote = r }
         or { name = p.name, running = view.status.running, shown = settings_open }
     local id = r and ('_' .. r.name) or ''
-    return run_and_cog(c, { '##sk_run' .. id, '##sk_cog' .. id }, x + HUD_PAD + ui.hp_width - 6 - s * 2, y + 2, s, 4,
-        true, 'Settings')
+    return run_and_cog(c, { '##sk_run' .. id, '##sk_cog' .. id }, x + l.bar_w - 6 - l.icon * 2, y + l.icon_dy, l.icon,
+        4, true, 'Settings')
 end
 
 -- The name on an HP bar. Over 75% it stays `well` (white, unless given); at 75% it turns yellow, at 50% orange and at
@@ -230,52 +259,69 @@ local function name_color(p, well)
     return well or P.white
 end
 
--- A member's card at (x, y): the HP bar over the MP bar over the TP bar, the name on the first and the tag on the
--- last, the % of each (TP's number) only in its tooltip. `no_mp` leaves the MP bar out, the TP bar up under the HP
--- bar. A tracked player's MP and TP can't be read: their bars stay empty. The name turns yellow at 75% HP, orange at
--- 50% and red at 25%; MP under the Recover line turns the tag rose. Away, the bars fade and the text greys. `id`
--- keeps the bars' eased fills apart.
-local function card(dl, ui, p, x, y, id, chrome, no_mp)
+-- A slot (ME, P1, B0, T1, PET): white, grey away as the rest of its line.
+local function slot_color(p) return p.away and P.dim or P.white end
+
+-- A member's card, line `l`, at (x, y): the HP bar over the MP bar over the TP bar, the MP and TP bars each its
+-- offset in from the HP bar's left, the name on the first and the slot on the last (`ui.show_slot`), the % of each
+-- (TP's number) only in its tooltip. `l.no_mp` leaves the MP bar out, the TP bar up under the HP bar. The name turns
+-- yellow at 75% HP, orange at 50% and red at 25%. Away, the bars fade and the text greys. `l.id` keeps the bars'
+-- eased fills apart.
+local function card(dl, ui, l, x, y, chrome)
+    local p, id = l.p, l.id
     local fx, mp_top = x + HUD_PAD, y + ui.hp_height + BAR_GAP
-    local tp_top = no_mp and mp_top or mp_top + ui.mp_height + BAR_GAP
+    local tp_top = l.no_mp and mp_top or mp_top + ui.mp_height + BAR_GAP
     local fade = p.away and 0.45 or 1
     bar(dl, 'hp.' .. id, fx, y, ui.hp_width, ui.hp_height, p.hpp, P.hp, fade, chrome)
-    if not no_mp then bar(dl, 'mp.' .. id, fx, mp_top, ui.mp_width, ui.mp_height, p.mpp, P.mp, fade, chrome) end
-    tp_bar(dl, 'tp.' .. id, fx, tp_top, ui.tp_width, ui.tp_height, p.tp, fade, chrome)
+    if not l.no_mp then
+        bar(dl, 'mp.' .. id, fx + ui.mp_offset, mp_top, ui.mp_width, ui.mp_height, p.mpp, P.mp, fade, chrome)
+    end
+    tp_bar(dl, 'tp.' .. id, fx + ui.tp_offset, tp_top, ui.tp_width, ui.tp_height, p.tp, fade, chrome)
     local font, name = kit.fonts.semi, game_text(p.name)
     local _, nh = kit.measure(name, font, ui.name_size)
     kit.halo(dl, fx + 6, y + ui.hp_height - nh, name, name_color(p), font, ui.name_size)
+    if not ui.show_slot then return end
     local _, th = kit.measure(p.tag, font, ui.text_size)
-    kit.halo(dl, fx + 6, tp_top + (ui.tp_height - th) / 2, p.tag,
-        p.away and P.dim or p.mp == 'low' and P.rose or P.text2, font, ui.text_size)
+    kit.halo(dl, fx + ui.tp_offset + 6, tp_top + (ui.tp_height - th) / 2, p.tag, slot_color(p), font, ui.text_size)
 end
 
--- A pet's card at (x, y), yours or another session's: its HP bar over its MP bar over its TP bar, each an alliance
--- row's size (the HP bar's width, the MP bar's height), its name on the first and its tag on the last, at the text's
--- size; `no_mp` leaves the MP bar out, as a card's. The name is coloured as a card's, but pale cyan while healthy.
--- `id` keeps the bars' eased fills apart.
-local function pet_card(dl, ui, p, x, y, id, chrome, no_mp)
-    local fx, w, h = x + HUD_PAD, ui.hp_width, ui.mp_height
-    local mp_top = y + h + BAR_GAP
-    local tp_top = no_mp and mp_top or mp_top + h + BAR_GAP
-    bar(dl, 'hp.' .. id, fx, y, w, h, p.hpp, P.hp, 1, chrome)
-    if not no_mp then bar(dl, 'mp.' .. id, fx, mp_top, w, h, p.mpp, P.mp, 1, chrome) end
-    tp_bar(dl, 'tp.' .. id, fx, tp_top, w, h, p.tp, 1, chrome)
+-- A pet's card, line `l`, at (x, y), yours or another session's: its HP bar over its MP bar over its TP bar, each
+-- sized by Pet's settings and its offset in from the cards' left, its name on the first and its slot (PET) on the
+-- last, at the rows' text size; `l.no_mp` leaves the MP bar out, as a card's. The name is coloured as a card's, but
+-- pale cyan while healthy. `l.id` keeps the bars' eased fills apart.
+local function pet_card(dl, ui, l, x, y, chrome)
+    local p, id, ts, fx = l.p, l.id, ui.ally_text_size, x + HUD_PAD
+    local hx, tx, hh, th = fx + ui.pet_hp_offset, fx + ui.pet_tp_offset, ui.pet_hp_height, ui.pet_tp_height
+    local mp_top = y + hh + BAR_GAP
+    local tp_top = l.no_mp and mp_top or mp_top + ui.pet_mp_height + BAR_GAP
+    bar(dl, 'hp.' .. id, hx, y, ui.pet_hp_width, hh, p.hpp, P.hp, 1, chrome)
+    if not l.no_mp then
+        bar(dl, 'mp.' .. id, fx + ui.pet_mp_offset, mp_top, ui.pet_mp_width, ui.pet_mp_height, p.mpp, P.mp, 1, chrome)
+    end
+    tp_bar(dl, 'tp.' .. id, tx, tp_top, ui.pet_tp_width, th, p.tp, 1, chrome)
     local font, name = kit.fonts.semi, game_text(p.name)
-    local _, nh = kit.measure(name, font, ui.text_size)
-    kit.halo(dl, fx + 6, y + (h - nh) / 2, name, name_color(p, PET_WELL), font, ui.text_size)
-    local _, th = kit.measure(p.tag, font, ui.text_size)
-    kit.halo(dl, fx + 6, tp_top + (h - th) / 2, p.tag, P.text2, font, ui.text_size)
+    local _, nh = kit.measure(name, font, ts)
+    kit.halo(dl, hx + 6, y + (hh - nh) / 2, name, name_color(p, PET_WELL), font, ts)
+    if not ui.show_slot then return end
+    local _, sh = kit.measure(p.tag, font, ts)
+    kit.halo(dl, tx + 6, tp_top + (th - sh) / 2, p.tag, slot_color(p), font, ts)
 end
 
--- An alliance member's row, its bar's top at `top`: a thin HP bar (the MP bar's height) with the tag and name on
--- it, coloured as a card's name is, its HP % only in its tooltip.
-local function ally_row(dl, ui, p, x, top, chrome)
-    local fx = x + HUD_PAD
-    bar(dl, 'ally.' .. p.name, fx, top, ui.hp_width, ui.mp_height, p.hpp, P.hp, p.away and 0.45 or 1, chrome)
-    local label = p.tag .. ' ' .. game_text(p.name)
-    local _, h = kit.measure(label, kit.fonts.semi, ui.text_size)
-    kit.halo(dl, fx + 6, top + (ui.mp_height - h) / 2, label, name_color(p), kit.fonts.semi, ui.text_size)
+-- An alliance member's or tracked player's row, line `l`, its bar's top at `top`: a thin HP bar with the slot
+-- (`ui.show_slot`) and the name on it, the name coloured as a card's, its HP % only in its tooltip. Only HP: a tracked
+-- player's MP and TP can't be read.
+local function row(dl, ui, l, x, top, chrome)
+    local p, ts, h = l.p, ui.ally_text_size, ui.ally_hp_height
+    local fx, font, name = x + HUD_PAD, kit.fonts.semi, game_text(p.name)
+    bar(dl, 'hp.' .. l.id, fx, top, ui.ally_hp_width, h, p.hpp, P.hp, p.away and 0.45 or 1, chrome)
+    local nx = fx + 6
+    if ui.show_slot then
+        local _, th = kit.measure(p.tag, font, ts)
+        kit.halo(dl, nx, top + (h - th) / 2, p.tag, slot_color(p), font, ts)
+        nx = nx + kit.measure(p.tag .. ' ', font, ts)
+    end
+    local _, nh = kit.measure(name, font, ts)
+    kit.halo(dl, nx, top + (h - nh) / 2, name, name_color(p), font, ts)
 end
 
 local ADD_TRACKED = 'Add Tracked'
@@ -354,22 +400,25 @@ end
 -- view.ui's sizes, each held to its slider's range: nothing checks a value edited
 -- by hand or set by a custom UI, and ImGui asserts on a zero-size button.
 local function hud_sizes(ui)
-    local out = {}
+    local out = { show_slot = ui.show_slot ~= false }
     for _, l in ipairs(UI_SLIDERS) do
         out[l[2]] = util.clamp(math.floor(tonumber(ui[l[2]]) or l[3]), l[3], l[4])
     end
     return out
 end
 
--- The cards from the top: each party line's (`member`, its index) and a pet's under its owner's (`pet`, its line, with
--- its owner's `member`): yours (view.pet), and another session's (its line's `pet`), drawn from a line of the same
--- shape tagged PET; `id` keeps their eased fills apart, two sessions' Carbuncles too. `no_mp`: its MP bar is left out
--- (`ui.hide_mp`), as it has no MP (0/0). Not a tracked player's, nor that of another session's pet its file doesn't
--- name yet: theirs can't be read, and stays empty.
-local function cards_of(view)
+-- The HUD's lines from the top: each party line's card (`member`, its index in view.party) with a pet's card under
+-- its owner's (`pet`, its line, with its owner's `member`): yours (view.pet), and another session's (its line's
+-- `pet`), drawn from a line of the same shape tagged PET; then a row (`row`) for each of the alliance (`ally`, its
+-- index in view.alliance), B0-B5 then C0-C5, then for each tracked player (`member`), a pet of theirs under it.
+-- `group` keeps a party's rows together; `id` keeps the eased fills apart, two sessions' Carbuncles too. `no_mp`: its
+-- MP bar is left out (`ui.hide_mp`), as it has no MP (0/0); not that of another session's pet its file doesn't name
+-- yet: it can't be read, and stays empty.
+local function lines_of(view)
     local out, hide = {}, view.ui.hide_mp ~= false
-    for i, p in ipairs(view.party) do
-        out[#out + 1] = { p = p, id = p.name, member = i, no_mp = hide and p.kind ~= 'tracked' and not p.uses_mp }
+    local function add(i, p, row_of)
+        out[#out + 1] = { p = p, id = p.name, member = i, row = row_of ~= nil, group = row_of,
+                          no_mp = not row_of and hide and not p.uses_mp }
         local pet = i == 1 and view.pet or p.pet
         if pet then
             out[#out + 1] = { p = { name = pet.name, tag = 'PET', hpp = pet.hpp, mpp = pet.mpp, tp = pet.tp },
@@ -377,35 +426,56 @@ local function cards_of(view)
                               no_mp = hide and pet.pools and not pet.uses_mp }
         end
     end
+    for i, p in ipairs(view.party) do
+        if p.kind ~= 'tracked' then add(i, p) end
+    end
+    for j, p in ipairs(view.alliance) do
+        out[#out + 1] = { p = p, id = 'ally.' .. p.name, ally = j, row = true, group = p.tag:sub(1, 1) }
+    end
+    for i, p in ipairs(view.party) do
+        if p.kind == 'tracked' then add(i, p, 'T') end
+    end
     return out
 end
 
--- Card `c`'s height: its three bars, a pet's each an alliance row high, or two with its MP bar left out.
-local function card_height(ui, c)
-    local hp, mp, tp = ui.hp_height, ui.mp_height, ui.tp_height
-    if c.pet then hp, tp = mp, mp end
-    return hp + BAR_GAP + (c.no_mp and 0 or mp + BAR_GAP) + tp
+-- Line `l`'s HP bar's size, and its height: a card's three bars (two with its MP bar left out), a pet's by Pet's
+-- settings, a row's one.
+local function line_size(ui, l)
+    if l.row then return ui.ally_hp_width, ui.ally_hp_height, ui.ally_hp_height end
+    local w, hp, mp, tp = ui.hp_width, ui.hp_height, ui.mp_height, ui.tp_height
+    if l.pet then w, hp, mp, tp = ui.pet_hp_width, ui.pet_hp_height, ui.pet_mp_height, ui.pet_tp_height end
+    return w, hp, hp + BAR_GAP + (l.no_mp and 0 or mp + BAR_GAP) + tp
 end
 
--- Whether the arrow points at card `c`: your pet's for its own actions, else the member's.
-local function pointed(view, c)
+-- Between lines `a` and `b`: a party's rows close together, a gap before and after them, `ui.gap` between cards.
+local function gap_between(ui, a, b)
+    if a.row and b.row and a.group == b.group then return BAR_GAP end
+    if a.row or b.row then return math.max(ui.gap, BAR_GAP) end
+    return ui.gap
+end
+
+-- Whether the arrow points at line `l`: an alliance member's row by its index there, your pet's card for its own
+-- actions, else the member's.
+local function pointed(view, l)
     local ptr = view.pointer
     if not ptr then return false end
+    if l.ally then return ptr.ally == l.ally end
     local to_pet = ptr.pet == true and view.pet ~= nil
-    if c.pet then return to_pet and ptr.member == c.member end
-    return not to_pet and ptr.member == c.member
+    if l.pet then return to_pet and ptr.member == l.member end
+    return not to_pet and ptr.member == l.member
 end
 
--- The labels at card `c`, or at the alliance's row `j`: at your own card Add Tracked first while your target is a player
--- you could track (first, so it stays put to be clicked), then this session's, then each other session's there (its
--- pet's own at its pet's card).
-local function labels_at(view, c, j)
-    local ptr, out = view.pointer, {}
-    local who = c and c.p.kind == 'self' and trackable(view)
+-- The labels at line `l`: at your own card Add Tracked first while your target is a player you could track (first, so
+-- it stays put to be clicked), then this session's, then each other session's there (its pet's own at its pet's card).
+local function labels_at(view, l)
+    local out = {}
+    local who = l.p.kind == 'self' and trackable(view)
     if who then out[1] = { track = who } end
-    if c and pointed(view, c) or j and ptr and ptr.ally == j then out[#out + 1] = ptr end
+    if pointed(view, l) then out[#out + 1] = view.pointer end
     for _, o in ipairs(view.others) do
-        if c and o.member == c.member and (not o.pet) == (not c.pet) or j and o.ally == j then out[#out + 1] = o end
+        if l.ally and o.ally == l.ally or not l.ally and o.member == l.member and (not o.pet) == (not l.pet) then
+            out[#out + 1] = o
+        end
     end
     return out
 end
@@ -415,47 +485,52 @@ local function draw_hud(view)
     local dl = imgui.GetWindowDrawList()
     local x0, y0 = imgui.GetCursorScreenPos()
     local th, s = math.floor(ui.text_size * 1.8), math.floor(ui.text_size * 1.25)
-    local pw = math.max(2 * HUD_PAD + math.max(ui.hp_width, ui.mp_width, ui.tp_width),
+    local lines = lines_of(view)
+    -- The panel as wide as the bars drawn: a card's always (yours always is), a pet's and a row's only while one is
+    -- out, as an area of the window no one sees still takes the game's clicks.
+    local bars = math.max(ui.hp_width, ui.mp_offset + ui.mp_width, ui.tp_offset + ui.tp_width)
+    for _, l in ipairs(lines) do
+        if l.row then bars = math.max(bars, ui.ally_hp_width)
+        elseif l.pet then
+            bars = math.max(bars, ui.pet_hp_offset + ui.pet_hp_width, ui.pet_mp_offset + ui.pet_mp_width,
+                ui.pet_tp_offset + ui.pet_tp_width)
+        end
+    end
+    local pw = math.max(2 * HUD_PAD + bars,
                         math.ceil(HUD_PAD + kit.measure(TITLE, kit.fonts.semi, ui.text_size) + 8 + s + HUD_PAD))  -- the title row fits
-    local cards = cards_of(view)
-    local below = th + math.max(#cards - 1, 0) * ui.gap
-    for _, c in ipairs(cards) do  -- each card `h` high
-        c.h = card_height(ui, c)
-        below = below + c.h
+    -- Each line's `top` (from y0), its HP bar's `bar_w` and its height `h`; on your card and on another session's card
+    -- or row, run and the cog `icon` across, their top `icon_dy` from the bar's. They may spill past a thin bar: a line
+    -- with them comes down for them to clear the title row and, by BAR_GAP, the icons above (`clear`), and the panel
+    -- reaches past the lowest.
+    local below, clear = th, th
+    for i, l in ipairs(lines) do
+        local bar_h
+        l.bar_w, bar_h, l.h = line_size(ui, l)
+        if not l.pet and (l.p.kind == 'self' or l.p.session) then l.icon, l.icon_dy = icon_box(ui, l.bar_w, bar_h) end
+        if i > 1 then below = below + gap_between(ui, lines[i - 1], l) end
+        if l.icon then below = math.max(below, clear - l.icon_dy) end
+        l.top, below = below, below + l.h
+        if l.icon then clear = l.top + l.icon_dy + l.icon + BAR_GAP end
     end
-    -- Under the cards, the alliance's rows: B0-B5, then C0-C5, each party after a gap; `rows` holds each bar's top.
-    local rows, last = {}, nil
-    for j, p in ipairs(view.alliance) do
-        local party = p.tag:sub(1, 1)
-        below = below + (party ~= last and math.max(ui.gap, BAR_GAP) or BAR_GAP)
-        rows[j], last = below, party
-        below = below + ui.mp_height
-    end
-    local ph = below + HUD_PAD
+    local ph = math.max(below, clear - BAR_GAP) + HUD_PAD
     -- The panel is solid while the mouse is over the window (last frame's rect, as IsWindowHovered reads it) and gone
     -- off it. The bars stay.
     local chrome = kit.ease('chrome', imgui.IsWindowHovered() and 1 or 0)
     kit.fill(dl, x0, y0, pw, ph, P.bg, 6, chrome)
     kit.outline(dl, x0, y0, pw, ph, P.border, 6, chrome)
     title_row(dl, view, ui.text_size, x0, y0, pw, th, s, chrome)
-    local y = y0 + th
-    for _, c in ipairs(cards) do
-        local p = c.p
-        if c.pet then pet_card(dl, ui, p, x0, y, c.id, chrome, c.no_mp) else card(dl, ui, p, x0, y, c.id, chrome, c.no_mp) end
-        local on_icon = (p.kind == 'self' or p.session) and card_icons(view, ui, p, x0, y, s)
-        imgui.SetCursorScreenPos({ x0 + HUD_PAD, y })
-        imgui.Dummy({ pw - 2 * HUD_PAD, c.h })
-        if not on_icon then kit.tip(c.pet and pet_tip(c.pet) or member_tip(p)) end
-        draw_labels(labels_at(view, c), ui.text_size, x0 + pw, y + c.h / 2)
-        y = y + c.h + ui.gap
+    for _, l in ipairs(lines) do  -- every bar first: icons spilling past theirs stay on top of the next line's
+        local draw = l.row and row or l.pet and pet_card or card
+        draw(dl, ui, l, x0, y0 + l.top, chrome)
     end
-    for j, p in ipairs(view.alliance) do
-        local top = y0 + rows[j]
-        ally_row(dl, ui, p, x0, top, chrome)
-        imgui.SetCursorScreenPos({ x0 + HUD_PAD, top })
-        imgui.Dummy({ pw - 2 * HUD_PAD, ui.mp_height })
-        kit.tip(member_tip(p))
-        draw_labels(labels_at(view, nil, j), ui.text_size, x0 + pw, top + ui.mp_height / 2)
+    local icon_low = -math.huge  -- a hovered icon's bottom: the line it's on, or spills onto, keeps its tooltip
+    for _, l in ipairs(lines) do
+        local y = y0 + l.top
+        if l.icon and line_icons(view, l, x0 + HUD_PAD, y) then icon_low = y + l.icon_dy + l.icon end
+        imgui.SetCursorScreenPos({ x0 + HUD_PAD, y })
+        imgui.Dummy({ pw - 2 * HUD_PAD, l.h })
+        if y >= icon_low then kit.tip(l.pet and pet_tip(l.pet) or member_tip(l.p)) end
+        draw_labels(labels_at(view, l), ui.text_size, x0 + pw, y + l.h / 2)
     end
     imgui.SetCursorScreenPos({ x0, y0 + ph - HUD_PAD })
     imgui.Dummy({ pw, HUD_PAD })  -- the bottom padding, and the panel's full width, for the auto-size
@@ -1205,19 +1280,38 @@ end
 local function draw_ui(view, pg)
     if view.session then return draw_recent(view, pg) end
     draw_themes(view, pg)
-    subheader(pg, 'HUD')
+    local sizes = hud_sizes(view.ui)
+    local function size(key)
+        local l = UI_SLIDER[key]
+        slider(pg, l[1], 'ui.' .. key, sizes[key], l[5], 'px', { l[3], l[4] })
+    end
+    subheader(pg, 'HUD - General')
     switch(pg, 'Show the HUD', 'ui.open', view.ui.open == true,
         'The party\'s HP, MP and TP, apart from this window: closing either leaves the other. Also /sk hud.',
         act.hud)
-    for _, l in ipairs(UI_SLIDERS) do
-        slider(pg, l[1], 'ui.' .. l[2], view.ui[l[2]], l[5], l[6], { l[3], l[4] })
-    end
+    size('icon_size')
+    switch(pg, 'Show player slot', 'ui.show_slot', sizes.show_slot,
+        'The slot on each bar: ME and P1-P5 on the cards, B0-C5 and T1... on the rows, PET on a pet\'s card. Off, the '
+        .. 'names alone.')
+    size('gap')
     switch(pg, 'Hide unused MP bars', 'ui.hide_mp', view.ui.hide_mp ~= false,
-        'Leave out the MP bar of a member or pet with no MP (0/0): a job without it, a wyvern, a jug pet. '
-        .. 'A tracked player\'s stays: their MP can\'t be read.')
+        'Leave out the MP bar of a member or pet with no MP (0/0): a job without it, a wyvern, a jug pet.')
     switch(pg, 'Lock position', 'ui.locked', view.ui.locked == true,
         'Keep the HUD and the widget where they are: dragging them no longer moves them.')
-    switch(pg, 'Widget', 'ui.widget', view.ui.widget == true,
+    subheader(pg, 'HUD - Party')
+    for _, key in ipairs({ 'name_size', 'text_size', 'hp_width', 'hp_height', 'mp_width', 'mp_height', 'mp_offset',
+                           'tp_width', 'tp_height', 'tp_offset' }) do
+        size(key)
+    end
+    subheader(pg, 'HUD - Pet')
+    for _, key in ipairs({ 'pet_hp_width', 'pet_hp_height', 'pet_hp_offset', 'pet_mp_width', 'pet_mp_height',
+                           'pet_mp_offset', 'pet_tp_width', 'pet_tp_height', 'pet_tp_offset' }) do
+        size(key)
+    end
+    subheader(pg, 'HUD - Alliance / Tracked')  -- last, as the alliance's and tracked players' rows are in the HUD
+    for _, key in ipairs({ 'ally_text_size', 'ally_hp_width', 'ally_hp_height' }) do size(key) end
+    subheader(pg, 'Widget')
+    switch(pg, 'Show the widget', 'ui.widget', view.ui.widget == true,
         'One row of its own: each character\'s name (yours, then each other Sidekick session\'s), its Start/Stop and its '
         .. 'Settings. Right-click a name to load a profile. Up with the HUD closed too. Also /sk widget.')
     slider(pg, 'Widget size', 'ui.widget_size', widget_size(view.ui), 'Pixels: the widget\'s text and icons\' height.',
