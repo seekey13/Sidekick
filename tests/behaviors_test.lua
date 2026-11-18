@@ -30,6 +30,17 @@ test('wake: the cheapest heal that wakes, on a sleeper at full HP', function ()
         { nil, 'nothing to do' })
 end)
 
+test('wake: a charmed member put to sleep is left asleep (Charm or Charm II); woken once it wears off', function ()
+    for _, charm in ipairs({ 14, 17 }) do
+        eq({ decide(snap({ { name = 'A', buffs = { [SLEEP] = true, [charm] = true } } }), nil, whm) }, { nil, 'nothing to do' })
+    end
+    -- Not counted toward an area heal either: B, beside them, gets a Cure of their own.
+    local cmd, intent = decide(snap({ { name = 'A', buffs = { [SLEEP] = true, [14] = true } },
+                                      { name = 'B', buffs = { [SLEEP] = true } } }), nil, whm)
+    eq({ cmd, intent.why }, { '/ma "Cure" 102', 'B asleep' })
+    eq(decide(snap({ { name = 'A', buffs = { [SLEEP] = true } } }), nil, whm), '/ma "Cure" 101')
+end)
+
 test('wake: two asleep together get one area heal; spread, the focus member first', function ()
     local two = function (spread)
         return snap({ { name = 'A', buffs = { [SLEEP] = true } },

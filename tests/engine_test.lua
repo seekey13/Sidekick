@@ -481,6 +481,31 @@ test('a trust that can\'t be hurt (Moogle, Kupofried) is never healed, buffed or
     eq({ decide(snap({ moogle({ buffs = { [3] = true } }) }), cfg) }, { nil, 'nothing to do' })  -- Poisoned
 end)
 
+test('a charmed player (Charm, Charm II) is never healed, buffed or cleansed until it wears off', function ()
+    local CHARM, CHARM_II, POISON = 14, 17, 3
+    local function charmed(t, id)
+        t.buffs = t.buffs or {}
+        t.buffs[id or CHARM] = true
+        return t
+    end
+    eq({ decide(snap({ charmed({ name = 'A', hpp = 30 }) }), no_regen()) }, { nil, 'nothing to do' })
+    eq({ decide(snap({ charmed({ name = 'A', hpp = 30 }, CHARM_II) }), no_regen()) }, { nil, 'nothing to do' })
+    -- Any kind: a trust, the alliance's other parties, a tracked player.
+    for _, kind in ipairs({ 'trust', 'alliance', 'tracked' }) do
+        eq({ decide(snap({ charmed({ name = 'A', kind = kind, hpp = 30 }) }), no_regen()) }, { nil, 'nothing to do' })
+    end
+    -- Left out of a heal's count too: the member beside them is cured on their own.
+    eq(decide(snap({ charmed({ name = 'A', hpp = 30 }), { name = 'B', hpp = 30 } }), no_regen()), '/ma "Cure V" 102')
+    local cfg = settings.defaults()
+    cfg.heal.on = false
+    eq({ decide(snap({ charmed({ name = 'A', buffs = { [POISON] = true } }) }), cfg) }, { nil, 'nothing to do' })
+    cfg.rows.Protect = { on = true, targets = { [1] = true } }
+    eq({ decide(snap({ charmed({ name = 'A' }) }), cfg) }, { nil, 'nothing to do' })
+    -- Once it wears off, they're looked after again.
+    eq(decide(snap({ { name = 'A', hpp = 30 } }), no_regen()), '/ma "Cure V" 101')
+    eq(decide(snap({ { name = 'A' } }), cfg), '/ma "Protect IV" 101')
+end)
+
 test('a heal unticked on its own (heal.never) never heals; its row\'s other tiers still do', function ()
     local cfg = no_regen()
     cfg.heal.never = { ['Cure III'] = true }

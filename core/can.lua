@@ -13,6 +13,7 @@
 ]]--
 
 local settings = require('core.settings')
+local CHARM = require('core.status').CHARM
 local util = require('core.util')
 
 local can = {}
@@ -47,6 +48,10 @@ local any = can.any
 function can.lacks(a, u, status)
     return not (a.status and any(u.buffs, status or a.status))
 end
+
+-- Whether `u` is charmed: the enemy's until it wears off. Nothing of yours goes on them
+-- then (core/engine.lua leaves them out of support).
+function can.charmed(u) return any(u.buffs or {}, CHARM) end
 
 -- Yalms between two units (or a unit and the pet); unknown positions are far apart.
 function can.dist(a, b)
