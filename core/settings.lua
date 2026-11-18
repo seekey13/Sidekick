@@ -60,8 +60,14 @@ local DEFAULTS = {
     rows = {},
     gates = {},  -- [row key] = 'combat' | 'idle' (the header)
     profiles = {}, profile = '', parked = {},  -- named snapshots (core/profiles.lua)
+    -- The HUD: a card's bars (the MP and TP bars' `offset` in from the HP bar's left), its name, and its slot (ME,
+    -- P1...), the title and the action labels at `text_size`; an alliance member's or tracked player's row, and a
+    -- pet's bars, `ally_*`; run and the cog `icon_size` across, spilling past a thinner bar.
     ui = { open = false, hp_width = 220, hp_height = 40, mp_width = 220, mp_height = 18, tp_width = 220, tp_height = 8,
-           name_size = 22, text_size = 14, gap = 8, locked = false,
+           mp_offset = 0, tp_offset = 0, name_size = 22, text_size = 14,
+           ally_hp_width = 220, ally_hp_height = 18, ally_text_size = 14, icon_size = 17,
+           show_slot = true,  -- the slot on each bar: ME, P1, B0, T1, PET
+           gap = 8, locked = false,
            hide_mp = true,  -- leave out the MP bar of a member or pet with no MP (0/0)
            widget = false,  -- the widget, v2's floating one (/sk widget)
            widget_size = 16,  -- its text and icons' height, in pixels
@@ -72,6 +78,19 @@ local DEFAULTS = {
            japanese = false },  -- send spell, ability and item names in Japanese
 }
 local UI_FILE = 'ui'
+
+-- HUD sizes a ui file saved before them lacks, each from what drew that part then, so the HUD looks as it did: an
+-- alliance row was the HP bar's width and the MP bar's height, its text the text's size; run and the cog took
+-- 1.25 times the text's size, as far as the HP bar fitted them.
+local UI_SINCE = {
+    ally_hp_width = function (ui) return tonumber(ui.hp_width) end,
+    ally_hp_height = function (ui) return tonumber(ui.mp_height) end,
+    ally_text_size = function (ui) return tonumber(ui.text_size) end,
+    icon_size = function (ui)
+        local text, h, w = tonumber(ui.text_size), tonumber(ui.hp_height), tonumber(ui.hp_width)
+        return text and h and w and math.min(math.floor(text * 1.25), h - 4, math.floor((w - 8) / 2)) or nil
+    end,
+}
 
 -- pick_one before label: labelled members of one group (geo_ja) stay one row.
 function settings.key(a) return a.pick_one or a.label or a.family end
@@ -207,12 +226,16 @@ function settings.load(job_pair)
     lib = lib or require('settings')
     alias = job_pair
     local d = T_(settings.defaults())
-    local ui = d.ui
+    local ui, since = d.ui, {}
     d.ui = nil
     loaded = lib.load(d, alias)
     detach(d)
+    for k in pairs(UI_SINCE) do since[k], ui[k] = ui[k], nil end  -- out of the defaults: missing, the file is older
     loaded.ui = lib.load(ui, UI_FILE)
     detach(ui)
+    for k, from in pairs(UI_SINCE) do
+        if loaded.ui[k] == nil then loaded.ui[k] = from(loaded.ui) or since[k] end
+    end
     -- A pair's own Japanese client from before it moved to `ui`: carried over when
     -- on, and saved at once so the pair's file no longer holds it.
     local old = loaded.japanese

@@ -336,28 +336,44 @@ ja.words = {
         .. 'Sidekick\'s ui folder (ui/README.md says how).'] =
         'ここで選んだテーマは、このPCのすべてのキャラクターで使われます。テーマを追加するには、その .lua ファイルを'
         .. 'Sidekickの ui フォルダーに置きます（ui/README.md に説明があります）。',
-    ['HUD'] = 'HUD', ['LOG'] = 'ログ', ['CLIENT'] = 'クライアント', ['AUTOMATION'] = '自動操作', ['Nothing sent yet.'] = 'まだ何も送っていません。',
+    ['HUD - General'] = 'HUD - 全般', ['HUD - Party'] = 'HUD - パーティ', ['HUD - Alliance / Tracked'] = 'HUD - アライアンス/追跡',
+    ['LOG'] = 'ログ', ['CLIENT'] = 'クライアント', ['AUTOMATION'] = '自動操作', ['Nothing sent yet.'] = 'まだ何も送っていません。',
     ['%ds'] = '%d秒',
     ['HP bar width'] = 'HPバーの幅', ['HP bar height'] = 'HPバーの高さ', ['MP bar width'] = 'MPバーの幅',
     ['MP bar height'] = 'MPバーの高さ', ['TP bar width'] = 'TPバーの幅', ['TP bar height'] = 'TPバーの高さ',
-    ['Name font size'] = '名前の文字サイズ', ['Text font size'] = '文字サイズ', ['Spacing'] = 'メンバーの間隔',
+    ['MP bar offset'] = 'MPバーのずらし幅', ['TP bar offset'] = 'TPバーのずらし幅',
+    ['Pixels in from the HP bar\'s left edge, to stagger the bars.'] = 'HPバーの左端からのピクセル数。バーを段違いに並べられます。',
+    ['Name text size'] = '名前の文字サイズ', ['Pixels: the name on each card\'s HP bar.'] = 'ピクセル: 各カードのHPバー上の名前。',
+    ['Slot text size'] = 'スロットの文字サイズ',
+    ['Pixels: the slot on each card (ME, P1-P5); the title, its close button and the action labels too.'] =
+        'ピクセル: 各カードのスロット（ME、P1～P5）。タイトルとその閉じるボタン、アクションのラベルもこの大きさになります。',
+    ['Name/slot text size'] = '名前/スロットの文字サイズ',
+    ['Pixels: the slot and name on each alliance member\'s and tracked player\'s row, and on a pet\'s card.'] =
+        'ピクセル: アライアンスメンバーと追跡中のプレイヤーの各行、ペットのカードのスロットと名前。',
+    ['Pixels: each row\'s, and a pet\'s three bars.'] = 'ピクセル: 各行のバーと、ペットの3本のバー。',
+    ['Pixels: each row\'s, and each of a pet\'s three bars.'] = 'ピクセル: 各行のバーと、ペットの3本のバーそれぞれ。',
+    ['Icon size'] = 'アイコンのサイズ',
+    ['Pixels: run and the cog on your bar and on each other Sidekick session\'s, in your party, alliance or tracked; at '
+        .. 'most half the bar\'s width each. Taller than the bar, they spill past it.'] =
+        'ピクセル: 自分のバーと、パーティ・アライアンス・追跡中の他のSidekickセッションのバーにある開始ボタンと歯車。'
+        .. 'それぞれ最大でバーの幅の半分。バーより高いと、バーからはみ出します。',
+    ['Show player slot'] = 'プレイヤーのスロットを表示',
+    ['The slot on each bar: ME and P1-P5 on the cards, B0-C5 and T1... on the rows, PET on a pet\'s card. Off, the '
+        .. 'names alone.'] =
+        '各バーのスロット: カードのMEとP1～P5、行のB0～C5とT1…、ペットのカードのPET。オフにすると名前だけになります。',
+    ['Spacing'] = 'メンバーの間隔',
     ['Pixels.'] = 'ピクセル。', ['Pixels: its three parts, 1000 TP each, together.'] = 'ピクセル。1000TPずつの3つの区画を合わせた幅。',
-    ['Pixels: the title, the tags, the alliance\'s names and the action labels; '
-        .. 'the buttons follow it, as far as the HP bar fits them.'] =
-        'ピクセル。タイトル、タグ、アライアンスの名前、アクションのラベル。ボタンもHPバーに収まる範囲でこの大きさになります。',
     ['Pixels between members.'] = 'メンバー間のピクセル数。',
     ['Hide unused MP bars'] = '使わないMPバーを隠す',
-    ['Leave out the MP bar of a member or pet with no MP (0/0): a job without it, a wyvern, a jug pet. '
-        .. 'A tracked player\'s stays: their MP can\'t be read.'] =
-        'MPのない（0/0）メンバーやペットのMPバーを表示しません（MPのないジョブ、飛竜、呼び出したペットなど）。'
-        .. '追跡中のプレイヤーのMPは読めないため、バーはそのまま残ります。',
+    ['Leave out the MP bar of a member or pet with no MP (0/0): a job without it, a wyvern, a jug pet.'] =
+        'MPのない（0/0）メンバーやペットのMPバーを表示しません（MPのないジョブ、飛竜、呼び出したペットなど）。',
     ['Show the HUD'] = 'HUDを表示',
     ['The party\'s HP, MP and TP, apart from this window: closing either leaves the other. Also /sk hud.'] =
         'パーティのHP・MP・TP。このウィンドウとは別で、どちらを閉じてももう一方は残ります。/sk hud でも切り替えられます。',
     ['Lock position'] = '位置を固定',
     ['Keep the HUD and the widget where they are: dragging them no longer moves them.'] =
         'HUDとウィジェットを今の位置に固定します。ドラッグしても動きません。',
-    ['Widget'] = 'ウィジェット',
+    ['Widget'] = 'ウィジェット', ['Show the widget'] = 'ウィジェットを表示',
     ['One row of its own: each character\'s name (yours, then each other Sidekick session\'s), its Start/Stop and its '
         .. 'Settings. Right-click a name to load a profile. Up with the HUD closed too. Also /sk widget.'] =
         '1行のバー: 各キャラクターの名前（自分、続いて他のSidekickセッション）と開始/停止、設定。名前を右クリックするとプロファイルを読み込めます。HUDを閉じても表示されます。/sk widget でも切り替えられます。',

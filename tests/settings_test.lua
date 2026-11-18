@@ -78,6 +78,27 @@ test('the Japanese client is shared by every job pair, in ui; a pair\'s own from
     end)
 end)
 
+test('HUD sizes a ui file from before them lacks come from what drew those parts then, so it looks as it did', function ()
+    with_lib({ ui = { hp_width = 300, hp_height = 12, mp_height = 10, text_size = 20 } }, function (settings, lib)
+        local cfg = settings.load('WHM_BLM')
+        -- An alliance row: the HP bar's width, the MP bar's height, the text's size. The icons: 1.25 times the
+        -- text's size, as far as the HP bar fitted them (12 less 4).
+        eq({ cfg.ui.ally_hp_width, cfg.ui.ally_hp_height, cfg.ui.ally_text_size, cfg.ui.icon_size }, { 300, 10, 20, 8 })
+        settings.save()
+        eq({ lib.files.ui.ally_hp_width, lib.files.ui.icon_size }, { 300, 8 })
+    end)
+    with_lib({ ui = { hp_width = 300, ally_hp_width = 150, icon_size = 30 } }, function (settings)
+        local ui = settings.load('WHM_BLM').ui  -- saved since: kept
+        eq({ ui.ally_hp_width, ui.icon_size, ui.ally_hp_height, ui.ally_text_size }, { 150, 30, 18, 14 })
+    end)
+    with_lib({}, function (settings)  -- a new install: the defaults
+        local ui, d = settings.load('WHM_BLM').ui, settings.defaults().ui
+        eq({ ui.ally_hp_width, ui.ally_hp_height, ui.ally_text_size, ui.icon_size },
+           { d.ally_hp_width, d.ally_hp_height, d.ally_text_size, d.icon_size })
+        eq({ ui.show_slot, ui.mp_offset, ui.tp_offset }, { true, 0, 0 })
+    end)
+end)
+
 test('after a relog the library saves new tables: switched() says to load them again', function ()
     with_lib({}, function (settings, lib)
         eq(settings.switched(), false)  -- nothing loaded yet
