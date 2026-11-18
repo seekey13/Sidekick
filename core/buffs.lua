@@ -16,15 +16,22 @@ buffs.DEFAULT_SECONDS = 300
 -- end it (out of range, a removal that names it to no one) draws Cursna no longer. It covers
 -- the first count and one count lost.
 buffs.DOOM_HOLD = 8
+-- A player's Charm wears off with word to them alone (status_effect_container.cpp), so it ends
+-- when their update says (core/packets.lua: 0x00D), else after the longest a mob's charm lasts
+-- (scripts/actions/mobskills/charm.lua: 180 s): one that ended out of sight leaves them out of
+-- support no longer.
+buffs.CHARM_HOLD = 180
 
 local DOOM = 15
+local CHARM = {}
+for _, id in ipairs(require('core.status').CHARM) do CHARM[id] = true end
 local store = {}  -- [server id] = { [status id] = expires at (os.clock seconds) }
 
 -- `stacks`: several of it can stand at once (your songs: two Marches are one id),
 -- so it lasts as long as the one that wears last.
 function buffs.gain(sid, status, now, seconds, stacks)
     store[sid] = store[sid] or {}
-    if status == DOOM then seconds = buffs.DOOM_HOLD end
+    if status == DOOM then seconds = buffs.DOOM_HOLD elseif CHARM[status] then seconds = buffs.CHARM_HOLD end
     local expires = now + (seconds or buffs.DEFAULT_SECONDS)
     store[sid][status] = stacks and math.max(store[sid][status] or expires, expires) or expires
 end

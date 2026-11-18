@@ -121,17 +121,22 @@ local function expecting(g, mem)
     return util.overlay(g, { me = me, units = swap(g.units), everyone = swap(g.everyone) })
 end
 
--- `units` without the trusts that can't be hurt (core/game.lua: `immune`): no
--- behavior heals, buffs, cleanses, wakes, raises, recovers or counts them, nor
--- Entrusts them. Follow and a Geo- luopan's anchor (jobs/geo.lua) go by `everyone`,
--- the whole list, and so do the HUD, /sk state and AFK (the snapshot as read).
+-- `units` without the trusts that can't be hurt (core/game.lua: `immune`) and
+-- without anyone charmed (can.charmed) until it wears off: no behavior heals,
+-- buffs, cleanses, wakes, raises, recovers or counts them, nor Entrusts them.
+-- (Charmed yourself, you're incapacitated: nothing runs.) Follow, a Geo-
+-- luopan's anchor (jobs/geo.lua: never put down on the charmed), the member
+-- Devotion is kept for (behaviors/recover.lua) and your songs' stamps
+-- (jobs/brd.lua) go by `everyone`, the whole list, and so do the HUD,
+-- /sk state and AFK (the snapshot as read).
+local function left_out(u) return u.immune or can.charmed(u) end
 local function supported(units)
     local out
     for i, u in ipairs(units) do
-        if u.immune and not out then
+        if left_out(u) and not out then
             out = {}
             for j = 1, i - 1 do out[j] = units[j] end
-        elseif out and not u.immune then
+        elseif out and not left_out(u) then
             out[#out + 1] = u
         end
     end

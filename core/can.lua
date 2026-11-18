@@ -3,6 +3,7 @@
       can.use(a, g)            is action `a` usable right now (cost, recast, ailments, gates)
       can.reach(a, u)          can `a` land on unit `u` (target kind, alive, in range)
       can.in_party(u)          is `u` in your party: area effects from you land on no one else
+      can.charmed(u)           is `u` charmed: the enemy's, left out of support until it wears off
       can.together(c, u)       does an area effect aimed at `c` land on `u` (the same party)
       can.command(a, u, j, bt, at) the chat command that does it
       can.spare_hp(a, g, cfg)  can you pay what `a` costs in HP
@@ -13,6 +14,7 @@
 ]]--
 
 local settings = require('core.settings')
+local CHARM = require('core.status').CHARM
 local util = require('core.util')
 
 local can = {}
@@ -47,6 +49,10 @@ local any = can.any
 function can.lacks(a, u, status)
     return not (a.status and any(u.buffs, status or a.status))
 end
+
+-- Whether `u` is charmed: the enemy's until it wears off. Nothing of yours goes on them
+-- then (core/engine.lua leaves them out of support).
+function can.charmed(u) return any(u.buffs or {}, CHARM) end
 
 -- Yalms between two units (or a unit and the pet); unknown positions are far apart.
 function can.dist(a, b)
