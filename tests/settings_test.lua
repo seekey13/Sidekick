@@ -84,18 +84,25 @@ test('HUD sizes a ui file from before them lacks come from what drew those parts
         -- An alliance row: the HP bar's width, the MP bar's height, the text's size. The icons: 1.25 times the
         -- text's size, as far as the HP bar fitted them (12 less 4).
         eq({ cfg.ui.ally_hp_width, cfg.ui.ally_hp_height, cfg.ui.ally_text_size, cfg.ui.icon_size }, { 300, 10, 20, 8 })
+        -- Each of a pet's bars: an alliance row's size, as it drew them.
+        eq({ cfg.ui.pet_hp_width, cfg.ui.pet_mp_width, cfg.ui.pet_tp_width, cfg.ui.pet_hp_height, cfg.ui.pet_mp_height,
+             cfg.ui.pet_tp_height, cfg.ui.pet_hp_offset }, { 300, 300, 300, 10, 10, 10, 0 })
         settings.save()
-        eq({ lib.files.ui.ally_hp_width, lib.files.ui.icon_size }, { 300, 8 })
+        eq({ lib.files.ui.ally_hp_width, lib.files.ui.icon_size, lib.files.ui.pet_tp_height }, { 300, 8, 10 })
     end)
-    with_lib({ ui = { hp_width = 300, ally_hp_width = 150, icon_size = 30 } }, function (settings)
-        local ui = settings.load('WHM_BLM').ui  -- saved since: kept
+    with_lib({ ui = { hp_width = 300, ally_hp_width = 150, icon_size = 30, pet_mp_height = 4 } }, function (settings)
+        local ui = settings.load('WHM_BLM').ui  -- saved since: kept, and a pet's others from the alliance row's
         eq({ ui.ally_hp_width, ui.icon_size, ui.ally_hp_height, ui.ally_text_size }, { 150, 30, 18, 14 })
+        eq({ ui.pet_hp_width, ui.pet_hp_height, ui.pet_mp_height }, { 150, 18, 4 })
     end)
     with_lib({}, function (settings)  -- a new install: the defaults
         local ui, d = settings.load('WHM_BLM').ui, settings.defaults().ui
-        eq({ ui.ally_hp_width, ui.ally_hp_height, ui.ally_text_size, ui.icon_size },
-           { d.ally_hp_width, d.ally_hp_height, d.ally_text_size, d.icon_size })
-        eq({ ui.show_slot, ui.mp_offset, ui.tp_offset }, { true, 0, 0 })
+        for _, k in ipairs({ 'ally_hp_width', 'ally_hp_height', 'ally_text_size', 'icon_size', 'pet_hp_width',
+                             'pet_mp_width', 'pet_tp_width', 'pet_hp_height', 'pet_mp_height', 'pet_tp_height' }) do
+            eq(ui[k], d[k], k)
+        end
+        eq({ ui.show_slot, ui.mp_offset, ui.tp_offset, ui.pet_hp_offset, ui.pet_mp_offset, ui.pet_tp_offset },
+           { true, 0, 0, 0, 0, 0 })
     end)
 end)
 

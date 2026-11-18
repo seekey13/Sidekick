@@ -40,8 +40,10 @@ local P, S = kit.P, kit.S
 local BODY, SMALL = kit.BODY, kit.SMALL
 local t, f, game_text = lang.t, lang.f, lang.text
 
--- { label, key, min, max, help } for view.ui's HUD sizes, in pixels: General's, Party's, then Alliance / Tracked's.
+-- { label, key, min, max, help } for view.ui's HUD sizes, in pixels: General's, Party's, Pet's, then Alliance /
+-- Tracked's.
 local OFFSET_HELP = 'Pixels in from the HP bar\'s left edge, to stagger the bars.'
+local PET_OFFSET_HELP = 'Pixels in from the cards\' left edge, to indent or stagger the bars.'
 local UI_SLIDERS = {
     { 'Icon size', 'icon_size', 8, 64, 'Pixels: run and the cog on your bar and on each other Sidekick session\'s, in '
         .. 'your party, alliance or tracked; at most half the bar\'s width each. Taller than the bar, they spill past it.' },
@@ -57,10 +59,19 @@ local UI_SLIDERS = {
     { 'TP bar width', 'tp_width', 80, 600, 'Pixels: its three parts, 1000 TP each, together.' },
     { 'TP bar height', 'tp_height', 4, 80, 'Pixels.' },
     { 'TP bar offset', 'tp_offset', 0, 300, OFFSET_HELP },
+    { 'HP bar width', 'pet_hp_width', 80, 600, 'Pixels.' },
+    { 'HP bar height', 'pet_hp_height', 4, 80, 'Pixels.' },
+    { 'HP bar offset', 'pet_hp_offset', 0, 300, PET_OFFSET_HELP },
+    { 'MP bar width', 'pet_mp_width', 80, 600, 'Pixels.' },
+    { 'MP bar height', 'pet_mp_height', 4, 80, 'Pixels.' },
+    { 'MP bar offset', 'pet_mp_offset', 0, 300, PET_OFFSET_HELP },
+    { 'TP bar width', 'pet_tp_width', 80, 600, 'Pixels: its three parts, 1000 TP each, together.' },
+    { 'TP bar height', 'pet_tp_height', 4, 80, 'Pixels.' },
+    { 'TP bar offset', 'pet_tp_offset', 0, 300, PET_OFFSET_HELP },
     { 'Name/slot text size', 'ally_text_size', 8, 48, 'Pixels: the slot and name on each alliance member\'s and '
         .. 'tracked player\'s row, and on a pet\'s card.' },
-    { 'HP bar width', 'ally_hp_width', 80, 600, 'Pixels: each row\'s, and a pet\'s three bars.' },
-    { 'HP bar height', 'ally_hp_height', 4, 80, 'Pixels: each row\'s, and each of a pet\'s three bars.' },
+    { 'HP bar width', 'ally_hp_width', 80, 600, 'Pixels.' },
+    { 'HP bar height', 'ally_hp_height', 4, 80, 'Pixels.' },
 }
 local UI_SLIDER = {}  -- by key
 for _, l in ipairs(UI_SLIDERS) do UI_SLIDER[l[2]] = l end
@@ -274,24 +285,26 @@ local function card(dl, ui, l, x, y, chrome)
     kit.halo(dl, fx + ui.tp_offset + 6, tp_top + (ui.tp_height - th) / 2, p.tag, slot_color(p), font, ui.text_size)
 end
 
--- A pet's card, line `l`, at (x, y), yours or another session's: its HP bar over its MP bar over its TP bar, each an
--- alliance row's size, its name on the first and its slot (PET) on the last, at the rows' text size; `l.no_mp` leaves
--- the MP bar out, as a card's. The name is coloured as a card's, but pale cyan while healthy. `l.id` keeps the bars'
--- eased fills apart.
+-- A pet's card, line `l`, at (x, y), yours or another session's: its HP bar over its MP bar over its TP bar, each
+-- sized by Pet's settings and its offset in from the cards' left, its name on the first and its slot (PET) on the
+-- last, at the rows' text size; `l.no_mp` leaves the MP bar out, as a card's. The name is coloured as a card's, but
+-- pale cyan while healthy. `l.id` keeps the bars' eased fills apart.
 local function pet_card(dl, ui, l, x, y, chrome)
-    local p, id, ts = l.p, l.id, ui.ally_text_size
-    local fx, w, h = x + HUD_PAD, ui.ally_hp_width, ui.ally_hp_height
-    local mp_top = y + h + BAR_GAP
-    local tp_top = l.no_mp and mp_top or mp_top + h + BAR_GAP
-    bar(dl, 'hp.' .. id, fx, y, w, h, p.hpp, P.hp, 1, chrome)
-    if not l.no_mp then bar(dl, 'mp.' .. id, fx, mp_top, w, h, p.mpp, P.mp, 1, chrome) end
-    tp_bar(dl, 'tp.' .. id, fx, tp_top, w, h, p.tp, 1, chrome)
+    local p, id, ts, fx = l.p, l.id, ui.ally_text_size, x + HUD_PAD
+    local hx, tx, hh, th = fx + ui.pet_hp_offset, fx + ui.pet_tp_offset, ui.pet_hp_height, ui.pet_tp_height
+    local mp_top = y + hh + BAR_GAP
+    local tp_top = l.no_mp and mp_top or mp_top + ui.pet_mp_height + BAR_GAP
+    bar(dl, 'hp.' .. id, hx, y, ui.pet_hp_width, hh, p.hpp, P.hp, 1, chrome)
+    if not l.no_mp then
+        bar(dl, 'mp.' .. id, fx + ui.pet_mp_offset, mp_top, ui.pet_mp_width, ui.pet_mp_height, p.mpp, P.mp, 1, chrome)
+    end
+    tp_bar(dl, 'tp.' .. id, tx, tp_top, ui.pet_tp_width, th, p.tp, 1, chrome)
     local font, name = kit.fonts.semi, game_text(p.name)
     local _, nh = kit.measure(name, font, ts)
-    kit.halo(dl, fx + 6, y + (h - nh) / 2, name, name_color(p, PET_WELL), font, ts)
+    kit.halo(dl, hx + 6, y + (hh - nh) / 2, name, name_color(p, PET_WELL), font, ts)
     if not ui.show_slot then return end
-    local _, th = kit.measure(p.tag, font, ts)
-    kit.halo(dl, fx + 6, tp_top + (h - th) / 2, p.tag, slot_color(p), font, ts)
+    local _, sh = kit.measure(p.tag, font, ts)
+    kit.halo(dl, tx + 6, tp_top + (th - sh) / 2, p.tag, slot_color(p), font, ts)
 end
 
 -- An alliance member's or tracked player's row, line `l`, its bar's top at `top`: a thin HP bar with the slot
@@ -425,13 +438,12 @@ local function lines_of(view)
     return out
 end
 
--- Line `l`'s HP bar's size, and its height: a card's three bars (two with its MP bar left out), a pet's each a row's
--- size, a row's one.
+-- Line `l`'s HP bar's size, and its height: a card's three bars (two with its MP bar left out), a pet's by Pet's
+-- settings, a row's one.
 local function line_size(ui, l)
     if l.row then return ui.ally_hp_width, ui.ally_hp_height, ui.ally_hp_height end
-    local hp, mp, tp = ui.hp_height, ui.mp_height, ui.tp_height
-    local w = ui.hp_width
-    if l.pet then w, hp, mp, tp = ui.ally_hp_width, ui.ally_hp_height, ui.ally_hp_height, ui.ally_hp_height end
+    local w, hp, mp, tp = ui.hp_width, ui.hp_height, ui.mp_height, ui.tp_height
+    if l.pet then w, hp, mp, tp = ui.pet_hp_width, ui.pet_hp_height, ui.pet_mp_height, ui.pet_tp_height end
     return w, hp, hp + BAR_GAP + (l.no_mp and 0 or mp + BAR_GAP) + tp
 end
 
@@ -473,7 +485,8 @@ local function draw_hud(view)
     local dl = imgui.GetWindowDrawList()
     local x0, y0 = imgui.GetCursorScreenPos()
     local th, s = math.floor(ui.text_size * 1.8), math.floor(ui.text_size * 1.25)
-    local bars = math.max(ui.hp_width, ui.mp_offset + ui.mp_width, ui.tp_offset + ui.tp_width, ui.ally_hp_width)
+    local bars = math.max(ui.hp_width, ui.mp_offset + ui.mp_width, ui.tp_offset + ui.tp_width, ui.ally_hp_width,
+        ui.pet_hp_offset + ui.pet_hp_width, ui.pet_mp_offset + ui.pet_mp_width, ui.pet_tp_offset + ui.pet_tp_width)
     local pw = math.max(2 * HUD_PAD + bars,
                         math.ceil(HUD_PAD + kit.measure(TITLE, kit.fonts.semi, ui.text_size) + 8 + s + HUD_PAD))  -- the title row fits
     -- Each line's `top` (from y0), its HP bar's `bar_w` and its height `h`; on your card and on another session's card
@@ -1280,7 +1293,12 @@ local function draw_ui(view, pg)
                            'tp_width', 'tp_height', 'tp_offset' }) do
         size(key)
     end
-    subheader(pg, 'HUD - Alliance / Tracked')
+    subheader(pg, 'HUD - Pet')
+    for _, key in ipairs({ 'pet_hp_width', 'pet_hp_height', 'pet_hp_offset', 'pet_mp_width', 'pet_mp_height',
+                           'pet_mp_offset', 'pet_tp_width', 'pet_tp_height', 'pet_tp_offset' }) do
+        size(key)
+    end
+    subheader(pg, 'HUD - Alliance / Tracked')  -- last, as the alliance's and tracked players' rows are in the HUD
     for _, key in ipairs({ 'ally_text_size', 'ally_hp_width', 'ally_hp_height' }) do size(key) end
     subheader(pg, 'Widget')
     switch(pg, 'Show the widget', 'ui.widget', view.ui.widget == true,

@@ -336,13 +336,16 @@ ja.words = {
         .. 'Sidekick\'s ui folder (ui/README.md says how).'] =
         'ここで選んだテーマは、このPCのすべてのキャラクターで使われます。テーマを追加するには、その .lua ファイルを'
         .. 'Sidekickの ui フォルダーに置きます（ui/README.md に説明があります）。',
-    ['HUD - General'] = 'HUD - 全般', ['HUD - Party'] = 'HUD - パーティ', ['HUD - Alliance / Tracked'] = 'HUD - アライアンス/追跡',
+    ['HUD - General'] = 'HUD - 全般', ['HUD - Party'] = 'HUD - パーティ', ['HUD - Pet'] = 'HUD - ペット',
+    ['HUD - Alliance / Tracked'] = 'HUD - アライアンス/追跡',
     ['LOG'] = 'ログ', ['CLIENT'] = 'クライアント', ['AUTOMATION'] = '自動操作', ['Nothing sent yet.'] = 'まだ何も送っていません。',
     ['%ds'] = '%d秒',
     ['HP bar width'] = 'HPバーの幅', ['HP bar height'] = 'HPバーの高さ', ['MP bar width'] = 'MPバーの幅',
     ['MP bar height'] = 'MPバーの高さ', ['TP bar width'] = 'TPバーの幅', ['TP bar height'] = 'TPバーの高さ',
-    ['MP bar offset'] = 'MPバーのずらし幅', ['TP bar offset'] = 'TPバーのずらし幅',
+    ['HP bar offset'] = 'HPバーのずらし幅', ['MP bar offset'] = 'MPバーのずらし幅', ['TP bar offset'] = 'TPバーのずらし幅',
     ['Pixels in from the HP bar\'s left edge, to stagger the bars.'] = 'HPバーの左端からのピクセル数。バーを段違いに並べられます。',
+    ['Pixels in from the cards\' left edge, to indent or stagger the bars.'] =
+        'カードの左端からのピクセル数。バーを字下げしたり段違いに並べたりできます。',
     ['Name text size'] = '名前の文字サイズ', ['Pixels: the name on each card\'s HP bar.'] = 'ピクセル: 各カードのHPバー上の名前。',
     ['Slot text size'] = 'スロットの文字サイズ',
     ['Pixels: the slot on each card (ME, P1-P5); the title, its close button and the action labels too.'] =
@@ -350,8 +353,6 @@ ja.words = {
     ['Name/slot text size'] = '名前/スロットの文字サイズ',
     ['Pixels: the slot and name on each alliance member\'s and tracked player\'s row, and on a pet\'s card.'] =
         'ピクセル: アライアンスメンバーと追跡中のプレイヤーの各行、ペットのカードのスロットと名前。',
-    ['Pixels: each row\'s, and a pet\'s three bars.'] = 'ピクセル: 各行のバーと、ペットの3本のバー。',
-    ['Pixels: each row\'s, and each of a pet\'s three bars.'] = 'ピクセル: 各行のバーと、ペットの3本のバーそれぞれ。',
     ['Icon size'] = 'アイコンのサイズ',
     ['Pixels: run and the cog on your bar and on each other Sidekick session\'s, in your party, alliance or tracked; at '
         .. 'most half the bar\'s width each. Taller than the bar, they spill past it.'] =

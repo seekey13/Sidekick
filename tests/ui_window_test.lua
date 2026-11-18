@@ -691,20 +691,36 @@ test('Show player slot off leaves the slot off every card, row and pet\'s card; 
     eq({ at('Bea')[1], at('Far')[1] }, { 114, 114 })  -- a row's name at its start
 end)
 
-test('Alliance / Tracked\'s sizes size the rows and their text, and a pet\'s three bars; the MP bar\'s no longer', function ()
+test('Alliance / Tracked\'s sizes size the rows and their text, a pet\'s text too, not its bars; the MP bar\'s no longer', function ()
     close_settings()
     local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
     cfg.ui.ally_hp_width, cfg.ui.ally_hp_height, cfg.ui.ally_text_size, cfg.ui.mp_height = 150, 10, 11, 30
     local g = fake.snap({ { kind = 'alliance', name = 'Bea', hpp = 50 } },
         { pet = { name = 'Ifrit', hpp = 50, mpp = 40, tp = 1000, dist = 3, uses_mp = true } })
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    -- Your card 40 + 3 + 30 + 3 + 8 from y 75; your pet's three bars 10 high, 3 apart, from 167; Bea's row from 211.
-    eq({ bar_edge(108, 167, 150, 10), bar_edge(108, 180, 150, 10), bar_edge(108, 211, 150, 10) }, { true, true, true })
-    eq(hp_fill(108, 211), { 108 + 75, 221 })
+    -- Your card 40 + 3 + 30 + 3 + 8 from y 75; your pet's bars 220 by 18, 3 apart, from 167; Bea's row from 235.
+    eq({ bar_edge(108, 167, 220, 18), bar_edge(108, 188, 220, 18), bar_edge(108, 235, 150, 10) }, { true, true, true })
+    eq(hp_fill(108, 235), { 108 + 75, 245 })
     local _, h = kit.measure('Bea', kit.fonts.semi, 11)
     eq({ at('B0'), at('Bea')[2], at('Ifrit')[2] },
-       { { 114, math.floor(211 + (10 - h) / 2 + 0.5) }, math.floor(211 + (10 - h) / 2 + 0.5), math.floor(167 + (10 - h) / 2 + 0.5) })
-    eq(frame.extent.Sidekick, { 100 + 236, 211 + 10 + 8 })
+       { { 114, math.floor(235 + (10 - h) / 2 + 0.5) }, math.floor(235 + (10 - h) / 2 + 0.5), math.floor(167 + (18 - h) / 2 + 0.5) })
+    eq(frame.extent.Sidekick, { 100 + 236, 235 + 10 + 8 })
+end)
+
+test('Pet\'s settings size each of a pet\'s bars and set each its offset in from the cards\' left; the panel fits them', function ()
+    close_settings()
+    local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
+    local ui = cfg.ui
+    ui.pet_hp_width, ui.pet_hp_height, ui.pet_hp_offset = 250, 12, 20
+    ui.pet_mp_width, ui.pet_mp_height, ui.pet_mp_offset = 150, 6, 30
+    ui.pet_tp_width, ui.pet_tp_height, ui.pet_tp_offset = 120, 5, 40
+    local g = fake.snap({}, { pet = { name = 'Ifrit', hpp = 100, mpp = 40, tp = 1000, dist = 3, uses_mp = true } })
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    -- Your pet's card from y 155: HP from x 128, MP from 138 at y 170, TP from 148 at y 179 (its first part 38 wide).
+    eq({ bar_edge(128, 155, 250, 12), bar_edge(138, 170, 150, 6), bar_edge(148, 179, 38, 5) }, { true, true, true })
+    eq({ bar_edge(108, 75, 220, 40), bar_edge(108, 118, 220, 18) }, { true, true })  -- your card as it was
+    eq({ at('Ifrit')[1], at('PET') }, { 134, { 154, tag_top('PET', 179, 5) } })
+    eq(frame.extent.Sidekick, { 100 + 2 * 8 + 20 + 250, 155 + 12 + 3 + 6 + 3 + 5 + 8 })
 end)
 
 test('the arrow\'s label points at the card the next action is for: amber running, grey stopped, none idle', function ()
@@ -1544,15 +1560,20 @@ test('UI / Log: the sliders size the HUD and Sidekick Settings, Lock position ke
     eq(render(cfg, st, on('UI / Log', { ['Icon size##sk_ui_icon_size'] = 20, ['Slot text size##sk_ui_text_size'] = 12,
         ['MP bar offset##sk_ui_mp_offset'] = 10, ['TP bar offset##sk_ui_tp_offset'] = 20,
         ['Name/slot text size##sk_ui_ally_text_size'] = 11, ['HP bar width##sk_ui_ally_hp_width'] = 150,
-        ['HP bar height##sk_ui_ally_hp_height'] = 9, ['Show player slot##sk_ui_show_slot'] = true })), 8)
+        ['HP bar height##sk_ui_ally_hp_height'] = 9, ['Show player slot##sk_ui_show_slot'] = true,
+        ['HP bar offset##sk_ui_pet_hp_offset'] = 12, ['TP bar height##sk_ui_pet_tp_height'] = 6 })), 10)
     eq({ cfg.ui.icon_size, cfg.ui.text_size, cfg.ui.mp_offset, cfg.ui.tp_offset, cfg.ui.ally_text_size,
-         cfg.ui.ally_hp_width, cfg.ui.ally_hp_height, cfg.ui.show_slot }, { 20, 12, 10, 20, 11, 150, 9, false })
+         cfg.ui.ally_hp_width, cfg.ui.ally_hp_height, cfg.ui.show_slot, cfg.ui.pet_hp_offset, cfg.ui.pet_tp_height },
+       { 20, 12, 10, 20, 11, 150, 9, false, 12, 6 })
+    eq({ cfg.ui.hp_width, cfg.ui.tp_height }, { 300, 12 })  -- Pet's are its own: the cards' stay
     local letters = {}  -- a heading is drawn a letter at a time
     for _, d in ipairs(calls('AddText')) do letters[#letters + 1] = d.args[5] end
     letters = table.concat(letters)
-    eq({ letters:find('HUD - GENERAL', 1, true) ~= nil, letters:find('HUD - PARTY', 1, true) ~= nil,
-         letters:find('HUD - ALLIANCE / TRACKED', 1, true) ~= nil, letters:find('WIDGET', 1, true) ~= nil },
-       { true, true, true, true })
+    local function place(s) return letters:find(s, 1, true) or false end
+    -- In order, Alliance / Tracked last, as their rows are in the HUD; then the widget's.
+    local order = { place('HUD - GENERAL'), place('HUD - PARTY'), place('HUD - PET'), place('HUD - ALLIANCE / TRACKED'),
+                    place('WIDGET') }
+    for i = 2, #order do eq(order[i - 1] and order[i] and order[i - 1] < order[i], true, 'heading ' .. i) end
     eq(button('Background opacity##sk_ui_opacity'), false)  -- the panel is solid while hovered: nothing to set
     local free = frame.flags.Sidekick
     eq(render(cfg, st, on('UI / Log', { ['Lock position##sk_ui_locked'] = true })), 1)
