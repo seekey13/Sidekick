@@ -10,7 +10,8 @@
     unit = { slot, sid, tidx, name, kind = 'self'|'party'|'trust'|'alliance'|'tracked', hpp, hp, max_hp,
              immune (a trust that can't be hurt: Moogle, Sakura, Kupofried...; core/engine.lua hides it from behaviors),
              mpp, mp, tp, uses_mp (yours: max MP > 0; your party's: a job with MP, main or
-             sub, or seen with MP on these jobs; the alliance's: seen with MP; a tracked
+             sub, or seen with MP on these jobs; the alliance's: the same while their jobs
+             read (in your zone), seen with MP while /anon there, none elsewhere; a tracked
              player's: a session file's MP over 0, or a job with MP, while a file gives it),
              max_known (max_hp is real: yours, or seen at full HP with no Weakness or Curse, and HP% agrees),
              jobs = { main, main_lv, sub, sub_lv } (you and your party's players),
@@ -555,10 +556,17 @@ local function member(party, player, em, i, zone, now)
         u.uses_mp = player:GetMPMax() > 0
     else
         -- A job with MP, main or sub: at 0 MP (just loaded, out of zone) a mage still has some. Else once seen with it.
-        local key = ('%d %d/%d'):format(sid, party:GetMemberMainJob(i), party:GetMemberSubJob(i))
+        -- The alliance's jobs come in the same packets as their MP (0x0DD, 0x0DF), only while they're in your zone and
+        -- not /anon: a job of 0 in your zone is /anon (MP current: once seen with it), elsewhere their MP isn't current.
+        local main, sub = party:GetMemberMainJob(i), party:GetMemberSubJob(i)
+        local key = ('%d %d/%d'):format(sid, main, sub)
         if u.mp > 0 then has_mp[key] = true end
-        local j = u.jobs or {}
-        u.uses_mp = has_mp[key] == true or MP_JOBS[j[1]] == true or (j[4] or 0) > 0 and MP_JOBS[j[3]] == true
+        local j = u.jobs or i > 5 and { main, party:GetMemberMainJobLevel(i), sub, party:GetMemberSubJobLevel(i) } or {}
+        if i > 5 and (main or 0) == 0 then
+            u.uses_mp = u.in_zone and has_mp[key] == true
+        else
+            u.uses_mp = has_mp[key] == true or MP_JOBS[j[1]] == true or (j[4] or 0) > 0 and MP_JOBS[j[3]] == true
+        end
     end
     -- Only one the client draws: out of its range a member has no entity, and
     -- would read as 0 yalms away. Then dist and pos are unknown: out of reach.

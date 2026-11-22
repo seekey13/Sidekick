@@ -196,7 +196,7 @@ test('the alliance\'s other parties: slots 6-17, statuses from packets, forgotte
     reset()
     local bea = { sid = 600, tidx = 0x500, name = 'Bea', hpp = 50, hp = 500, mpp = 80, mp = 400 }
     world.party[7] = bea                                                                          -- slot 6: B0
-    world.party[13] = { sid = 601, tidx = 0x501, name = 'Cal', hpp = 100, hp = 1200, mpp = 0, mp = 0 }  -- slot 12: C0
+    world.party[13] = { sid = 601, tidx = 0x501, name = 'Cal', hpp = 100, hp = 1200, mpp = 0, mp = 0, main = 1, sub = 1 }  -- C0: WAR/WAR
     world.ents[0x500] = { sid = 600, name = 'Bea', hpp = 50, dist = 7 }
     world.ents[0x501] = { sid = 601, name = 'Cal', hpp = 100, dist = 9 }
     buffs.gain(600, PROTECT, now)
