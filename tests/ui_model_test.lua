@@ -747,15 +747,17 @@ test('landing: the last send for a moment, or while it is cast; nothing while st
     eq(model.landing(status({ running = true, sent = { e } }), g), nil)
 end)
 
-test('landing: resting\'s Rest stays until you stand, while running; not a rest of your own, nor once stopped', function ()
+test('landing: resting\'s Rest stays while the rest it sat you down for lasts; not a later one of your own, nor once stopped', function ()
     local rest = { at = 900, action = 'Rest', behavior = 'rest', why = 'MP 30%', command = '/heal on' }
-    local g = fake.snap(nil, { resting = true })
+    local g = fake.snap(nil, { resting = true, rest_since = 901 })  -- sat down a second after the /heal on
     eq(model.landing(status({ running = true, sent = { rest } }), g), rest)
     eq(build(whm, nil, g, status({ running = true, sent = { rest } })).pointer.text, 'Rest:Rest')
     eq(model.landing(status({ sent = { rest } }), g), nil)  -- stopped
-    g.resting = false  -- stood up
+    g.resting, g.rest_since = false, nil  -- stood up
     eq(model.landing(status({ running = true, sent = { rest } }), g), nil)
-    g.resting = true  -- sat down by hand after something else was sent
+    g.resting, g.rest_since = true, 1200  -- a /heal of your own, minutes later, nothing sent since
+    eq(model.landing(status({ running = true, sent = { rest } }), g), nil)
+    g.rest_since = 901  -- sat down by hand after something else was sent
     eq(model.landing(status({ running = true, sent = { { at = 900, action = 'Cure', behavior = 'heal' } } }), g), nil)
 end)
 

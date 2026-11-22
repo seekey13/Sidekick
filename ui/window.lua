@@ -426,9 +426,8 @@ end
 -- index in view.alliance), B0-B5 then C0-C5, then for each tracked player (`member`), a pet of theirs under it.
 -- `group` keeps a party's rows together; `id` keeps the eased fills apart, two sessions' Carbuncles too. `mp_strip`: a
 -- row has an MP bar, its player having MP (uses_mp: the alliance's once seen with it, a tracked player's while a
--- session file gives it). `no_mp`: its
--- MP bar is left out (`ui.hide_mp`), as it has no MP (0/0); not that of another session's pet its file doesn't name
--- yet: it can't be read, and stays empty.
+-- session file gives it). `no_mp`: its MP bar is left out (`ui.hide_mp`), as it has no MP (0/0); not that of another
+-- session's pet its file doesn't name yet: it can't be read, and stays empty.
 local function lines_of(view)
     local out, hide = {}, view.ui.hide_mp ~= false
     local function add(i, p, row_of)

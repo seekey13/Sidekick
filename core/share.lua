@@ -37,8 +37,9 @@
     Auto-track: each session tracks the players other sessions list (core/tracked.lua,
     `auto` = the owner's name), but those in its own party or alliance, with no /check:
     the level and max HP come from the file, and their MP for the HUD to show (no
-    entity gives it; automation never acts on it) while its owner is in their zone, as their HP. A file not written for STALE seconds (a
-    session closed, crashed or logged out) or one that no longer lists a player drops
+    entity gives it; automation never acts on it) while its owner is in their zone,
+    as their HP. A file not written for STALE seconds (a session closed, crashed or
+    logged out) or one that no longer lists a player drops
     its auto entries; hand-tracked players are never dropped, nor one declined (untracked by hand) added.
 
     Remote control: any session controls any other. A controller's file lists the

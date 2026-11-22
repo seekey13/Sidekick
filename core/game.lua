@@ -153,6 +153,7 @@ local pet_since  -- when that pet was first seen: a new one (it may reuse the id
 local pet_mp_since  -- pet_since of the last pet seen with MP: a wyvern's or a jug pet's 0% isn't an empty tank
 local ready_since = {}  -- [recast key] = when its timer first read 0
 local rescan_at = -math.huge
+local rest_since  -- when you last sat down to rest (status RESTING), while you still are
 local claim = { at = -math.huge, tidx = nil }  -- the last look for an alliance-claimed mob
 local fed = {}  -- [sid] = true: last read's units whose statuses come from packets
 
@@ -673,6 +674,8 @@ function game.read(now, idle)
     local finished, spell_finish = packets.last_finish()
     local casting, cast_at = packets.casting(now)
 
+    if me.status == RESTING then rest_since = rest_since or now else rest_since = nil end
+
     local g = {
         finished = finished, spell_finish = spell_finish,
         now = now, zone = zone, me = me, units = units, tracks = tracks, bt = bt, target = player_target(mm, em),
@@ -685,7 +688,7 @@ function game.read(now, idle)
         safe = safe, event = in_event,
         mounted = me.status == MOUNTED_STATUS or me.buffs[MOUNTED_BUFF] == true,
         dead = not me.alive,
-        resting = me.status == RESTING,
+        resting = me.status == RESTING, rest_since = rest_since,
         incapacitated = any(me.buffs, INCAPACITATED),
         silenced = any(me.buffs, SILENCED),
         amnesia = me.buffs[AMNESIA] == true,

@@ -494,6 +494,14 @@ test('sizes out of their sliders\' range, set by hand or by a custom UI, are hel
     eq(calls('AddRectFilled')[1].args[2][1], 100 + 2 * 8 + 600)
 end)
 
+test('a row\'s MP bar sizes out of range, or not numbers, are held to their sliders\' too', function ()
+    close_settings()
+    local cfg = settings.defaults()
+    cfg.ui.ally_mp_width, cfg.ui.ally_mp_height, cfg.ui.ally_mp_offset = 5000, 0, 'abc'
+    render(cfg, status(), nil, model.build(fake.snap({ { kind = 'alliance', name = 'Bea' } }), cat, cfg, status(), NAMES))
+    eq(bar_edge(108, 155 + 18 + 1, 600, 2), true)  -- 600 wide, 2 high, set in by none
+end)
+
 test('a name turns yellow at 75% HP, orange at 50% and red at 25%; away greys it and the slot, low MP doesn\'t', function ()
     close_settings()
     local cfg, st = settings.defaults(), status()

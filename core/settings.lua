@@ -62,9 +62,9 @@ local DEFAULTS = {
     profiles = {}, profile = '', parked = {},  -- named snapshots (core/profiles.lua)
     -- The HUD: a card's bars (the MP and TP bars' `offset` in from the HP bar's left), its name, and its slot (ME,
     -- P1...), the title and the action labels at `text_size`; a pet's card's bars `pet_*` (each `offset` in from the
-    -- cards' left); an alliance member's or tracked player's row `ally_*` (its MP strip, while it has MP, `offset` in
-    -- from its HP bar's left), a pet's text at its size too; run and the
-    -- cog `icon_size` across, spilling past a thinner bar.
+    -- cards' left); an alliance member's or tracked player's row `ally_*` (its MP bar, while it has MP, `offset` in
+    -- from its HP bar's left), a pet's text at its size too; run and the cog `icon_size` across, spilling past a
+    -- thinner bar.
     ui = { open = false, hp_width = 220, hp_height = 40, mp_width = 220, mp_height = 18, tp_width = 220, tp_height = 8,
            mp_offset = 0, tp_offset = 0, name_size = 22, text_size = 14,
            pet_hp_width = 220, pet_hp_height = 18, pet_hp_offset = 0, pet_mp_width = 220, pet_mp_height = 18,

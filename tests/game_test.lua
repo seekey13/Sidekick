@@ -560,6 +560,22 @@ test('sessions: a tracked player\'s MP from a session file, drawn or not; with M
     eq({ u.in_zone, u.mpp, u.mp }, { true, 40, 120 })  -- drawn: the entity has no MP, the file still does
 end)
 
+test('resting: when you sat down, kept while you rest; none once you stand, a new time for the next rest', function ()
+    reset()
+    eq({ read().resting, read().rest_since }, { false, nil })
+    world.ents[0x400].status = 33
+    local g = read()
+    local sat = g.now
+    eq({ g.resting, g.rest_since, read(1).rest_since }, { true, sat, sat })
+    world.ents[0x400].status = 0
+    eq(read().rest_since, nil)
+    world.ents[0x400].status = 33
+    g = read()
+    eq(g.rest_since, g.now)
+    world.ents[0x400].status = 0
+    read()
+end)
+
 test('your statuses: a set, and how many of each stand (runes stack); empty slots counted as none', function ()
     reset()
     world.buffs = { 523, 523, 524, 0, 255, -1 }
