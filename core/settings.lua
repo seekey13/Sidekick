@@ -62,13 +62,15 @@ local DEFAULTS = {
     profiles = {}, profile = '', parked = {},  -- named snapshots (core/profiles.lua)
     -- The HUD: a card's bars (the MP and TP bars' `offset` in from the HP bar's left), its name, and its slot (ME,
     -- P1...), the title and the action labels at `text_size`; a pet's card's bars `pet_*` (each `offset` in from the
-    -- cards' left); an alliance member's or tracked player's row `ally_*`, a pet's text at its size too; run and the
+    -- cards' left); an alliance member's or tracked player's row `ally_*` (its MP strip, while it has MP, `offset` in
+    -- from its HP bar's left), a pet's text at its size too; run and the
     -- cog `icon_size` across, spilling past a thinner bar.
     ui = { open = false, hp_width = 220, hp_height = 40, mp_width = 220, mp_height = 18, tp_width = 220, tp_height = 8,
            mp_offset = 0, tp_offset = 0, name_size = 22, text_size = 14,
            pet_hp_width = 220, pet_hp_height = 18, pet_hp_offset = 0, pet_mp_width = 220, pet_mp_height = 18,
            pet_mp_offset = 0, pet_tp_width = 220, pet_tp_height = 18, pet_tp_offset = 0,
-           ally_hp_width = 220, ally_hp_height = 18, ally_text_size = 14, icon_size = 17,
+           ally_hp_width = 220, ally_hp_height = 18, ally_mp_width = 220, ally_mp_height = 6, ally_mp_offset = 0,
+           ally_text_size = 14, icon_size = 17,
            show_slot = true,  -- the slot on each bar: ME, P1, B0, T1, PET
            gap = 8, locked = false,
            hide_mp = true,  -- leave out the MP bar of a member or pet with no MP (0/0)
@@ -83,7 +85,8 @@ local DEFAULTS = {
 local UI_FILE = 'ui'
 
 -- HUD sizes a ui file saved before them lacks, each from what drew that part then, so the HUD looks as it did: an
--- alliance row was the HP bar's width and the MP bar's height, its text the text's size; run and the cog took
+-- alliance row was the HP bar's width and the MP bar's height, its text the text's size (its MP strip, newer, the
+-- row's width and a third of its height, 2 at least); run and the cog took
 -- 1.25 times the text's size, as far as the HP bar fitted them (held to the icon size's 8 to 64); each of a pet's bars
 -- was an alliance row's size. In order: a pet's come from the alliance row's, filled in first. A new install, with no
 -- ui file, gets them this way too, from the defaults of the keys they come from: those match theirs (a test holds them
@@ -94,6 +97,11 @@ local UI_SINCE = {
     { 'ally_hp_width', function (ui) return tonumber(ui.hp_width) end },
     { 'ally_hp_height', function (ui) return tonumber(ui.mp_height) end },
     { 'ally_text_size', function (ui) return tonumber(ui.text_size) end },
+    { 'ally_mp_width', row_width },
+    { 'ally_mp_height', function (ui)
+        local h = row_height(ui)
+        return h and math.max(2, math.floor(h / 3)) or nil
+    end },
     { 'icon_size', function (ui)
         local text, h, w = tonumber(ui.text_size), tonumber(ui.hp_height), tonumber(ui.hp_width)
         return text and h and w and util.clamp(math.min(math.floor(text * 1.25), h - 4, math.floor((w - 8) / 2)), 8, 64)

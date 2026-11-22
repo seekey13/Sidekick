@@ -72,6 +72,10 @@ local UI_SLIDERS = {
         .. 'tracked player\'s row, and on a pet\'s card.' },
     { 'HP bar width', 'ally_hp_width', 80, 600, 'Pixels.' },
     { 'HP bar height', 'ally_hp_height', 4, 80, 'Pixels.' },
+    { 'MP bar width', 'ally_mp_width', 80, 600, 'Pixels: the thin MP bar under the row of an alliance member or '
+        .. 'tracked player with MP (a tracked player\'s while another Sidekick session gives it).' },
+    { 'MP bar height', 'ally_mp_height', 2, 80, 'Pixels.' },
+    { 'MP bar offset', 'ally_mp_offset', 0, 300, OFFSET_HELP },
 }
 local UI_SLIDER = {}  -- by key
 for _, l in ipairs(UI_SLIDERS) do UI_SLIDER[l[2]] = l end
@@ -307,21 +311,21 @@ local function pet_card(dl, ui, l, x, y, chrome)
     kit.halo(dl, tx + 6, tp_top + (th - sh) / 2, p.tag, slot_color(p), font, ts)
 end
 
--- A row's MP strip (`l.mp_strip`: a tracked player a session file gives MP for): its height, and its gap under the HP
--- bar, a third of that bar's height, at least 3 pixels, and one pixel under it, so it reads as the row's, not the next.
+-- A row's MP strip (`l.mp_strip`) sits this far under its HP bar: closer than the rows are, so it reads as its row's.
 local STRIP_GAP = 1
-local function strip_height(ui) return math.max(3, math.floor(ui.ally_hp_height / 3)) end
 
 -- An alliance member's or tracked player's row, line `l`, its bar's top at `top`: a thin HP bar with the slot
 -- (`ui.show_slot`) and the name on it, the name coloured as a card's, its HP % only in its tooltip; under it a thin
--- MP strip for a tracked player a session file gives MP for (`l.mp_strip`). No TP: a tracked player's can't be read.
+-- MP bar (`l.mp_strip`: one with MP), sized by `ui.ally_mp_*`, `ally_mp_offset` in from the HP bar's left. No TP:
+-- the alliance's isn't drawn, a tracked player's can't be read.
 local function row(dl, ui, l, x, top, chrome)
     local p, ts, h = l.p, ui.ally_text_size, ui.ally_hp_height
     local fx, font, name = x + HUD_PAD, kit.fonts.semi, game_text(p.name)
     local fade = p.away and 0.45 or 1
     bar(dl, 'hp.' .. l.id, fx, top, ui.ally_hp_width, h, p.hpp, P.hp, fade, chrome)
     if l.mp_strip then
-        bar(dl, 'mp.' .. l.id, fx, top + h + STRIP_GAP, ui.ally_hp_width, strip_height(ui), p.mpp, P.mp, fade, chrome)
+        bar(dl, 'mp.' .. l.id, fx + ui.ally_mp_offset, top + h + STRIP_GAP, ui.ally_mp_width, ui.ally_mp_height, p.mpp,
+            P.mp, fade, chrome)
     end
     local nx = fx + 6
     if ui.show_slot then
@@ -421,7 +425,8 @@ end
 -- `pet`), drawn from a line of the same shape tagged PET; then a row (`row`) for each of the alliance (`ally`, its
 -- index in view.alliance), B0-B5 then C0-C5, then for each tracked player (`member`), a pet of theirs under it.
 -- `group` keeps a party's rows together; `id` keeps the eased fills apart, two sessions' Carbuncles too. `mp_strip`: a
--- tracked player's row has an MP strip, as a session file gives their MP (uses_mp). `no_mp`: its
+-- row has an MP bar, its player having MP (uses_mp: the alliance's once seen with it, a tracked player's while a
+-- session file gives it). `no_mp`: its
 -- MP bar is left out (`ui.hide_mp`), as it has no MP (0/0); not that of another session's pet its file doesn't name
 -- yet: it can't be read, and stays empty.
 local function lines_of(view)
@@ -440,7 +445,8 @@ local function lines_of(view)
         if p.kind ~= 'tracked' then add(i, p) end
     end
     for j, p in ipairs(view.alliance) do
-        out[#out + 1] = { p = p, id = 'ally.' .. p.name, ally = j, row = true, group = p.tag:sub(1, 1) }
+        out[#out + 1] = { p = p, id = 'ally.' .. p.name, ally = j, row = true, group = p.tag:sub(1, 1),
+                          mp_strip = p.uses_mp == true }
     end
     for i, p in ipairs(view.party) do
         if p.kind == 'tracked' then add(i, p, 'T') end
@@ -453,7 +459,7 @@ end
 local function line_size(ui, l)
     if l.row then
         local h = ui.ally_hp_height
-        return ui.ally_hp_width, h, h + (l.mp_strip and STRIP_GAP + strip_height(ui) or 0)
+        return ui.ally_hp_width, h, h + (l.mp_strip and STRIP_GAP + ui.ally_mp_height or 0)
     end
     local w, hp, mp, tp = ui.hp_width, ui.hp_height, ui.mp_height, ui.tp_height
     if l.pet then w, hp, mp, tp = ui.pet_hp_width, ui.pet_hp_height, ui.pet_mp_height, ui.pet_tp_height end
@@ -503,7 +509,8 @@ local function draw_hud(view)
     -- out, as an area of the window no one sees still takes the game's clicks.
     local bars = math.max(ui.hp_width, ui.mp_offset + ui.mp_width, ui.tp_offset + ui.tp_width)
     for _, l in ipairs(lines) do
-        if l.row then bars = math.max(bars, ui.ally_hp_width)
+        if l.row then
+            bars = math.max(bars, ui.ally_hp_width, l.mp_strip and ui.ally_mp_offset + ui.ally_mp_width or 0)
         elseif l.pet then
             bars = math.max(bars, ui.pet_hp_offset + ui.pet_hp_width, ui.pet_mp_offset + ui.pet_mp_width,
                 ui.pet_tp_offset + ui.pet_tp_width)
@@ -1322,7 +1329,10 @@ local function draw_ui(view, pg)
         size(key)
     end
     subheader(pg, 'HUD - Alliance / Tracked')  -- last, as the alliance's and tracked players' rows are in the HUD
-    for _, key in ipairs({ 'ally_text_size', 'ally_hp_width', 'ally_hp_height' }) do size(key) end
+    for _, key in ipairs({ 'ally_text_size', 'ally_hp_width', 'ally_hp_height', 'ally_mp_width', 'ally_mp_height',
+                           'ally_mp_offset' }) do
+        size(key)
+    end
     subheader(pg, 'Widget')
     switch(pg, 'Show the widget', 'ui.widget', view.ui.widget == true,
         'One row of its own: each character\'s name (yours, then each other Sidekick session\'s), its Start/Stop and its '

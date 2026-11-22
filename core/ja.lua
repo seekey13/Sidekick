@@ -353,6 +353,9 @@ ja.words = {
     ['Name/slot text size'] = '名前/スロットの文字サイズ',
     ['Pixels: the slot and name on each alliance member\'s and tracked player\'s row, and on a pet\'s card.'] =
         'ピクセル: アライアンスメンバーと追跡中のプレイヤーの各行、ペットのカードのスロットと名前。',
+    ['Pixels: the thin MP bar under the row of an alliance member or tracked player with MP (a tracked player\'s while '
+        .. 'another Sidekick session gives it).'] =
+        'ピクセル: MPのあるアライアンスメンバーと追跡中のプレイヤーの行の下にある細いMPバー（追跡中のプレイヤーは、ほかのSidekickセッションが伝えている間のみ）。',
     ['Icon size'] = 'アイコンのサイズ',
     ['Pixels: run and the cog on your bar and on each other Sidekick session\'s, in your party, alliance or tracked; at '
         .. 'most half the bar\'s width each. Taller than the bar, they spill past it.'] =
