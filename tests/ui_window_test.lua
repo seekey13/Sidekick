@@ -666,6 +666,15 @@ test('a tracked player gets a row as the alliance\'s, after theirs: HP alone; an
     eq(calls('AddTriangleFilled', 'background')[1].args[1], { 100 + 236 + 2, 181 + 9 })  -- the arrow at Far's row
 end)
 
+test('a tracked player\'s tooltip gives their MP while a session file does', function ()
+    close_settings()
+    local cfg = settings.defaults()
+    local g = fake.snap({ { kind = 'tracked', name = 'Far', hpp = 40 } })
+    g.units[2].mpp, g.units[2].mp, g.units[2].uses_mp = 60, 600, true
+    render(cfg, status(), nil, model.build(g, cat, cfg, status(), NAMES))
+    eq(tipped('Far (tracked)\nHP 40%  MP 60%  5.0y'), true)
+end)
+
 test('the MP and TP bars sit their offsets in from the HP bar\'s left, the slot on the TP bar; the panel fits them', function ()
     close_settings()
     local cfg, st = settings.defaults(), status({ intent = false, sent = {} })

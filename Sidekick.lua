@@ -314,12 +314,13 @@ local function show_state(g)
         local names = {}
         for id in pairs(u.buffs) do names[#names + 1] = statuses[id] and statuses[id].en or tostring(id) end
         table.sort(names)
-        local out = u.kind == 'tracked'  -- max HP estimated from the level, or yours (else a session file's); no MP read
+        local out = u.kind == 'tracked'  -- max HP estimated from the level, or yours (else a session file's); MP from a file alone
         local guess = out and not tracked.find(u.sid).max_hp
         local kind = u.auto and 'auto' or out and 'track' or u.kind == 'alliance' and model.TAGS[u.slot] or u.kind
         printf('  %-5s %-14s HP %3d%%%s %s  %s  %s', kind, u.name, u.hpp,
             u.max_hp and ((guess and '/~' or '/') .. u.max_hp) or '',
-            out and (u.main_lv and ('%s%d'):format(abbr(u.main), u.main_lv) or 'lv ?') or ('MP %3d%%'):format(u.mpp),
+            out and (u.main_lv and ('%s%d'):format(abbr(u.main), u.main_lv) or 'lv ?')
+                .. (u.uses_mp and (' MP %3d%%'):format(u.mpp) or '') or ('MP %3d%%'):format(u.mpp),
             u.in_zone and ('%.1fy'):format(u.dist or 0) or 'away', table.concat(names, ', '))
     end
     for _, t in ipairs({ { 'bt', g.bt }, { 't', g.t }, { 'pet', g.pet } }) do

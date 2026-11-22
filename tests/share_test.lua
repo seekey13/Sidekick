@@ -251,16 +251,18 @@ test('auto-track: HP from a file only for a member in its owner\'s zone; dropped
     reset()
 end)
 
-test('auto-track: MP from their own file always, from another\'s only while its owner is in their zone', function ()
+test('auto-track: MP from a file only while its owner is in their zone; none once no file lists them, or they join you', function ()
     reset()
-    share.sync({ Box = session('Box', 1, { member(500, 'Box', { here = false, mpp = 70, mp = 700 }),
+    share.sync({ Box = session('Box', 1, { member(500, 'Box', { mpp = 70, mp = 700 }),
                                            member(501, 'Mate', { here = false }) }) }, {}, 0)
     local own, other = tracked.find(500), tracked.find(501)
     eq({ own.shared_mpp, own.shared_mp, other.shared_mpp, other.shared_mp }, { 70, 700, nil, nil })
     share.sync({ Box = session('Box', 2, { member(500, 'Box'), member(501, 'Mate') }) }, {}, 1)
     eq({ other.shared_mpp, other.shared_mp }, { 50, 400 })
-    share.sync({}, {}, 2)  -- no file lists them now
-    eq({ own.shared_mpp, own.shared_mp, other.shared_mpp }, { nil, nil, nil })
+    share.sync({ Box = session('Box', 3, { member(500, 'Box'), member(501, 'Mate') }) }, { [501] = true }, 2)  -- Mate joins you
+    eq({ tracked.find(501), own.shared_mpp }, { nil, 50 })
+    share.sync({}, {}, 3)  -- no file lists them now (Box closed: share.live leaves it out)
+    eq({ own.shared_mpp, own.shared_mp }, { nil, nil })
     reset()
 end)
 

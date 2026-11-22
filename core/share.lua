@@ -37,8 +37,7 @@
     Auto-track: each session tracks the players other sessions list (core/tracked.lua,
     `auto` = the owner's name), but those in its own party or alliance, with no /check:
     the level and max HP come from the file, and their MP for the HUD to show (no
-    entity gives it; automation never acts on it): from their own session's file,
-    always current, else from one whose owner is in their zone. A file not written for STALE seconds (a
+    entity gives it; automation never acts on it) while its owner is in their zone, as their HP. A file not written for STALE seconds (a
     session closed, crashed or logged out) or one that no longer lists a player drops
     its auto entries; hand-tracked players are never dropped, nor one declined (untracked by hand) added.
 
@@ -305,10 +304,9 @@ function share.sync(live, listed, now)
             if t.auto then t.auto = w.owner end
             if m.main_lv > 0 then t.main, t.main_lv, t.sub, t.sub_lv = m.main, m.main_lv, m.sub, m.sub_lv end
             t.max_hp = m.max_hp > 0 and m.max_hp or t.max_hp
+            -- MP for show alone (no entity gives it); both only from an owner in their zone, so current.
             t.shared_hpp = m.here and m.hpp or nil
-            -- MP for show alone (no entity gives it): their own file's is always current, another's while here.
-            local mp_now = w.own or m.here
-            t.shared_mpp, t.shared_mp = mp_now and m.mpp or nil, mp_now and m.mp or nil
+            t.shared_mpp, t.shared_mp = m.here and m.mpp or nil, m.here and m.mp or nil
         end
     end
 end

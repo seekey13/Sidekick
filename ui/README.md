@@ -118,10 +118,10 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `away` | bool | In another zone (its HP and MP are stale), or for a tracked player, out of range (its HP as last seen, or as another Sidekick session on this PC reads it) |
 | `tracked` | bool | You track this player: every `'tracked'` line, and a member who joined your party or alliance while tracked (they are tracked again when they leave) |
 | `shared` | string or nil | A tracked player another Sidekick session on this PC lists (its party): that session's character name. Tracked while it lists them; untracked by hand, they stay off until tracked again |
-| `hpp`, `mpp` | number | HP and MP, 0 to 100 |
+| `hpp`, `mpp` | number | HP and MP, 0 to 100. A tracked player's MP only from a session file (`uses_mp`), for show: automation never acts on it |
 | `tp` | number | TP, 0 to 3000. Never a tracked player's: their TP can't be read (0). The standard HUD draws it as a bar of three parts, 1000 TP each, under the MP bar (under the HP bar when the MP bar is left out: `ui.hide_mp`), with `tag` on it |
 | `hp` | string | `'ok'`, `'low'` (under the danger line) or `'critical'` (under the critical line); the focus member's own lines for them |
-| `uses_mp` | bool | It has MP: yours when your max MP is over 0; another member's when its main job or its sub job (at a level over 0) has MP (WHM, BLM, RDM, PLD, DRK, SMN, BLU, SCH, GEO, RUN), at 0 MP too, or once it has been seen with MP on its current jobs; the alliance's once seen with MP. Never a tracked player's: their MP can't be read (`mpp` is 0) |
+| `uses_mp` | bool | It has MP: yours when your max MP is over 0; another member's when its main job or its sub job (at a level over 0) has MP (WHM, BLM, RDM, PLD, DRK, SMN, BLU, SCH, GEO, RUN), at 0 MP too, or once it has been seen with MP on its current jobs; the alliance's once seen with MP. A tracked player's only while a Sidekick session's file gives their MP (see `shared`): when it shows MP over 0, or their main job or sub job has MP; else never (`mpp` is 0) |
 | `mp` | string | `'low'` when it uses MP and is under the Recover MP line (`view.recover.mp`), else `'ok'` |
 | `dist` | string | `''` for you, `'away'`, or like `'12.3y'` |
 | `buffs` | string | Its statuses, the first 6 by name and `'+N'` for the rest |

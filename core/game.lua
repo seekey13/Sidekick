@@ -10,7 +10,8 @@
     unit = { slot, sid, tidx, name, kind = 'self'|'party'|'trust'|'alliance'|'tracked', hpp, hp, max_hp,
              immune (a trust that can't be hurt: Moogle, Sakura, Kupofried...; core/engine.lua hides it from behaviors),
              mpp, mp, tp, uses_mp (yours: max MP > 0; your party's: a job with MP, main or
-             sub, or seen with MP on these jobs; the alliance's: seen with MP),
+             sub, or seen with MP on these jobs; the alliance's: seen with MP; a tracked
+             player's: a session file's MP over 0, or a job with MP, while a file gives it),
              max_known (max_hp is real: yours, or seen at full HP with no Weakness or Curse, and HP% agrees),
              jobs = { main, main_lv, sub, sub_lv } (you and your party's players),
              in_zone, dist, pos = { x, y, z },
@@ -25,7 +26,8 @@
              `bt`'s, { sid, tidx, name, hpp, dist, pos, status }, its HP % alone; never one at 0%) }
     Slots: 0 you, 1-5 your party, 6-11 and 12-17 the alliance's other parties
     (kind 'alliance', their statuses from packets as a trust's).
-    A tracked player has no slot and no MP; in_zone while the client draws them
+    A tracked player has no slot, and MP only as a session file says (for show:
+    behaviors/recover.lua leaves them be); in_zone while the client draws them
     (in range; out of it, their HP and status as last seen, or as a session file
     says), max_hp from a session file, else estimated from their /check level (else
     yours), and main, main_lv, sub, sub_lv once a /check or a session file has
