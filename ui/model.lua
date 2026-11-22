@@ -619,12 +619,15 @@ local function casting(g, e)
 end
 
 -- What was just sent, while it lands: for POINTED seconds, or while it is still
--- being cast up to POINTED_CAST; nil when stopped. The HUD points at it once the
+-- being cast up to POINTED_CAST; nil when stopped. Resting's Rest stays while you
+-- rest, until you stand: nothing else runs till then (core/engine.lua), so the HUD
+-- (and another session's, for an alt) says why. The HUD points at it once the
 -- decision is gone, and the session file lists it for the others' (core/share.lua).
 function model.landing(status, g)
     local last = status.running and status.sent[1]
     local age = last and g.now - last.at
     if age and (age < POINTED or age < POINTED_CAST and casting(g, last)) then return last end
+    if last and g.resting and last.behavior == 'rest' and last.action == 'Rest' then return last end
 end
 
 -- Where action `e` goes: its target's line, else the line given (`member` in

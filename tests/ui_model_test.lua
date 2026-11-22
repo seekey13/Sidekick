@@ -747,6 +747,18 @@ test('landing: the last send for a moment, or while it is cast; nothing while st
     eq(model.landing(status({ running = true, sent = { e } }), g), nil)
 end)
 
+test('landing: resting\'s Rest stays until you stand, while running; not a rest of your own, nor once stopped', function ()
+    local rest = { at = 900, action = 'Rest', behavior = 'rest', why = 'MP 30%', command = '/heal on' }
+    local g = fake.snap(nil, { resting = true })
+    eq(model.landing(status({ running = true, sent = { rest } }), g), rest)
+    eq(build(whm, nil, g, status({ running = true, sent = { rest } })).pointer.text, 'Rest:Rest')
+    eq(model.landing(status({ sent = { rest } }), g), nil)  -- stopped
+    g.resting = false  -- stood up
+    eq(model.landing(status({ running = true, sent = { rest } }), g), nil)
+    g.resting = true  -- sat down by hand after something else was sent
+    eq(model.landing(status({ running = true, sent = { { at = 900, action = 'Cure', behavior = 'heal' } } }), g), nil)
+end)
+
 test('view.themes: a copy of Sidekick.lua\'s, or none; act.theme hands the key to it, no setting written', function ()
     local th = { current = 'window', list = { { key = 'window', name = 'Standard', standard = true },
                                               { key = 'classic', name = 'Classic', file = 'ui/classic.lua' } } }
