@@ -276,6 +276,19 @@ test('auto-track: a player two sessions list comes from their own session\'s fil
     reset()
 end)
 
+test('auto-track: with no file of their own, one from an owner in their zone over the first by name', function ()
+    reset()
+    local live = { A = session('A', 1, { member(500, 'A'), member(700, 'Out', { here = false, mpp = 10 }) }),
+                   B = session('B', 1, { member(600, 'B'), member(700, 'Out', { hpp = 30, mpp = 60 }) }) }
+    share.sync(live, {}, 0)
+    local t = tracked.find(700)
+    eq({ t.auto, t.shared_hpp, t.shared_mpp }, { 'B', 30, 60 })
+    live.A.members[2].here = true  -- both in their zone: the first by name again
+    share.sync(live, {}, 1)
+    eq({ t.auto, t.shared_mpp }, { 'A', 10 })
+    reset()
+end)
+
 test('a player a session lists can be found by name, in any case, out of sight', function ()
     local live = { Box = session('Box', 1, { member(500, 'Box'), member(501, 'Mate') }) }
     eq(share.named(live, 'mate'), { sid = 501, name = 'Mate' })

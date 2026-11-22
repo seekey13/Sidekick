@@ -270,7 +270,8 @@ end
 -- hitch or a short roster doesn't forget a party's statuses. `listed` = { [sid] = true }:
 -- you, your party and alliance, never tracked from a file; one dropped at once for
 -- joining them keeps the statuses seen on them. A player several files list is taken from their own
--- session's file, else the first owner by name, so the owner stays put.
+-- session's file, else the first owner by name in their zone (so current), else the first by name:
+-- the owner stays put while that holds.
 function share.sync(live, listed, now)
     local owners = {}
     for owner in pairs(live) do owners[#owners + 1] = owner end
@@ -279,7 +280,8 @@ function share.sync(live, listed, now)
     for _, owner in ipairs(owners) do
         for i, m in ipairs(live[owner].members) do
             local w = wanted[m.sid]
-            if not listed[m.sid] and (not w or i == 1 and not w.own) then
+            local better = not w or not w.own and (i == 1 or m.here and not w.m.here)
+            if not listed[m.sid] and better then
                 wanted[m.sid] = { m = m, owner = owner, own = i == 1 }
             end
         end

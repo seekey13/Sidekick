@@ -307,13 +307,22 @@ local function pet_card(dl, ui, l, x, y, chrome)
     kit.halo(dl, tx + 6, tp_top + (th - sh) / 2, p.tag, slot_color(p), font, ts)
 end
 
+-- A row's MP strip (`l.mp_strip`: a tracked player a session file gives MP for): its height, and its gap under the HP
+-- bar, a third of that bar's height, at least 3 pixels, and one pixel under it, so it reads as the row's, not the next.
+local STRIP_GAP = 1
+local function strip_height(ui) return math.max(3, math.floor(ui.ally_hp_height / 3)) end
+
 -- An alliance member's or tracked player's row, line `l`, its bar's top at `top`: a thin HP bar with the slot
--- (`ui.show_slot`) and the name on it, the name coloured as a card's, its HP % only in its tooltip. Only HP: a tracked
--- player's MP and TP can't be read.
+-- (`ui.show_slot`) and the name on it, the name coloured as a card's, its HP % only in its tooltip; under it a thin
+-- MP strip for a tracked player a session file gives MP for (`l.mp_strip`). No TP: a tracked player's can't be read.
 local function row(dl, ui, l, x, top, chrome)
     local p, ts, h = l.p, ui.ally_text_size, ui.ally_hp_height
     local fx, font, name = x + HUD_PAD, kit.fonts.semi, game_text(p.name)
-    bar(dl, 'hp.' .. l.id, fx, top, ui.ally_hp_width, h, p.hpp, P.hp, p.away and 0.45 or 1, chrome)
+    local fade = p.away and 0.45 or 1
+    bar(dl, 'hp.' .. l.id, fx, top, ui.ally_hp_width, h, p.hpp, P.hp, fade, chrome)
+    if l.mp_strip then
+        bar(dl, 'mp.' .. l.id, fx, top + h + STRIP_GAP, ui.ally_hp_width, strip_height(ui), p.mpp, P.mp, fade, chrome)
+    end
     local nx = fx + 6
     if ui.show_slot then
         local _, th = kit.measure(p.tag, font, ts)
@@ -411,14 +420,15 @@ end
 -- its owner's (`pet`, its line, with its owner's `member`): yours (view.pet), and another session's (its line's
 -- `pet`), drawn from a line of the same shape tagged PET; then a row (`row`) for each of the alliance (`ally`, its
 -- index in view.alliance), B0-B5 then C0-C5, then for each tracked player (`member`), a pet of theirs under it.
--- `group` keeps a party's rows together; `id` keeps the eased fills apart, two sessions' Carbuncles too. `no_mp`: its
+-- `group` keeps a party's rows together; `id` keeps the eased fills apart, two sessions' Carbuncles too. `mp_strip`: a
+-- tracked player's row has an MP strip, as a session file gives their MP (uses_mp). `no_mp`: its
 -- MP bar is left out (`ui.hide_mp`), as it has no MP (0/0); not that of another session's pet its file doesn't name
 -- yet: it can't be read, and stays empty.
 local function lines_of(view)
     local out, hide = {}, view.ui.hide_mp ~= false
     local function add(i, p, row_of)
         out[#out + 1] = { p = p, id = p.name, member = i, row = row_of ~= nil, group = row_of,
-                          no_mp = not row_of and hide and not p.uses_mp }
+                          no_mp = not row_of and hide and not p.uses_mp, mp_strip = row_of ~= nil and p.uses_mp }
         local pet = i == 1 and view.pet or p.pet
         if pet then
             out[#out + 1] = { p = { name = pet.name, tag = 'PET', hpp = pet.hpp, mpp = pet.mpp, tp = pet.tp },
@@ -439,9 +449,12 @@ local function lines_of(view)
 end
 
 -- Line `l`'s HP bar's size, and its height: a card's three bars (two with its MP bar left out), a pet's by Pet's
--- settings, a row's one.
+-- settings, a row's one (and its MP strip).
 local function line_size(ui, l)
-    if l.row then return ui.ally_hp_width, ui.ally_hp_height, ui.ally_hp_height end
+    if l.row then
+        local h = ui.ally_hp_height
+        return ui.ally_hp_width, h, h + (l.mp_strip and STRIP_GAP + strip_height(ui) or 0)
+    end
     local w, hp, mp, tp = ui.hp_width, ui.hp_height, ui.mp_height, ui.tp_height
     if l.pet then w, hp, mp, tp = ui.pet_hp_width, ui.pet_hp_height, ui.pet_mp_height, ui.pet_tp_height end
     return w, hp, hp + BAR_GAP + (l.no_mp and 0 or mp + BAR_GAP) + tp
