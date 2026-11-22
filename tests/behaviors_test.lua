@@ -153,6 +153,12 @@ test('recover: Devotion with a target not in your party goes on whoever is lowes
     eq(decide(g, cfg, cat), '/ja "Devotion" 102')  -- tracked
 end)
 
+test('recover: a tracked player\'s MP from a session file is for show: never Devotion\'s lowest', function ()
+    local cat = fake.catalog(WHM, 75, nil, 0, { 'Devotion' })
+    local g = snap({ { name = 'A', mpp = 25 }, { name = 'Out', kind = 'tracked', mpp = 1, mp = 10, uses_mp = true } })
+    eq(decide(g, cfg_with({}), cat), '/ja "Devotion" 101')
+end)
+
 test('recover: Meditate in combat under the TP line; Chivalry from its own TP line', function ()
     local sam = fake.catalog(SAM, 75, nil, 0, { 'Meditate' })
     eq(decide(snap(nil, { combat = true }), nil, sam), '/ja "Meditate" <me>')

@@ -14,12 +14,13 @@ local settings = require('core.settings')
 local util = require('core.util')
 
 -- The member under the MP line with the least, that `a` can reach: only `only` when
--- it names one, in any case, as focus and Entrust are ('' for anyone).
+-- it names one, in any case, as focus and Entrust are ('' for anyone). Never a tracked
+-- player: the MP a session file gives them is for show.
 local function drained(a, g, line, only)
     only = only:lower()
     local pick
     for _, u in ipairs(g.units) do
-        if u.kind ~= 'self' and (only == '' or u.name:lower() == only) and u.uses_mp and u.mpp < line and can.reach(a, u)
+        if u.kind ~= 'self' and u.kind ~= 'tracked' and (only == '' or u.name:lower() == only) and u.uses_mp and u.mpp < line and can.reach(a, u)
             and (not pick or u.mpp < pick.mpp) then
             pick = u
         end

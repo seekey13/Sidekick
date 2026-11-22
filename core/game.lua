@@ -350,7 +350,7 @@ local function relocate(em, now, listed)
     end
 end
 
--- A tracked player as a unit. Only HP % can be read, so HP comes from the max
+-- A tracked player as a unit. Only HP % can be read (MP only from a session file), so HP comes from the max
 -- estimated by level, or yours while the level is unknown (/anon, no /check).
 -- Out of range, their HP and status are as last seen, as a member's in another zone.
 local function tracked_unit(em, t, me, now)
@@ -365,6 +365,10 @@ local function tracked_unit(em, t, me, now)
         t.hpp, t.status = t.shared_hpp, nil
     end
     u.hpp, u.status = t.hpp or 0, t.status
+    if t.shared_mpp then  -- a session file's, for show (behaviors/recover.lua leaves tracked players be)
+        u.mpp, u.mp = t.shared_mpp, t.shared_mp or 0
+        u.uses_mp = u.mp > 0 or MP_JOBS[t.main] == true or (t.sub_lv or 0) > 0 and MP_JOBS[t.sub] == true
+    end
     u.max_hp = t.max_hp or t.main_lv and tracked.max_hp(t.main_lv) or me.max_hp
     u.hp = u.max_hp and math.floor(u.max_hp * u.hpp / 100) or 0
     u.alive = u.hpp > 0 and u.status ~= DEAD
