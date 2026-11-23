@@ -279,7 +279,7 @@ test('only a spell\'s id names a duration', function ()
     eq(buffs.of(TRUST, 50), { [POISON] = true })
 end)
 
-test('a spell landing with a known duration times it for the HUD, on a party player too; automation\'s stays its own', function ()
+test('a spell landing with a known duration times it for the HUD, on a party player too, and a trust\'s for automation', function ()
     local PARTY = 0x2000
     buffs.clear()
     local c = ctx({ [43] = 1800 })  -- Protect: a spell of yours
