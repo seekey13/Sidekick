@@ -547,6 +547,7 @@ local function card(dl, ui, l, x, y, chrome)
     end
     tp_bar(dl, 'tp.' .. id, fx + ui.tp_offset, tp_top, ui.tp_width, ui.tp_height, p.tp, fade, chrome)
     local font, name = kit.fonts.semi, game_text(p.name)
+    if l.icon then name = kit.fit(name, l.bar_w - 16 - 2 * l.icon, font, ui.name_size) end  -- ends 4 short of run
     local _, nh = kit.measure(name, font, ui.name_size)
     kit.halo(dl, fx + 6, y + ui.hp_height - nh, name, name_color(p), font, ui.name_size)
     if not ui.show_slot then return end

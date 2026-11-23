@@ -92,8 +92,8 @@ local function uses(K, name, family, kind)
 end
 
 -- Every spell's base duration in seconds, where the knowledge gives one (Protect, Haste, Regen, songs, storms...),
--- whoever casts it: { [spell id] = seconds }. The HUD's timers for others' buffs go by it (core/packets.lua: `known`);
--- automation goes by your catalog's alone.
+-- whoever casts it: { [spell id] = seconds }. Where your catalog has none for a spell seen landing (core/packets.lua:
+-- `known`), the statuses read from packets last by it, and the HUD's timers for others' buffs go by it.
 function catalog.durations(res, K)
     local out = {}
     for id, s in pairs(res.spells) do

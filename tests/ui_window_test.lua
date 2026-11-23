@@ -1399,6 +1399,20 @@ test('buff icons: where run and the cog are at the row\'s height, yours stop sho
     eq(row(), { 11 + 11, false, false })
 end)
 
+test('a name on a card with run and the cog ends short of them; on another card it runs on', function ()
+    close_settings()
+    local cfg, st = bars_only(), status()
+    local long = 'Abcdefghijklmno'
+    local g = fake.snap({ { name = long } })
+    g.units[1].name = long
+    cfg.ui.hp_width = 160
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    -- Run from 108 + 160 - 6 - 34 = 228: yours, from 114, ends by 224; A's, with no buttons, whole.
+    local yours = kit.fit(long, 160 - 16 - 34, kit.fonts.semi, cfg.ui.name_size)
+    eq({ yours ~= long, drew(yours), drew(long) }, { true, true, true })
+    eq(114 + kit.measure(yours, kit.fonts.semi, cfg.ui.name_size) <= 224, true)
+end)
+
 test('buff icons: a time taller than its icon is kept clear of the title row too', function ()
     close_settings()
     local cfg, g = settings.defaults(), fake.snap({})

@@ -178,14 +178,15 @@ function packets.action(p, ctx, now)
             elseif GAINS_028[r.message] then
                 -- Only a spell's id names a catalog duration; an ability's or TP move's doesn't.
                 local spell = p.category == SPELL_FINISH
-                -- How long yours lasts as it lands, when a job module knows (core/jobs.lua: `lasts`): a song twice
-                -- as long under Troubadour (jobs/brd.lua).
-                local lasts = mine and jobs.first('lasts', mine, ctx) or spell and ctx.duration(p.param) or nil
+                -- How long it lasts as it lands: yours as a job module knows it (core/jobs.lua: `lasts`: a song
+                -- twice as long under Troubadour, jobs/brd.lua), else as your catalog has it, else by its base
+                -- duration whoever cast it (a trust's Protectra: core/catalog.lua's durations), else not known
+                -- (buffs.DEFAULT_SECONDS for automation, and no time on the HUD).
+                local lasts = mine and jobs.first('lasts', mine, ctx)
+                    or spell and (ctx.duration(p.param) or ctx.known and ctx.known(p.param)) or nil
                 local song = mine and mine.role == 'song'
                 if tracked then buffs.gain(t.id, r.param, now, lasts, song) end
-                -- When it ends, for the HUD: by any spell's base duration, whoever cast it.
-                local ends = lasts or spell and ctx.known and ctx.known(p.param) or nil
-                if ends and (tracked or (ctx.timed or {})[t.id]) then buffs.timed(t.id, r.param, now, ends, song) end
+                if lasts and (tracked or (ctx.timed or {})[t.id]) then buffs.timed(t.id, r.param, now, lasts, song) end
                 if key and spell then observed.landed(key, t.id, now) end
                 if mine then landed[#landed + 1] = t.id end
             elseif LOSES_028[r.message] and tracked then

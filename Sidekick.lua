@@ -135,7 +135,7 @@ local packet_ctx = {
         local a = cat.by_spell[spell_id]
         return a and a.duration
     end,
-    known = function (spell_id)  -- for the HUD's timers on others' buffs alone
+    known = function (spell_id)  -- any spell's, whoever casts it: where yours (duration) has none
         durations = durations or catalog.durations(resources.load(), knowledge)
         return durations[spell_id]
     end,
