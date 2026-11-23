@@ -395,12 +395,10 @@ end
 -- edge, from its left, the closest to wearing off first, `ui.buff_size` across and `GAP` apart, their middles
 -- `ui.buff_offset` above that edge (into the bar below 0); on each the time it has left: yours (ui.buff_timers), and
 -- with ui.buff_party_timers others' where known, an estimate. Drawn last of the HUD, over the bars, the names, run and
--- the cog; a tooltip, a window of its own, still goes over them. They sit in a dark box, `PAD` round them, in which the
--- last place says how many more there are (+N) once they're past the bar's end; with the mouse on it, the box opens out
--- to show them all (buffrow.window). One table, as hpbar is.
+-- the cog; a tooltip, a window of its own, still goes over them. Once they're past the bar's end the last place says how
+-- many more there are (+N), and its tooltip shows them all, each icon with its time. `PAD` is kept clear round the
+-- row: your card comes down for it to clear the title row by that much. One table, as hpbar is.
 local buffrow = { icons = require('core.icons'), GAP = 2, PAD = 2, KINDS = { self = true, party = true, trust = true } }
--- buffrow.more: the row whose box opens out this frame, drawn once the HUD's window is done (buffrow.window);
--- buffrow.open: the `key` of the one open, kept while the mouse is on it.
 
 -- Seconds as the largest whole unit, the rest dropped: 3h, 25m, 47s (never 0m 32s).
 function buffrow.left(sec)
@@ -416,19 +414,11 @@ function buffrow.on(ui, l)
     return ui.buff_icons and not l.row and not l.pet and buffrow.KINDS[l.p.kind] == true
 end
 
--- How far a row's box reaches above its bar's top, and below it (0 when it doesn't): from the settings alone, so a
--- card stays put as statuses come and go.
+-- How far a row reaches above its bar's top, and below it (0 when it doesn't), with `PAD` round it: from the settings
+-- alone, so a card stays put as statuses come and go.
 function buffrow.reach(ui)
     local half = ui.buff_size / 2 + buffrow.PAD
     return math.max(0, math.ceil(ui.buff_offset + half)), math.max(0, math.ceil(half - ui.buff_offset))
-end
-
--- The box behind `cols` places by `rows`, each s across, the first's top-left at (x, top): the dark of the bars' own
--- background, `PAD` round them.
-function buffrow.box(dl, x, top, cols, rows, s)
-    local gap, pad = buffrow.GAP, buffrow.PAD
-    kit.fill(dl, x - pad, top - pad, cols * (s + gap) - gap + 2 * pad, rows * (s + gap) - gap + 2 * pad, BAR_OFF,
-        math.min(ROUND, math.floor(s / 4) + pad), 0.75)
 end
 
 -- The seconds status `it` has left, as the row goes by them: yours always (the client's own timers), another's estimate
@@ -476,9 +466,8 @@ function buffrow.icon(dl, it, x, y, s)
     kit.outline(dl, x, y, s, s, BAR_OFF, r, BAR_EDGE_A)
 end
 
--- Status `it`'s place, s across at (x, top): its icon, its time on it (buffrow.shown) and, under the mouse, its tooltip.
--- Hovered by the mouse alone (no item: dragging the HUD by an icon still moves it).
-function buffrow.cell(dl, ui, it, x, top, s)
+-- Status `it`'s icon, s across at (x, top), with its time on it (buffrow.shown).
+function buffrow.paint(dl, ui, it, x, top, s)
     buffrow.icon(dl, it, x, top, s)
     local text = buffrow.shown(ui, it)
     if text then
@@ -486,12 +475,23 @@ function buffrow.cell(dl, ui, it, x, top, s)
         local tw, th = kit.measure(text, font, px)
         kit.halo(dl, x + (s - tw) / 2, top + s - th, text, P.white, font, px)
     end
-    if kit.over(x, top, s, s) then kit.tooltip(buffrow.tip(ui, it)) end
 end
 
--- Line `l`'s row, its HP bar's left at x and its top at y, in its box. As many as fit across the bar; past that, the
--- last place says how many more (+N), and with the mouse on it (or on the box it opened, buffrow.open) the box opens
--- out to show them all: buffrow.more, for buffrow.window.
+-- The +N's tooltip: every status in `list`, each icon with its time on it, `cols` to a line as the row has them.
+function buffrow.all(ui, list, cols)
+    local s, gap = ui.buff_size, buffrow.GAP
+    cols = math.min(cols, #list)
+    local rows = math.ceil(#list / cols)
+    kit.tooltip_draw(function (dl, x, y)
+        for i, it in ipairs(list) do
+            buffrow.paint(dl, ui, it, x + (i - 1) % cols * (s + gap), y + math.floor((i - 1) / cols) * (s + gap), s)
+        end
+    end, cols * (s + gap) - gap, rows * (s + gap) - gap)
+end
+
+-- Line `l`'s row, its HP bar's left at x and its top at y. As many as fit across the bar; past that, the last place
+-- says how many more (+N), and its tooltip shows them all. Hovered by the mouse alone (no item: dragging the HUD by an
+-- icon still moves it): each icon's tooltip its name and time.
 function buffrow.draw(dl, ui, l, x, y)
     local list = l.p.statuses
     if not (list and list[1]) then return end
@@ -500,17 +500,17 @@ function buffrow.draw(dl, ui, l, x, y)
     local fit = math.max(1, math.floor((l.bar_w + gap) / (s + gap)))
     local shown = #list > fit and fit - 1 or #list
     local top = math.floor(y - ui.buff_offset - s / 2)
-    buffrow.box(dl, x, top, math.min(#list, fit), 1, s)
-    for i = 1, shown do buffrow.cell(dl, ui, list[i], x + (i - 1) * (s + gap), top, s) end
+    for i = 1, shown do
+        local ix = x + (i - 1) * (s + gap)
+        buffrow.paint(dl, ui, list[i], ix, top, s)
+        if kit.over(ix, top, s, s) then kit.tooltip(buffrow.tip(ui, list[i])) end
+    end
     if shown == #list then return end
     local ix, more = x + shown * (s + gap), '+' .. (#list - shown)
     local font, px = kit.fonts.semi, math.max(8, math.floor(s * 0.5))
     local mw, mh = kit.measure(more, font, px)
     kit.halo(dl, ix + (s - mw) / 2, top + (s - mh) / 2, more, P.white, font, px)
-    local over = kit.over(ix, top, s, s)
-    if over or buffrow.open == l.id then
-        buffrow.more = { key = l.id, x = x, top = top, list = list, ui = ui, cols = fit, over = over }
-    end
+    if kit.over(ix, top, s, s) then buffrow.all(ui, list, fit) end
 end
 
 -- A member's card, line `l`, at (x, y): the HP bar over the MP bar over the TP bar, the MP and TP bars each its
@@ -798,7 +798,7 @@ local function draw_hud(view)
     local ph = math.max(below, clear - BAR_GAP, low) + HUD_PAD
     -- The panel is solid while the mouse is over the window (last frame's rect, as IsWindowHovered reads it) and gone
     -- off it. The bars stay.
-    local chrome = kit.ease('chrome', (imgui.IsWindowHovered() or buffrow.open) and 1 or 0)
+    local chrome = kit.ease('chrome', imgui.IsWindowHovered() and 1 or 0)
     kit.fill(dl, x0, y0, pw, ph, P.bg, 6, chrome)
     kit.outline(dl, x0, y0, pw, ph, P.border, 6, chrome)
     title_row(dl, view, ui.text_size, x0, y0, pw, th, s, chrome)
@@ -2273,40 +2273,6 @@ local function add_window(at)
     if not ok then return err end
 end
 
--- A row's box opened out (buffrow.more, from buffrow.draw), in a window of its own put on it each frame and just its
--- size, as Add Tracked's is: the HUD's window would cut it off at its edge. Every status, as many to a line as the row
--- holds, the first line where the row is and the rest going down over the card, each with its time and tooltip. Up
--- while the mouse is on it or on the row's +N (buffrow.open). Returns the error it raised.
-function buffrow.window(more)
-    local s, gap, pad, n = more.ui.buff_size, buffrow.GAP, buffrow.PAD, #more.list
-    local cols, rows = math.min(more.cols, n), math.ceil(n / more.cols)
-    local x, y = math.floor(more.x - pad), math.floor(more.top - pad)
-    local w, h = cols * (s + gap) - gap + 2 * pad, rows * (s + gap) - gap + 2 * pad
-    imgui.SetNextWindowPos({ x, y }, ImGuiCond_Always)
-    imgui.SetNextWindowSize({ w, h }, ImGuiCond_Always)
-    local vars = kit.push_style(NO_COLOURS, ImGuiStyleVar_WindowPadding, { 0, 0 }, ImGuiStyleVar_WindowBorderSize, 0,
-        ImGuiStyleVar_WindowMinSize, { 1, 1 }, ImGuiStyleVar_WindowRounding, 0)
-    local shown = imgui.Begin('Sidekick Buffs', true, ADD_FLAGS)
-    kit.pop_style(NO_COLOURS, vars)
-    local ok, err, hovered = true, nil, false
-    if shown then
-        ok, err = pcall(function ()
-            local dl = imgui.GetWindowDrawList()
-            buffrow.box(dl, x + pad, y + pad, cols, rows, s)
-            for i, it in ipairs(more.list) do
-                local c, r = (i - 1) % more.cols, math.floor((i - 1) / more.cols)
-                buffrow.cell(dl, more.ui, it, x + pad + c * (s + gap), y + pad + r * (s + gap), s)
-            end
-            imgui.SetCursorScreenPos({ x, y })
-            imgui.Dummy({ w, h })  -- its whole size, for the auto-size
-        end)
-        hovered = imgui.IsWindowHovered()
-    end
-    imgui.End()
-    buffrow.open = (more.over or hovered) and more.key or nil
-    if not ok then return err end
-end
-
 local function settings_window(view)
     local open = { true }
     local err = settings_shell('Sidekick Settings', open, 0, function (x, y, side, pw, ph)
@@ -2358,12 +2324,9 @@ function window.render(view, act_)
     local err
     if open then
         kit.prefix = 'hud|'
-        hud_add, buffrow.more = nil, nil
+        hud_add = nil
         err = panel('Sidekick', HUD_FLAGS, draw_hud, view)
         if hud_add then err = add_window(hud_add) or err end
-        if buffrow.more then err = buffrow.window(buffrow.more) or err else buffrow.open = nil end
-    else
-        buffrow.open = nil
     end
     if view.ui.widget then
         kit.prefix = 'widget|'

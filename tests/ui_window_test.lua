@@ -1238,7 +1238,7 @@ local function text_at(s)
     return pos
 end
 
--- Whether a row's box was drawn w by h from (x, y): the bars' near-black, at 75%.
+-- Whether a box was drawn w by h from (x, y) in the bars' near-black at 75%, as a row's once was.
 local function backed(x, y, w, h)
     for _, d in ipairs(calls('AddRectFilled')) do
         local a, b = d.args[1], d.args[2]
@@ -1249,7 +1249,7 @@ local function backed(x, y, w, h)
     return false
 end
 
-test('buff icons straddle each party card\'s HP bar top from its left, in a dark box; none on a pet\'s card or a row', function ()
+test('buff icons straddle each party card\'s HP bar top from its left; none on a pet\'s card or a row', function ()
     close_settings()
     local g = fake.snap({ { name = 'A', icons = { { id = 40 }, { id = 41 } } },
                           { name = 'B', kind = 'trust', buffs = { [43] = true, [33] = true } },
@@ -1257,10 +1257,9 @@ test('buff icons straddle each party card\'s HP bar top from its left, in a dark
                           { kind = 'tracked', name = 'T', buffs = { [45] = true } } },
                         { pet = { name = 'Carbuncle', hpp = 100, dist = 2, uses_mp = true, buffs = { [46] = true } } })
     g.units[1].icons = { { id = 34 }, { id = 33 } }
-    -- 16px, 2 apart, their middles on the HP bar's top edge (x 108), in a box 2 round them. Your card comes down 10
-    -- from the title row's 25 for its row's box to clear it (8 of its icons over the bar, 2 of box): from y 85. Your
-    -- pet's card 4 under yours (60 high), A's 8 under it, B's 8 under A's (each card 72 high). B's by id: a trust's
-    -- statuses come in no order.
+    -- 16px, 2 apart, their middles on the HP bar's top edge (x 108). Your card comes down 10 from the title row's 25
+    -- for its row to clear it by 2 (8 of its icons over the bar): from y 85. Your pet's card 4 under yours (60 high),
+    -- A's 8 under it, B's 8 under A's (each card 72 high). B's by id: a trust's statuses come in no order.
     local me = 50 + 25 + 10
     local a = me + 72 + 4 + 60 + 8
     local b = a + 72 + 8
@@ -1269,7 +1268,7 @@ test('buff icons straddle each party card\'s HP bar top from its left, in a dark
         { 40, { 108, a - 8 }, { 124, a + 8 } }, { 41, { 126, a - 8 }, { 142, a + 8 } },
         { 33, { 108, b - 8 }, { 124, b + 8 } }, { 43, { 126, b - 8 }, { 142, b + 8 } } })
     eq({ hp_fill(108, me) ~= nil, hp_fill(108, a) ~= nil, hp_fill(108, b) ~= nil }, { true, true, true })
-    eq({ backed(106, me - 10, 38, 20), backed(106, a - 10, 38, 20), backed(106, b - 10, 38, 20) }, { true, true, true })
+    eq({ backed(106, me - 10, 38, 20), backed(106, a - 10, 38, 20) }, { false, false })  -- no box behind them
     local cfg = settings.defaults()
     cfg.ui.buff_icons = false
     eq({ buff_hud(cfg, g), hp_fill(108, 75) ~= nil }, { {}, true })  -- off: your card up under the title row
@@ -1350,29 +1349,21 @@ test('buff icons: Party buff timers draws a party member\'s known times too, and
     eq({ tipped('Haste  ~2m'), tipped('Haste') }, { false, true })
 end)
 
-test('buff icons: past the bar\'s end the last place counts the rest; on it, the box opens out to show them all', function ()
+test('buff icons: past the bar\'s end the last place counts the rest; its tooltip shows them all, each with its time', function ()
     close_settings()
     local cfg, g = settings.defaults(), fake.snap({})
     g.units[1].icons = {}
-    for id = 40, 59 do g.units[1].icons[#g.units[1].icons + 1] = { id = id } end
-    -- 220 across holds 12 of 16 (and 2 between): 11 icons, then +9, in a box 12 places long.
+    for id = 40, 59 do g.units[1].icons[#g.units[1].icons + 1] = { id = id, left = id == 59 and 47 or nil } end
+    -- 220 across holds 12 of 16 (and 2 between): 11 icons, the one with a time first, then +9.
     local drawn = buff_hud(cfg, g)
-    eq({ #drawn, drawn[11][1], drawn[11][2], drew('+9'), backed(106, 75, 12 * 18 - 2 + 4, 20), begun('Sidekick Buffs') },
-       { 11, 50, { 108 + 10 * 18, 77 }, true, true, false })
-    -- The mouse on it: the box opens out where the row is, 12 to a line, the rest going down over the card, in a window
-    -- of its own just its size (the HUD's would cut it off). Each icon there has its own tooltip: the last shows.
+    eq({ #drawn, drawn[1][1], drawn[11][1], drawn[11][2], drew('+9') }, { 11, 59, 49, { 108 + 10 * 18, 77 }, true })
+    -- The pointer on it: its tooltip, drawn, in place of the card's: all 20, 12 to a line as the row has them, from the
+    -- tooltip's inside (the fake's cursor, 100, 50), each with its time.
     drawn = buff_hud(cfg, g, { over = true })
-    eq({ #drawn, begun('Sidekick Buffs'), frame.window_pos, frame.window_size, backed(106, 75, 218, 38) },
-       { 11 + 20, true, { 106, 75 }, { 218, 38 }, true })
-    eq({ drawn[11 + 12], drawn[11 + 13] },
-       { { 51, { 108 + 11 * 18, 77 }, { 108 + 11 * 18 + 16, 93 } }, { 52, { 108, 95 }, { 124, 111 } } })
-    eq(frame.tips[#frame.tips], fake.res.statuses[59] and fake.res.statuses[59].en or '59')
-    -- Open while the mouse is on it (the fake hovers every window), off it the next frame after it leaves.
-    buff_hud(cfg, g)
-    eq(begun('Sidekick Buffs'), true)
-    buff_hud(cfg, g, { hover = false })
-    buff_hud(cfg, g)
-    eq(begun('Sidekick Buffs'), false)
+    eq({ #drawn, drawn[11 + 1], drawn[11 + 13], tipped('Me\nHP') },
+       { 11 + 20, { 59, { 100, 50 }, { 116, 66 } }, { 51, { 100, 68 }, { 116, 84 } }, false })
+    local w, h = kit.measure('47s', kit.fonts.semi, 10)
+    eq(text_at('47s'), { util.round(100 + (16 - w) / 2), util.round(66 - h) })
 end)
 
 test('buff icons: one under the pointer has its name, and on yours its time, in place of the card\'s tooltip', function ()
