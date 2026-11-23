@@ -588,8 +588,10 @@ local function line_size(ui, l)
     return w, hp, hp + BAR_GAP + (l.no_mp and 0 or mp + BAR_GAP) + tp
 end
 
--- Between lines `a` and `b`: a party's rows close together, a gap before and after them, `ui.gap` between cards.
+-- Between lines `a` and `b`: none above a pet's card (it sits right under its owner's line), a party's rows close
+-- together, a gap before and after them, `ui.gap` between cards.
 local function gap_between(ui, a, b)
+    if b.pet then return 0 end
     if a.row and b.row and a.group == b.group then return BAR_GAP end
     if a.row or b.row then return math.max(ui.gap, BAR_GAP) end
     return ui.gap
