@@ -337,6 +337,15 @@ test('zoning: from the zone-out until the zone-in settles, or a minute without i
     eq({ packets.zoning(259), packets.zoning(261), packets.zoning(262) }, { true, false, false })
 end)
 
+test('zoning drops the statuses pieced together from packets, but not the HUD\'s known durations', function ()
+    local PARTY = 0x2000
+    buffs.clear()
+    buffs.gain(TRUST, PROTECT, 100, 1800)
+    buffs.timed(PARTY, PROTECT, 100, 1800)
+    packets.handle({ id = 0x00A, data = '' }, ctx(), 110)
+    eq({ buffs.of(TRUST, 120), buffs.left(PARTY, PROTECT, 120) }, { {}, 1780 })
+end)
+
 test('the spell and ability lists are counted, and no other packet', function ()
     local before = packets.lists()
     for _, id in ipairs({ 0x0AC, 0x0AA, 0x0AB, 0x0AC }) do packets.handle({ id = id, data = '' }, ctx(), 0) end
@@ -393,6 +402,18 @@ test('a raw 0x028: tracked targets read past untracked ones, an auto-attack not 
         eq(packets.casting(11), true)
         packets.handle(raw_action(ME, SPELL, 0, { { MOB, { { 0, 0 } } } }), none, 12)
         eq({ packets.casting(13), packets.last_finish() }, { false, 12, true })
+    end)
+end)
+
+test('a raw 0x028: another\'s spell on a party player is read with nothing tracked, for the HUD\'s timers', function ()
+    local PARTY = 0x2000
+    with_bits(function ()
+        buffs.clear()
+        local c = ctx()
+        c.tracks, c.timed = {}, { [PARTY] = true }
+        c.known = function (spell) return ({ [57] = 180 })[spell] end  -- Haste
+        packets.handle(raw_action(STRANGER, SPELL, 57, { { MOB, { { 230, 33 } } }, { PARTY, { { 230, 33 } } } }), c, 10)
+        eq({ buffs.left(PARTY, 33, 20), buffs.left(MOB, 33, 20), buffs.of(PARTY, 20) }, { 170, nil, {} })
     end)
 end)
 

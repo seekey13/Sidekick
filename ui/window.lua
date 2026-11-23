@@ -80,7 +80,8 @@ local UI_SLIDERS = {
     { 'Buff icon size', 'buff_size', 8, 64, 'Pixels: each buff icon along the top of a party card\'s HP bar.' },
     { 'Buff icon height', 'buff_offset', -64, 64, 'Pixels: 0 centres the icons on the HP bar\'s top edge, half over '
         .. 'the bar. Above 0 raises them, up past the bar; below 0 lowers them into it.', 0 },
-    { 'Timer text size', 'buff_timer_size', 8, 32, 'Pixels: the time left on each of your own buffs.' },
+    { 'Timer text size', 'buff_timer_size', 8, 32,
+      'Pixels: the time on each buff\'s icon, and the count of those past the bar\'s end (+N).' },
 }
 local UI_SLIDER = {}  -- by key
 for _, l in ipairs(UI_SLIDERS) do UI_SLIDER[l[2]] = l end
@@ -394,8 +395,9 @@ end
 -- The buff icons (ui.buff_icons): a row of each party card's statuses (view.party[i].statuses) along its HP bar's top
 -- edge, from its left, the closest to wearing off first, `ui.buff_size` across and `GAP` apart, their middles
 -- `ui.buff_offset` above that edge (into the bar below 0); on each the time it has left: yours (ui.buff_timers), and
--- with ui.buff_party_timers others' where known, an estimate. Drawn last of the HUD, over the bars, the names, run and
--- the cog; a tooltip, a window of its own, still goes over them. Once they're past the bar's end the last place, on a
+-- with ui.buff_party_timers others' where known, an estimate. Drawn last of the HUD, over the bars and the names, and
+-- short of run and the cog where they're at its height; a tooltip, a window of its own, still goes over them. Once
+-- they're past the bar's end (or those buttons) the last place, on a
 -- dark square, says how many more there are (+N), and its tooltip lists those, each icon with its time and its name.
 -- `PAD` is kept clear round the row: your card comes down for it to clear the title row by that much. One table, as
 -- hpbar is.
@@ -416,10 +418,13 @@ function buffrow.on(ui, l)
 end
 
 -- How far a row reaches above its bar's top, and below it (0 when it doesn't), with `PAD` round it: from the settings
--- alone, so a card stays put as statuses come and go.
+-- alone, so a card stays put as statuses come and go. Its text counts too once it's taller than the icons: a time
+-- stands on its icon's bottom, the +N is centred on its place.
 function buffrow.reach(ui)
-    local half = ui.buff_size / 2 + buffrow.PAD
-    return math.max(0, math.ceil(ui.buff_offset + half)), math.max(0, math.ceil(half - ui.buff_offset))
+    local s = ui.buff_size
+    local _, th = kit.measure('0', kit.fonts.semi, ui.buff_timer_size)
+    local up, down = math.max(s / 2, th - s / 2) + buffrow.PAD, math.max(s / 2, th / 2) + buffrow.PAD
+    return math.max(0, math.ceil(ui.buff_offset + up)), math.max(0, math.ceil(down - ui.buff_offset))
 end
 
 -- The seconds status `it` has left, as the row goes by them: yours always (the client's own timers), another's estimate
@@ -495,7 +500,8 @@ function buffrow.rest(ui, rest)
     end, s + buffrow.NAME_GAP + math.ceil(w), #rest * (s + buffrow.LINE_GAP) - buffrow.LINE_GAP)
 end
 
--- Line `l`'s row, its HP bar's left at x and its top at y. As many as fit across the bar; past that, the last place
+-- Line `l`'s row, its HP bar's left at x and its top at y. As many as fit across the bar, short of run and the cog
+-- where they're at the row's height (a click there is theirs: the icons take none); past that, the last place
 -- says how many more (+N) on a dark square, at the timers' size, and its tooltip lists them. Hovered by the mouse alone
 -- (no item: dragging the HUD by an icon still moves it): each icon's tooltip its name and time.
 function buffrow.draw(dl, ui, l, x, y)
@@ -503,9 +509,10 @@ function buffrow.draw(dl, ui, l, x, y)
     if not (list and list[1]) then return end
     list = buffrow.sorted(ui, list)
     local s, gap = ui.buff_size, buffrow.GAP
-    local fit = math.max(1, math.floor((l.bar_w + gap) / (s + gap)))
+    local top, room = math.floor(y - ui.buff_offset - s / 2), l.bar_w
+    if l.icon and top < y + l.icon_dy + l.icon and top + s > y + l.icon_dy then room = l.bar_w - 6 - 2 * l.icon - gap end
+    local fit = math.max(1, math.floor((room + gap) / (s + gap)))
     local shown = #list > fit and fit - 1 or #list
-    local top = math.floor(y - ui.buff_offset - s / 2)
     for i = 1, shown do
         local ix = x + (i - 1) * (s + gap)
         buffrow.paint(dl, ui, list[i], ix, top, s)
@@ -1639,8 +1646,7 @@ local function draw_ui(view, pg)
         .. 'duration it knows (Protect, Shell, Haste, Refresh, Regen, songs, storms...). An estimate, by that spell\'s '
         .. 'base duration: gear or merits that lengthen it aren\'t counted, and once it runs out with the buff still on, '
         .. 'its time goes.')
-    size('buff_timer_size', no_icons or not (sizes.buff_timers or sizes.buff_party_timers)
-        and 'Needs Buff timers or Party buff timers on.' or nil)
+    size('buff_timer_size', no_icons)  -- the +N's size too, with both timers off
     subheader(pg, 'HUD - Pet')
     for _, key in ipairs({ 'pet_hp_width', 'pet_hp_height', 'pet_hp_offset', 'pet_mp_width', 'pet_mp_height',
                            'pet_mp_offset', 'pet_tp_width', 'pet_tp_height', 'pet_tp_offset' }) do

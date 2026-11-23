@@ -285,7 +285,7 @@ function packets.handle(e, ctx, now)
     elseif e.id == 0x00A then  -- zoning: a cast in flight is cancelled with no packet
         zone.out, zone.settle = nil, now + ZONE_SETTLE
         cast.active = false
-        buffs.clear()
+        buffs.zoned()
         observed.clear()
         removal.clear()
         for _, f in jobs.each('zone') do f() end

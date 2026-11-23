@@ -367,10 +367,9 @@ ja.words = {
         .. '知っている魔法（プロテス、シェル、ヘイスト、リフレシュ、リジェネ、歌、陣など）のものです。その魔法の基本の'
         .. '効果時間からの目安で、効果時間を延ばす装備やメリットポイントは数えません。時間が切れても強化が残っているときは、'
         .. '残り時間は消えます。',
-    ['Needs Buff timers or Party buff timers on.'] =
-        '「強化の残り時間」か「パーティの強化の残り時間」がオンのときに使えます。',
     ['Timer text size'] = '残り時間の文字サイズ',
-    ['Pixels: the time left on each of your own buffs.'] = 'ピクセル: 自分の強化の残り時間の文字。',
+    ['Pixels: the time on each buff\'s icon, and the count of those past the bar\'s end (+N).'] =
+        'ピクセル: 各強化アイコンの残り時間と、バーに収まらない分の数（+N）の文字。',
     ['HUD - Alliance / Tracked'] = 'HUD - アライアンス/追跡',
     ['LOG'] = 'ログ', ['CLIENT'] = 'クライアント', ['AUTOMATION'] = '自動操作', ['Nothing sent yet.'] = 'まだ何も送っていません。',
     ['%ds'] = '%d秒',

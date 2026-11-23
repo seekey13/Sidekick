@@ -1376,6 +1376,43 @@ test('buff icons: past the bar\'s end the last place counts the rest on a dark s
     eq({ text_at(name)[1], drew(fake.res.statuses[40] and fake.res.statuses[40].en or '40') }, { 122, false })
 end)
 
+test('buff icons: where run and the cog are at the row\'s height, yours stop short of them; a member\'s go on', function ()
+    close_settings()
+    local cfg, g = settings.defaults(), fake.snap({ { name = 'A' } })
+    for u = 1, 2 do
+        g.units[u].icons = {}
+        for id = 40, 59 do g.units[u].icons[#g.units[u].icons + 1] = { id = id } end
+    end
+    -- The icons drawn on your card and A's, and whether yours ends in +11 on a dark square in the tenth place.
+    local function row()
+        local drawn = buff_hud(cfg, g)
+        return { #drawn, text_at('+11') ~= nil, backed(270, drawn[1][2][2], 16, 16) }
+    end
+    -- On a 24px bar run (from 108 + 220 - 6 - 34 = 288) is 5 into it, under the row's lower half: yours stops at 9
+    -- and +11 (to 286). A's card has no buttons: 11 and +9, as on the 40px bar.
+    cfg.ui.hp_height = 24
+    eq({ row(), box('##sk_run')[1] }, { { 9 + 11, true, true }, 288 })
+    -- On the 40px bar run is 21 into it: lowered 14, the row's bottom (22 in) meets it; lowered 13 (21 in), not.
+    cfg.ui.hp_height, cfg.ui.buff_offset = 40, -14
+    eq(row(), { 9 + 11, true, true })
+    cfg.ui.buff_offset = -13
+    eq(row(), { 11 + 11, false, false })
+end)
+
+test('buff icons: a time taller than its icon is kept clear of the title row too', function ()
+    close_settings()
+    local cfg, g = settings.defaults(), fake.snap({})
+    g.units[1].icons = { { id = 40, left = 47 } }
+    cfg.ui.buff_timer_size = 32
+    local _, th = kit.measure('0', kit.fonts.semi, 32)
+    assert(th > 16, 'the time is taller than the icon')
+    -- The time stands on the icon's bottom, 8 under the bar's top: its own top th - 8 over it, and 2 clear of the
+    -- title row (y 75).
+    buff_hud(cfg, g)
+    local top = 75 + math.ceil(th - 8 + 2)
+    eq({ hp_fill(108, top) ~= nil, text_at('47s')[2] >= 75 + 2 }, { true, true })
+end)
+
 test('buff icons: one under the pointer has its name, and on yours its time, in place of the card\'s tooltip', function ()
     close_settings()
     local g = fake.snap({})
@@ -2041,12 +2078,11 @@ test('UI / Log: HUD - Buffs switches the icons and their timers and sizes and li
     eq({ cfg.ui.buff_size, cfg.ui.buff_offset, cfg.ui.buff_timer_size }, { 30, -12, 14 })
     eq(render(cfg, st, on('UI / Log', { ['Buff timers##sk_ui_buff_timers'] = true })), 1)
     eq(cfg.ui.buff_timers, false)
-    eq(render(cfg, st, on('UI / Log', { ['Timer text size##sk_ui_buff_timer_size'] = 20, over = true })), 0)
-    eq({ cfg.ui.buff_timer_size, tipped('Needs Buff timers or Party buff timers on.') }, { 14, true })
+    -- Both timers off, it still sizes the +N.
+    eq(render(cfg, st, on('UI / Log', { ['Timer text size##sk_ui_buff_timer_size'] = 20 })), 1)
+    eq(cfg.ui.buff_timer_size, 20)
     eq(render(cfg, st, on('UI / Log', { ['Party buff timers##sk_ui_buff_party_timers'] = true })), 1)
     eq(cfg.ui.buff_party_timers, true)
-    eq(render(cfg, st, on('UI / Log', { ['Timer text size##sk_ui_buff_timer_size'] = 20 })), 1)  -- either one will do
-    eq(cfg.ui.buff_timer_size, 20)
     eq(render(cfg, st, on('UI / Log', { ['Buff icons##sk_ui_buff_icons'] = true })), 1)
     eq(cfg.ui.buff_icons, false)
     eq(render(cfg, st, on('UI / Log', { ['Buff icon size##sk_ui_buff_size'] = 40,

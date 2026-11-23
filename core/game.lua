@@ -168,6 +168,7 @@ local rescan_at = -math.huge
 local rest_since  -- when you last sat down to rest (status RESTING), while you still are
 local claim = { at = -math.huge, tidx = nil }  -- the last look for an alliance-claimed mob
 local fed = {}  -- [sid] = true: last read's units whose statuses come from packets
+local timed_was = {}  -- [sid] = true: last read's party players, their statuses timed from packets
 
 local any = can.any
 
@@ -459,7 +460,7 @@ local function tracked_unit(em, t, me, now)
     u.alive = u.hpp > 0 and u.status ~= DEAD
     if u.in_zone and not u.alive then buffs.forget(t.sid) end  -- a death clears statuses silently
     u.buffs = buffs.of(t.sid, now)
-    buffs.keep(t.sid, u.buffs)
+    buffs.keep(t.sid, u.buffs, now)
     u.icons = time_icons(t.sid, set_icons(u.buffs), now)
     u.hot = observed.hot(t.sid, now, u.buffs[REGEN])
     return u
@@ -663,12 +664,12 @@ local function member(party, player, em, i, zone, now)
     elseif u.kind == 'party' then
         local list
         u.buffs, u.stacks, list = party_buffs(sid)
-        if u.stacks then buffs.keep(sid, u.buffs) end  -- in the client's list: what's left it wore off
+        if u.stacks then buffs.keep(sid, u.buffs, now) end  -- in the client's list: what's left it wore off
         u.icons = time_icons(sid, icon_list(list), now)
     else  -- a trust or the alliance: the client keeps no list
         if not u.alive then buffs.forget(sid) end  -- a death clears statuses silently
         u.buffs = buffs.of(sid, now)
-        buffs.keep(sid, u.buffs)
+        buffs.keep(sid, u.buffs, now)
         u.icons = time_icons(sid, set_icons(u.buffs), now)
     end
     -- Under Weakness or a Curse their max is for now: none is kept, it's estimated from HP%
@@ -766,11 +767,14 @@ function game.read(now, idle)
     motion = seen
     local pet = read_pet(em, player, me, jobs, units, tracks, now)
     -- Statuses on one gone since the last read (a trust dismissed, a member who
-    -- left the alliance) went silently: if they come back, they start clean.
+    -- left the party or the alliance) went silently: if they come back, they start clean.
     for sid in pairs(fed) do
         if not tracks[sid] then buffs.forget(sid) end
     end
-    fed = tracks
+    for sid in pairs(timed_was) do
+        if not (timed[sid] or tracks[sid]) then buffs.forget(sid) end
+    end
+    fed, timed_was = tracks, timed
     for _, u in ipairs(units) do u.futile = removal.futile(u.sid, u.buffs, now) end
     local finished, spell_finish = packets.last_finish()
     local casting, cast_at = packets.casting(now)

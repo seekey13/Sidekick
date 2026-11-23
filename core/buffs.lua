@@ -31,7 +31,10 @@ local store = {}  -- [server id] = { [status id] = expires at (os.clock seconds)
 -- When a status seen landing ends by a duration known for it (a spell's base duration: core/catalog.lua's durations),
 -- on anyone it's kept for: a party player too, whose statuses the client lists but never times. For the HUD's timers
 -- alone: `store` above is what automation reads, and it stays as it was.
-local known = {}  -- [server id] = { [status id] = ends at (os.clock seconds) }
+local known = {}  -- [server id] = { [status id] = { ends = ends at, at = seen landing at } (os.clock seconds) }
+-- A party player's statuses come in a packet of their own (0x076) after the one saying one landed (0x028): one seen
+-- landing this recently is kept though their list doesn't have it yet.
+buffs.GRACE = 3
 
 -- `stacks`: several of it can stand at once (your songs: two Marches are one id),
 -- so it lasts as long as the one that wears last.
@@ -50,27 +53,27 @@ end
 -- `status` landed on `sid` at `now` for `seconds`, a duration known for it. `stacks` as gain's.
 function buffs.timed(sid, status, now, seconds, stacks)
     known[sid] = known[sid] or {}
-    local ends = now + seconds
-    known[sid][status] = stacks and math.max(known[sid][status] or ends, ends) or ends
+    local ends, was = now + seconds, known[sid][status]
+    known[sid][status] = { ends = stacks and was and math.max(was.ends, ends) or ends, at = now }
 end
 
 -- Seconds `status` has left on `sid` by its known duration, or nil: none known, or it has run out (still on them, it
 -- lasted longer than its base duration: gear or merits).
 function buffs.left(sid, status, now)
-    local ends = known[sid] and known[sid][status]
-    if not ends then return nil end
-    if ends <= now then
+    local k = known[sid] and known[sid][status]
+    if not k then return nil end
+    if k.ends <= now then
         known[sid][status] = nil
         return nil
     end
-    return ends - now
+    return k.ends - now
 end
 
--- Only the known durations of what stands on `sid` now (`on`, { [status id] = true }) are kept: one gone wore off,
--- and if it comes back unseen it's not that one.
-function buffs.keep(sid, on)
-    for status in pairs(known[sid] or {}) do
-        if not on[status] then known[sid][status] = nil end
+-- Only the known durations of what stands on `sid` at `now` (`on`, { [status id] = true }) are kept, and those seen
+-- landing under GRACE ago: one gone wore off, and if it comes back unseen it's not that one.
+function buffs.keep(sid, on, now)
+    for status, k in pairs(known[sid] or {}) do
+        if not on[status] and not (now and now - k.at < buffs.GRACE) then known[sid][status] = nil end
     end
 end
 
@@ -87,5 +90,9 @@ end
 function buffs.forget(sid) store[sid], known[sid] = nil, nil end
 
 function buffs.clear() store, known = {}, {} end
+
+-- Zoning: what was pieced together from packets goes (wear-offs are missed on the way), but not the known durations:
+-- your party's buffs go on through it. Each read keeps only what still stands (keep), and forgets one who's gone.
+function buffs.zoned() store = {} end
 
 return buffs

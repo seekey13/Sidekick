@@ -659,13 +659,13 @@ test('a party player\'s icons and a trust\'s take the time a known duration leav
     local function shows(list)  -- Out's entry in the status-icon block, the first
         for k = 0, 31 do bytes[BASE + 16 + k] = list[k + 1] or 255 end
     end
-    local function read_out()
+    local function read_out(dt)
         local core, ash = rawget(_G, 'AshitaCore'), rawget(_G, 'ashita')
         rawset(_G, 'AshitaCore', { GetMemoryManager = const(mm), GetPointerManager = const({ Get = const(POINTER) }) })
         rawset(_G, 'ashita', { memory = { find = const(0),
             read_uint32 = function (addr) return addr == POINTER and BASE or addr == BASE and OUT or 0 end,
             read_uint8 = function (addr) return bytes[addr] or 0 end } })
-        local ok, g = pcall(read)
+        local ok, g = pcall(read, dt)
         rawset(_G, 'AshitaCore', core)
         rawset(_G, 'ashita', ash)
         assert(ok, g)
@@ -680,9 +680,19 @@ test('a party player\'s icons and a trust\'s take the time a known duration leav
        { { [OUT] = true }, { { id = 40, left = 1800, estimated = true }, { id = 33 } },
          { { id = 43, left = 150, estimated = true } } })
     shows({ 33 })  -- Protect wore off: its time goes with it, though it comes back
-    read_out()
+    read_out(buffs.GRACE)
     shows({ 40, 33 })
     eq(unit(read_out(), OUT).icons, { { id = 40 }, { id = 33 } })
+    -- Seen landing before their list has it (that comes in a packet of its own): its time waits GRACE for it.
+    buffs.timed(OUT, 40, now, 1800)
+    shows({ 33 })
+    read_out()
+    shows({ 40, 33 })
+    eq(unit(read_out(), OUT).icons[1], { id = 40, left = 1800, estimated = true })
+    -- Out leaves the party: what was known of theirs goes with them.
+    world.party[2], world.party[3] = world.party[3], nil
+    read_out()
+    eq(buffs.left(OUT, 40, now), nil)
 end)
 
 test('BST: Ready charges from the pool timer; a Ready move waits only for the charges it costs', function ()
