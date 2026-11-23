@@ -114,6 +114,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `kind` | string | `'self'`, `'party'`, `'trust'` or `'tracked'` (a player outside your party and alliance you track: `/sk track`); `'alliance'` in `alliance` |
 | `name` | string | |
 | `job` | string or nil | A tracked player's jobs once a `/check` or another session's file has answered: `'WHM 75 / BLM 37'`; nil for everyone else |
+| `main`, `sub` | number or nil | Its main job's and sub job's ids, 1 (WAR) to 22 (RUN), each nil while the client gives none (an alliance member out of your zone or /anon, a tracked player before a `/check` answers); `sub` nil with no subjob. The standard HUD colours the HP bars by them (`ui.job_colors`) |
 | `alive` | bool | |
 | `away` | bool | In another zone (its HP and MP are stale), or for a tracked player, out of range (its HP as last seen, or as another Sidekick session on this PC reads it) |
 | `tracked` | bool | You track this player: every `'tracked'` line, and a member who joined your party or alliance while tracked (they are tracked again when they leave) |

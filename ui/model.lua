@@ -531,6 +531,14 @@ local function their_pet(e, s)
     return p
 end
 
+-- A unit's job ids (1 to 22): its main job and its sub job, each nil while unknown (an alliance member out of your
+-- zone or /anon reads 0, a tracked player has none till a /check answers), the sub nil with no subjob (level 0).
+local function job_ids(u)
+    local j = u.jobs or { u.main, u.main_lv, u.sub, u.sub_lv }
+    local main = (j[1] or 0) > 0 and j[1] or nil
+    return main, main and (j[3] or 0) > 0 and (j[4] or 0) > 0 and j[3] or nil
+end
+
 -- Everyone: party slots ME, P1-P5 and tracked players T1... with their jobs once
 -- a /check answers; then the alliance's other parties, B0-B5 and C0-C5, apart.
 -- A player who is another Sidekick session (`sessions`, by server id) says so, and has
@@ -543,10 +551,12 @@ local function party(g, cfg, names, sessions, files)
         if u.kind == 'tracked' then n = n + 1; tag = 'T' .. n end
         local list = u.kind == 'alliance' and alliance or out
         local session = u.kind ~= 'self' and u.kind ~= 'trust' and sessions[u.sid] or nil
+        local main, sub = job_ids(u)
         list[#list + 1] = {
             tag = tag, kind = u.kind, name = u.name, alive = u.alive, away = not u.in_zone,
             tracked = u.kind == 'tracked' or u.tracked == true, shared = u.auto,
             job = u.main_lv and jobs(names.job, u.main, u.main_lv, u.sub, u.sub_lv) or nil,
+            main = main, sub = sub,
             hpp = u.hpp, hp = hp_state(u, cfg.heal), mpp = u.mpp, uses_mp = u.uses_mp == true, tp = u.tp or 0,
             mp = u.uses_mp and u.mpp < cfg.recover.mp and 'low' or 'ok',
             dist = not u.in_zone and 'away' or u.kind == 'self' and '' or ('%.1fy'):format(u.dist or 0),
