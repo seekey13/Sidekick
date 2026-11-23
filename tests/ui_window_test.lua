@@ -1829,8 +1829,12 @@ test('UI / Log: HUD - Colors switches Job colors, Subjob color and HP glow, pick
     eq(render(cfg, st, on('UI / Log', { ['Job colors##sk_ui_job_colors'] = true, ['Subjob color##sk_ui_sub_colors'] = true,
         ['HP glow##sk_ui_hp_glow'] = true })), 3)
     eq({ cfg.ui.job_colors, cfg.ui.sub_colors, cfg.ui.hp_glow }, { false, false, false })
-    eq(render(cfg, st, on('UI / Log', { ['Blend##sk_ui_blend'] = 80, over = true })), 0)  -- greyed: nothing to blend
-    eq({ cfg.ui.blend, tipped('Needs Job colors and Subjob color on.') }, { 50, true })
+    eq(render(cfg, st, on('UI / Log', { ['Blend##sk_ui_blend'] = 80, ['Horizontal##sk_ui_split_horizontal'] = true,
+        over = true })), 0)  -- Split and Blend greyed: nothing to blend
+    eq({ cfg.ui.blend, cfg.ui.split, tipped('Needs Job colors and Subjob color on.') }, { 50, 'diagonal', true })
+    cfg.ui.job_colors = true  -- one of the two isn't enough
+    eq(render(cfg, st, on('UI / Log', { ['Blend##sk_ui_blend'] = 80, ['Horizontal##sk_ui_split_horizontal'] = true })), 0)
+    cfg.ui.job_colors = false
     cfg.ui.job_colors, cfg.ui.sub_colors = true, true
     eq(render(cfg, st, on('UI / Log', { ['Blend##sk_ui_blend'] = 80, ['Horizontal##sk_ui_split_horizontal'] = true })), 2)
     eq({ cfg.ui.blend, cfg.ui.split }, { 80, 'horizontal' })

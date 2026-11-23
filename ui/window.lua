@@ -835,11 +835,15 @@ local function switch(pg, label, path, on, help, set)
     if flipped then (set or function (x) act.set(path, x) end)(v) end
 end
 
--- A drop-down at the right of a labelled line; `body` lists its choices.
-local function pick(pg, label, id, shown, body, help, w)
+-- A drop-down at the right of a labelled line; `body` lists its choices. Given `off` (why it can't work), it's greyed
+-- and dead, as a slider's.
+local function pick(pg, label, id, shown, body, help, w, off)
     w = w or S(PICK_W)
-    local cy = line(pg, t(label), help and t(help), nil, nil, pg.right - w - S(8) - pg.lx)
-    kit.dropdown(id, pg.right - w, cy, w, shown, true, pg.alpha, body)
+    local top = pg.y
+    help = off or help
+    local cy = line(pg, t(label), help and t(help), nil, off and P.dim or nil, pg.right - w - S(8) - pg.lx)
+    kit.dropdown(id, pg.right - w, cy, w, shown, not off, pg.alpha, off and function () end or body)
+    if off and kit.over(pg.x, top, pg.w, pg.y - top) then kit.tooltip(t(off)) end
 end
 
 -- Text across the page, wrapped.
@@ -1449,15 +1453,16 @@ local function draw_ui(view, pg)
     switch(pg, 'Subjob color', 'ui.sub_colors', sizes.sub_colors,
         'Blend each member\'s HP bar into its subjob\'s color, by Split and Blend. A pet keeps its owner\'s main job '
         .. 'color.')
+    local unblended = not (sizes.job_colors and sizes.sub_colors) and 'Needs Job colors and Subjob color on.' or nil
     pick(pg, 'Split', 'Split##sk_ui_split', t(hpbar.SPLIT[sizes.split].label), function ()
         for _, s in ipairs(hpbar.SPLITS) do
             if kit.selectable(t(s.label) .. '##sk_ui_split_' .. s.key, s.key == sizes.split) then act.set('ui.split', s.key) end
         end
     end, 'Where the subjob\'s color goes. Diagonal: the bottom-right corner, under a 45° line down from the fill\'s '
-        .. 'top-right. Horizontal: the bottom half. Vertical: the right half.')
+        .. 'top-right. Horizontal: the bottom half. Vertical: the right half.', nil, unblended)
     slider(pg, 'Blend', 'ui.blend', sizes.blend,
         'How gradually the main job\'s color turns into the subjob\'s: 0% is a hard edge, 100% the widest fade.', '%',
-        { 0, 100 }, not (sizes.job_colors and sizes.sub_colors) and 'Needs Job colors and Subjob color on.' or nil)
+        { 0, 100 }, unblended)
     switch(pg, 'HP glow', 'ui.hp_glow', sizes.hp_glow,
         'A glow round the HP bar as the name changes color: yellow from 75% HP, orange from 50%, red from 25%. None on '
         .. 'someone dead or away.')

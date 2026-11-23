@@ -264,7 +264,9 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'ui.name_size'`, `'ui.icon_size'` | 8 to 64 |
 | `'ui.text_size'`, `'ui.ally_text_size'` | 8 to 48 |
 | `'ui.gap'` | 0 to 40 |
-| `'ui.locked'`, `'ui.widget'`, `'ui.hide_mp'`, `'ui.show_slot'`, `'ui.zone_stop'`, `'ui.load_stopped'` | bool |
+| `'ui.locked'`, `'ui.widget'`, `'ui.hide_mp'`, `'ui.show_slot'`, `'ui.job_colors'`, `'ui.sub_colors'`, `'ui.hp_glow'`, `'ui.zone_stop'`, `'ui.load_stopped'` | bool |
+| `'ui.split'` | `'diagonal'`, `'horizontal'` or `'vertical'` |
+| `'ui.blend'` | 0 to 100 |
 | `'ui.widget_size'` | 10 to 48 |
 | `'ui.scale'` | 50 to 200 |
 | `'ui.list_rows'` | 3 to 30 |

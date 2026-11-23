@@ -385,7 +385,7 @@ ja.words = {
     ['Split'] = '分け方', ['Diagonal'] = '斜め', ['Horizontal'] = '上下', ['Vertical'] = '左右',
     ['Where the subjob\'s color goes. Diagonal: the bottom-right corner, under a 45° line down from the fill\'s '
         .. 'top-right. Horizontal: the bottom half. Vertical: the right half.'] =
-        'サポートジョブの色を置く場所。斜め: バーの右上の角から45°で下がる線より右下の角。上下: 下半分。左右: 右半分。',
+        'サポートジョブの色を置く場所。斜め: 塗られた部分の右上の角から45°で下がる線より右下の角。上下: 下半分。左右: 右半分。',
     ['Blend'] = 'ぼかし',
     ['How gradually the main job\'s color turns into the subjob\'s: 0% is a hard edge, 100% the widest fade.'] =
         'メインジョブの色からサポートジョブの色へ変わる幅。0%でくっきり分かれ、100%でいちばん広くぼけます。',
