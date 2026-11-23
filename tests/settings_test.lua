@@ -84,6 +84,8 @@ test('HUD sizes a ui file from before them lacks come from what drew those parts
         -- An alliance row: the HP bar's width, the MP bar's height, the text's size. The icons: 1.25 times the
         -- text's size, as far as the HP bar fitted them (12 less 4).
         eq({ cfg.ui.ally_hp_width, cfg.ui.ally_hp_height, cfg.ui.ally_text_size, cfg.ui.icon_size }, { 300, 10, 20, 8 })
+        -- The rows' MP bar, newer: the row's width, a third of its height, set in by none.
+        eq({ cfg.ui.ally_mp_width, cfg.ui.ally_mp_height, cfg.ui.ally_mp_offset }, { 300, 3, 0 })
         -- Each of a pet's bars: an alliance row's size, as it drew them.
         eq({ cfg.ui.pet_hp_width, cfg.ui.pet_mp_width, cfg.ui.pet_tp_width, cfg.ui.pet_hp_height, cfg.ui.pet_mp_height,
              cfg.ui.pet_tp_height, cfg.ui.pet_hp_offset }, { 300, 300, 300, 10, 10, 10, 0 })
@@ -100,7 +102,8 @@ test('HUD sizes a ui file from before them lacks come from what drew those parts
     end)
     with_lib({}, function (settings)  -- a new install: the defaults
         local ui, d = settings.load('WHM_BLM').ui, settings.defaults().ui
-        for _, k in ipairs({ 'ally_hp_width', 'ally_hp_height', 'ally_text_size', 'icon_size', 'pet_hp_width',
+        for _, k in ipairs({ 'ally_hp_width', 'ally_hp_height', 'ally_mp_width', 'ally_mp_height', 'ally_text_size',
+                             'icon_size', 'pet_hp_width',
                              'pet_mp_width', 'pet_tp_width', 'pet_hp_height', 'pet_mp_height', 'pet_tp_height' }) do
             eq(ui[k], d[k], k)
         end

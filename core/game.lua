@@ -10,7 +10,9 @@
     unit = { slot, sid, tidx, name, kind = 'self'|'party'|'trust'|'alliance'|'tracked', hpp, hp, max_hp,
              immune (a trust that can't be hurt: Moogle, Sakura, Kupofried...; core/engine.lua hides it from behaviors),
              mpp, mp, tp, uses_mp (yours: max MP > 0; your party's: a job with MP, main or
-             sub, or seen with MP on these jobs; the alliance's: seen with MP),
+             sub, or seen with MP on these jobs; the alliance's: the same while their jobs
+             read (in your zone), seen with MP while /anon there, none elsewhere; a tracked
+             player's: a session file's MP over 0, or a job with MP, while a file gives it),
              max_known (max_hp is real: yours, or seen at full HP with no Weakness or Curse, and HP% agrees),
              jobs = { main, main_lv, sub, sub_lv } (you and your party's players),
              in_zone, dist, pos = { x, y, z },
@@ -25,7 +27,8 @@
              `bt`'s, { sid, tidx, name, hpp, dist, pos, status }, its HP % alone; never one at 0%) }
     Slots: 0 you, 1-5 your party, 6-11 and 12-17 the alliance's other parties
     (kind 'alliance', their statuses from packets as a trust's).
-    A tracked player has no slot and no MP; in_zone while the client draws them
+    A tracked player has no slot, and MP only as a session file says (for show:
+    behaviors/recover.lua leaves them be); in_zone while the client draws them
     (in range; out of it, their HP and status as last seen, or as a session file
     says), max_hp from a session file, else estimated from their /check level (else
     yours), and main, main_lv, sub, sub_lv once a /check or a session file has
@@ -151,6 +154,7 @@ local pet_since  -- when that pet was first seen: a new one (it may reuse the id
 local pet_mp_since  -- pet_since of the last pet seen with MP: a wyvern's or a jug pet's 0% isn't an empty tank
 local ready_since = {}  -- [recast key] = when its timer first read 0
 local rescan_at = -math.huge
+local rest_since  -- when you last sat down to rest (status RESTING), while you still are
 local claim = { at = -math.huge, tidx = nil }  -- the last look for an alliance-claimed mob
 local fed = {}  -- [sid] = true: last read's units whose statuses come from packets
 
@@ -350,7 +354,7 @@ local function relocate(em, now, listed)
     end
 end
 
--- A tracked player as a unit. Only HP % can be read, so HP comes from the max
+-- A tracked player as a unit. Only HP % can be read (MP only from a session file), so HP comes from the max
 -- estimated by level, or yours while the level is unknown (/anon, no /check).
 -- Out of range, their HP and status are as last seen, as a member's in another zone.
 local function tracked_unit(em, t, me, now)
@@ -365,6 +369,10 @@ local function tracked_unit(em, t, me, now)
         t.hpp, t.status = t.shared_hpp, nil
     end
     u.hpp, u.status = t.hpp or 0, t.status
+    if t.shared_mpp then  -- a session file's, for show (behaviors/recover.lua leaves tracked players be)
+        u.mpp, u.mp = t.shared_mpp, t.shared_mp or 0
+        u.uses_mp = u.mp > 0 or MP_JOBS[t.main] == true or (t.sub_lv or 0) > 0 and MP_JOBS[t.sub] == true
+    end
     u.max_hp = t.max_hp or t.main_lv and tracked.max_hp(t.main_lv) or me.max_hp
     u.hp = u.max_hp and math.floor(u.max_hp * u.hpp / 100) or 0
     u.alive = u.hpp > 0 and u.status ~= DEAD
@@ -548,10 +556,17 @@ local function member(party, player, em, i, zone, now)
         u.uses_mp = player:GetMPMax() > 0
     else
         -- A job with MP, main or sub: at 0 MP (just loaded, out of zone) a mage still has some. Else once seen with it.
-        local key = ('%d %d/%d'):format(sid, party:GetMemberMainJob(i), party:GetMemberSubJob(i))
+        -- The alliance's jobs come in the same packets as their MP (0x0DD, 0x0DF), only while they're in your zone and
+        -- not /anon: a job of 0 in your zone is /anon (MP current: once seen with it), elsewhere their MP isn't current.
+        local main, sub = party:GetMemberMainJob(i), party:GetMemberSubJob(i)
+        local key = ('%d %d/%d'):format(sid, main, sub)
         if u.mp > 0 then has_mp[key] = true end
-        local j = u.jobs or {}
-        u.uses_mp = has_mp[key] == true or MP_JOBS[j[1]] == true or (j[4] or 0) > 0 and MP_JOBS[j[3]] == true
+        local j = u.jobs or i > 5 and { main, party:GetMemberMainJobLevel(i), sub, party:GetMemberSubJobLevel(i) } or {}
+        if i > 5 and (main or 0) == 0 then
+            u.uses_mp = u.in_zone and has_mp[key] == true
+        else
+            u.uses_mp = has_mp[key] == true or MP_JOBS[j[1]] == true or (j[4] or 0) > 0 and MP_JOBS[j[3]] == true
+        end
     end
     -- Only one the client draws: out of its range a member has no entity, and
     -- would read as 0 yalms away. Then dist and pos are unknown: out of reach.
@@ -667,6 +682,8 @@ function game.read(now, idle)
     local finished, spell_finish = packets.last_finish()
     local casting, cast_at = packets.casting(now)
 
+    if me.status == RESTING then rest_since = rest_since or now else rest_since = nil end
+
     local g = {
         finished = finished, spell_finish = spell_finish,
         now = now, zone = zone, me = me, units = units, tracks = tracks, bt = bt, target = player_target(mm, em),
@@ -679,7 +696,7 @@ function game.read(now, idle)
         safe = safe, event = in_event,
         mounted = me.status == MOUNTED_STATUS or me.buffs[MOUNTED_BUFF] == true,
         dead = not me.alive,
-        resting = me.status == RESTING,
+        resting = me.status == RESTING, rest_since = rest_since,
         incapacitated = any(me.buffs, INCAPACITATED),
         silenced = any(me.buffs, SILENCED),
         amnesia = me.buffs[AMNESIA] == true,

@@ -1638,7 +1638,7 @@ local function member_row(slot, color, p, job)
     text(p.hpp and ('%d%%'):format(p.hpp) or '--')
     untint()
     imgui.TableNextColumn()
-    local mp = p.uses_mp and p.kind ~= 'tracked'
+    local mp = p.uses_mp  -- a tracked player's from a session file, else none
     tint(mp and (p.mpp or 100) <= 40 and { { COL.text, LOW } } or NONE)
     text(mp and ('%d%%'):format(p.mpp or 0) or '--')
     untint()

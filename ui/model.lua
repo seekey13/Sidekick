@@ -82,6 +82,7 @@ local TAGS = model.TAGS
 local REASONS = { safe = 'safe zone', afk = 'AFK asleep' }  -- engine gate -> words
 local LABEL_FAMILIES = settings.LABEL_FAMILIES  -- a pick-one group named by more families is named by its key
 local BUFFS_SHOWN = 6                   -- status names on a party line; the rest in its tooltip
+local REST_SITS = 5                     -- seconds a /heal on takes to sit you down, at most (a rest begun later is yours)
 local POINTED = 2                       -- seconds the pointer stays on what was just sent...
 local POINTED_CAST = 15                 -- ...or while it is still being cast, up to this
 local CAST_REPLY = 2                    -- a cast that began this soon after a spell or item went out is that one
@@ -619,12 +620,20 @@ local function casting(g, e)
 end
 
 -- What was just sent, while it lands: for POINTED seconds, or while it is still
--- being cast up to POINTED_CAST; nil when stopped. The HUD points at it once the
+-- being cast up to POINTED_CAST; nil when stopped. Resting's Rest stays while the
+-- rest it sat you down for lasts (g.rest_since within REST_SITS of it), until you
+-- stand: nothing else runs till then (core/engine.lua), so the HUD (and another
+-- session's, for an alt) says why. Not a later rest of your own. The HUD points at it once the
 -- decision is gone, and the session file lists it for the others' (core/share.lua).
 function model.landing(status, g)
     local last = status.running and status.sent[1]
     local age = last and g.now - last.at
     if age and (age < POINTED or age < POINTED_CAST and casting(g, last)) then return last end
+    local since = g.resting and g.rest_since
+    if last and since and last.behavior == 'rest' and last.action == 'Rest' and since >= last.at
+        and since - last.at <= REST_SITS then
+        return last
+    end
 end
 
 -- Where action `e` goes: its target's line, else the line given (`member` in

@@ -6,7 +6,7 @@
     entry = { sid, name, tidx = entity index last seen at, hpp, status = as last seen there,
               main, main_lv, sub, sub_lv = from a /check (packet 0x0C9), nil until one answers,
               auto = the owner's name when core/share.lua tracks them for another session,
-              max_hp, shared_hpp = from a session file listing them (core/share.lua) }
+              max_hp, shared_hpp, shared_mpp, shared_mp = from a session file listing them (core/share.lua) }
     Only their HP % can be read, so their max HP is estimated from their level
     unless a session file gives the real one. An auto entry untracked by hand is
     `declined`: no session file tracks it again until it's tracked by hand.

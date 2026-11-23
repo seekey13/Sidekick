@@ -494,6 +494,14 @@ test('sizes out of their sliders\' range, set by hand or by a custom UI, are hel
     eq(calls('AddRectFilled')[1].args[2][1], 100 + 2 * 8 + 600)
 end)
 
+test('a row\'s MP bar sizes out of range, or not numbers, are held to their sliders\' too', function ()
+    close_settings()
+    local cfg = settings.defaults()
+    cfg.ui.ally_mp_width, cfg.ui.ally_mp_height, cfg.ui.ally_mp_offset = 5000, 0, 'abc'
+    render(cfg, status(), nil, model.build(fake.snap({ { kind = 'alliance', name = 'Bea' } }), cat, cfg, status(), NAMES))
+    eq(bar_edge(108, 155 + 18 + 1, 600, 2), true)  -- 600 wide, 2 high, set in by none
+end)
+
 test('a name turns yellow at 75% HP, orange at 50% and red at 25%; away greys it and the slot, low MP doesn\'t', function ()
     close_settings()
     local cfg, st = settings.defaults(), status()
@@ -629,8 +637,8 @@ end)
 test('the alliance gets a thin HP row each under the cards, a gap before each party; the arrow points at one', function ()
     close_settings()
     local cfg = settings.defaults()
-    local g = fake.snap({ { name = 'A' }, { kind = 'alliance', name = 'Bea', hpp = 20 },
-        { kind = 'alliance', name = 'Bo', slot = 7, hpp = 75 }, { kind = 'alliance', name = 'Cy', slot = 12, in_zone = false } })
+    local g = fake.snap({ { name = 'A' }, { kind = 'alliance', uses_mp = false, name = 'Bea', hpp = 20 },
+        { kind = 'alliance', uses_mp = false, name = 'Bo', slot = 7, hpp = 75 }, { kind = 'alliance', uses_mp = false, name = 'Cy', slot = 12, in_zone = false } })
     local st = status({ intent = { at = 990, action = 'Cure IV', target = 'Bo', behavior = 'heal', why = 'Bo' } })
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
     local cards = 25 + 2 * 72 + 8               -- title, two cards and the gap between them
@@ -642,7 +650,7 @@ test('the alliance gets a thin HP row each under the cards, a gap before each pa
     eq({ fill('B0'), fill('B1'), fill('C0') }, { u32(P.white), u32(P.white), u32(P.dim) })
     local after = math.floor(114 + kit.measure('B0 ', kit.fonts.semi, 14) + 0.5)
     eq({ at('B0'), at('Bea') }, { { 114, tag_top('B0', 50 + b, 18) }, { after, tag_top('Bea', 50 + b, 18) } })
-    eq(tipped('Bea (alliance)\nHP 20%  MP 100%  TP 0  5.0y'), true)
+    eq(tipped('Bea (alliance)\nHP 20%  TP 0  5.0y'), true)  -- no MP: not yet seen with it
     local arrow = calls('AddTriangleFilled', 'background')
     eq({ #arrow, arrow[1].args[1] }, { 1, { 100 + 236 + 2, 50 + b + 18 + 3 + 9 } })  -- its point: Bo's row, its middle
     eq(fill('Heal:Cure IV', 'background') ~= nil, true)
@@ -654,7 +662,7 @@ test('a tracked player gets a row as the alliance\'s, after theirs: HP alone; an
     local st = status({ intent = { at = 990, action = 'Cure IV', target = 'Far', behavior = 'heal', why = 'Far' }, sent = {} })
     st.sessions = { Out = { running = false, members = { { sid = 202, name = 'Out' } } } }
     local g = fake.snap({ { kind = 'tracked', name = 'Far', hpp = 40 }, { kind = 'tracked', name = 'Out' },
-        { kind = 'alliance', name = 'Bea' } })
+        { kind = 'alliance', uses_mp = false, name = 'Bea' } })
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
     -- Your card from y 75; Bea's row a gap under it, from 155; the tracked ones a gap under that, 3 apart: 181 and 202.
     eq({ bar_edge(108, 155, 220, 18), bar_edge(108, 181, 220, 18), bar_edge(108, 202, 220, 18) }, { true, true, true })
@@ -664,6 +672,49 @@ test('a tracked player gets a row as the alliance\'s, after theirs: HP alone; an
     eq({ button('##sk_run_Far'), (box('##sk_run_Out')), (box('##sk_cog_Out')) },
        { false, { 108 + 220 - 6 - 34, 202, 17, 17 }, { 108 + 220 - 2 - 17, 202, 17, 17 } })
     eq(calls('AddTriangleFilled', 'background')[1].args[1], { 100 + 236 + 2, 181 + 9 })  -- the arrow at Far's row
+end)
+
+test('a tracked player a session file gives MP for has a thin MP strip under their row; the rows under come down', function ()
+    close_settings()
+    local cfg = settings.defaults()
+    local g = fake.snap({ { kind = 'tracked', name = 'Far', hpp = 40 }, { kind = 'tracked', name = 'Out' },
+        { kind = 'alliance', uses_mp = false, name = 'Bea' } })
+    g.units[2].mpp, g.units[2].mp, g.units[2].uses_mp = 60, 600, true
+    render(cfg, status(), nil, model.build(g, cat, cfg, status(), NAMES))
+    -- Far's row at 181, its strip 1 under (18 / 3 = 6 high); Out's row 3 under that, with none.
+    eq({ bar_edge(108, 181, 220, 18), bar_edge(108, 181 + 18 + 1, 220, 6), bar_edge(108, 209, 220, 18),
+         bar_edge(108, 209 + 18 + 1, 220, 6) }, { true, true, true, nil })
+    eq(frame.extent.Sidekick, { 100 + 236, 209 + 18 + 8 })
+end)
+
+test('an alliance member with MP has an MP bar under their row, sized and set in by its own settings', function ()
+    close_settings()
+    local cfg = settings.defaults()
+    local g = fake.snap({ { kind = 'alliance', name = 'Bea', mpp = 50 }, { kind = 'alliance', name = 'Bo', uses_mp = false } })
+    render(cfg, status(), nil, model.build(g, cat, cfg, status(), NAMES))
+    -- Bea's row from 155 (after your card), her MP bar 1 under it, 220 by 6; Bo's row 3 under that, with none.
+    local bo = 155 + 18 + 1 + 6 + 3
+    eq({ bar_edge(108, 155, 220, 18), bar_edge(108, 155 + 18 + 1, 220, 6), bar_edge(108, bo, 220, 18),
+         bar_edge(108, bo + 18 + 1, 220, 6) }, { true, true, true, nil })
+    local mp_fill
+    for _, d in ipairs(calls('AddRectFilled')) do
+        if d.args[1][1] == 108 and d.args[1][2] == 155 + 18 + 1 and d.args[3] == u32(P.mp, BAR_FILL) then mp_fill = d.args[2] end
+    end
+    eq(mp_fill, { 108 + 110, 155 + 18 + 1 + 6 })  -- half full
+    cfg.ui.ally_mp_width, cfg.ui.ally_mp_height, cfg.ui.ally_mp_offset = 300, 10, 40
+    render(cfg, status(), nil, model.build(g, cat, cfg, status(), NAMES))
+    bo = 155 + 18 + 1 + 10 + 3
+    eq({ bar_edge(148, 155 + 18 + 1, 300, 10), bar_edge(108, bo, 220, 18) }, { true, true })
+    eq(frame.extent.Sidekick, { 100 + 8 + 40 + 300 + 8, bo + 18 + 8 })  -- the panel reaches past the wider bar
+end)
+
+test('a tracked player\'s tooltip gives their MP while a session file does', function ()
+    close_settings()
+    local cfg = settings.defaults()
+    local g = fake.snap({ { kind = 'tracked', name = 'Far', hpp = 40 } })
+    g.units[2].mpp, g.units[2].mp, g.units[2].uses_mp = 60, 600, true
+    render(cfg, status(), nil, model.build(g, cat, cfg, status(), NAMES))
+    eq(tipped('Far (tracked)\nHP 40%  MP 60%  5.0y'), true)
 end)
 
 test('the MP and TP bars sit their offsets in from the HP bar\'s left, the slot on the TP bar; the panel fits them', function ()
@@ -695,7 +746,7 @@ test('Alliance / Tracked\'s sizes size the rows and their text, a pet\'s text to
     close_settings()
     local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
     cfg.ui.ally_hp_width, cfg.ui.ally_hp_height, cfg.ui.ally_text_size, cfg.ui.mp_height = 150, 10, 11, 30
-    local g = fake.snap({ { kind = 'alliance', name = 'Bea', hpp = 50 } },
+    local g = fake.snap({ { kind = 'alliance', uses_mp = false, name = 'Bea', hpp = 50 } },
         { pet = { name = 'Ifrit', hpp = 50, mpp = 40, tp = 1000, dist = 3, uses_mp = true } })
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
     -- Your card 40 + 3 + 30 + 3 + 8 from y 75; your pet's bars 220 by 18, 3 apart, from 167; Bea's row from 235.
@@ -966,8 +1017,8 @@ test('two sessions\' rows one after another: the second comes down for its butto
                     B = { running = false, members = { { sid = 302, name = 'B' } } } }
     cfg.ui.ally_hp_height, cfg.ui.icon_size = 10, 24
     local function hud()
-        render(cfg, st, nil, model.build(fake.snap({ { name = 'P' }, { kind = 'alliance', name = 'A' },
-            { kind = 'alliance', name = 'B' }, { kind = 'alliance', name = 'C' } }), cat, cfg, st, NAMES))
+        render(cfg, st, nil, model.build(fake.snap({ { name = 'P' }, { kind = 'alliance', uses_mp = false, name = 'A' },
+            { kind = 'alliance', uses_mp = false, name = 'B' }, { kind = 'alliance', uses_mp = false, name = 'C' } }), cat, cfg, st, NAMES))
     end
     hud()
     -- 24px buttons on a 10px row, 7 over it above and below. A's row from y 50 + 25 + 72 + 8 + 72 + 8, its buttons from

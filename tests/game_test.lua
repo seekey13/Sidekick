@@ -196,7 +196,7 @@ test('the alliance\'s other parties: slots 6-17, statuses from packets, forgotte
     reset()
     local bea = { sid = 600, tidx = 0x500, name = 'Bea', hpp = 50, hp = 500, mpp = 80, mp = 400 }
     world.party[7] = bea                                                                          -- slot 6: B0
-    world.party[13] = { sid = 601, tidx = 0x501, name = 'Cal', hpp = 100, hp = 1200, mpp = 0, mp = 0 }  -- slot 12: C0
+    world.party[13] = { sid = 601, tidx = 0x501, name = 'Cal', hpp = 100, hp = 1200, mpp = 0, mp = 0, main = 1, sub = 1 }  -- C0: WAR/WAR
     world.ents[0x500] = { sid = 600, name = 'Bea', hpp = 50, dist = 7 }
     world.ents[0x501] = { sid = 601, name = 'Cal', hpp = 100, dist = 9 }
     buffs.gain(600, PROTECT, now)
@@ -539,6 +539,41 @@ test('sessions: a player another session lists has its max HP, and its HP while 
     world.ents[0x450] = { sid = OUT, name = 'Out', hpp = 90, dist = 5 }
     t.tidx = 0x450
     eq(unit(read(), OUT).hpp, 90)  -- drawn: their entity, not the file
+end)
+
+test('sessions: a tracked player\'s MP from a session file, drawn or not; with MP by their jobs or the file\'s', function ()
+    reset()
+    tracked.add(OUT, 'Out', nil, 'Box')
+    local t = tracked.list[1]
+    local u = unit(read(), OUT)
+    eq({ u.mpp, u.mp, u.uses_mp }, { 0, 0, false })  -- no file: none
+    t.shared_mpp, t.shared_mp, t.main, t.main_lv, t.sub, t.sub_lv = 60, 600, 3, 75, 1, 37  -- WHM/WAR
+    u = unit(read(), OUT)
+    eq({ u.mpp, u.mp, u.uses_mp }, { 60, 600, true })
+    t.shared_mpp, t.shared_mp, t.main = 0, 0, 1  -- WAR/WAR: no MP
+    eq(unit(read(), OUT).uses_mp, false)
+    t.shared_mpp, t.shared_mp = 40, 120  -- WAR/? seen with some: a sub with MP
+    eq(unit(read(), OUT).uses_mp, true)
+    world.ents[0x450] = { sid = OUT, name = 'Out', hpp = 90, dist = 5 }
+    t.tidx = 0x450
+    u = unit(read(), OUT)
+    eq({ u.in_zone, u.mpp, u.mp }, { true, 40, 120 })  -- drawn: the entity has no MP, the file still does
+end)
+
+test('resting: when you sat down, kept while you rest; none once you stand, a new time for the next rest', function ()
+    reset()
+    eq({ read().resting, read().rest_since }, { false, nil })
+    world.ents[0x400].status = 33
+    local g = read()
+    local sat = g.now
+    eq({ g.resting, g.rest_since, read(1).rest_since }, { true, sat, sat })
+    world.ents[0x400].status = 0
+    eq(read().rest_since, nil)
+    world.ents[0x400].status = 33
+    g = read()
+    eq(g.rest_since, g.now)
+    world.ents[0x400].status = 0
+    read()
 end)
 
 test('your statuses: a set, and how many of each stand (runes stack); empty slots counted as none', function ()

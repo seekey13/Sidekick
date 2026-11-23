@@ -36,8 +36,10 @@
 
     Auto-track: each session tracks the players other sessions list (core/tracked.lua,
     `auto` = the owner's name), but those in its own party or alliance, with no /check:
-    the level and max HP come from the file. A file not written for STALE seconds (a
-    session closed, crashed or logged out) or one that no longer lists a player drops
+    the level and max HP come from the file, and their MP for the HUD to show (no
+    entity gives it; automation never acts on it) while its owner is in their zone,
+    as their HP. A file not written for STALE seconds (a session closed, crashed or
+    logged out) or one that no longer lists a player drops
     its auto entries; hand-tracked players are never dropped, nor one declined (untracked by hand) added.
 
     Remote control: any session controls any other. A controller's file lists the
@@ -269,7 +271,8 @@ end
 -- hitch or a short roster doesn't forget a party's statuses. `listed` = { [sid] = true }:
 -- you, your party and alliance, never tracked from a file; one dropped at once for
 -- joining them keeps the statuses seen on them. A player several files list is taken from their own
--- session's file, else the first owner by name, so the owner stays put.
+-- session's file, else the first owner by name in their zone (so current), else the first by name:
+-- the owner stays put while that holds.
 function share.sync(live, listed, now)
     local owners = {}
     for owner in pairs(live) do owners[#owners + 1] = owner end
@@ -278,7 +281,8 @@ function share.sync(live, listed, now)
     for _, owner in ipairs(owners) do
         for i, m in ipairs(live[owner].members) do
             local w = wanted[m.sid]
-            if not listed[m.sid] and (not w or i == 1 and not w.own) then
+            local better = not w or not w.own and (i == 1 or m.here and not w.m.here)
+            if not listed[m.sid] and better then
                 wanted[m.sid] = { m = m, owner = owner, own = i == 1 }
             end
         end
@@ -288,7 +292,7 @@ function share.sync(live, listed, now)
         if wanted[t.sid] then
             t.unlisted_at = nil
         else
-            t.max_hp, t.shared_hpp = nil, nil  -- no file says now
+            t.max_hp, t.shared_hpp, t.shared_mpp, t.shared_mp = nil, nil, nil, nil  -- no file says now
             t.unlisted_at = t.unlisted_at or now
             if t.auto and (listed[t.sid] or now - t.unlisted_at >= share.GRACE) then tracked.drop(t.sid, listed[t.sid]) end
         end
@@ -303,7 +307,9 @@ function share.sync(live, listed, now)
             if t.auto then t.auto = w.owner end
             if m.main_lv > 0 then t.main, t.main_lv, t.sub, t.sub_lv = m.main, m.main_lv, m.sub, m.sub_lv end
             t.max_hp = m.max_hp > 0 and m.max_hp or t.max_hp
+            -- MP for show alone (no entity gives it); both only from an owner in their zone, so current.
             t.shared_hpp = m.here and m.hpp or nil
+            t.shared_mpp, t.shared_mp = m.here and m.mpp or nil, m.here and m.mp or nil
         end
     end
 end

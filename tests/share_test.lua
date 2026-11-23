@@ -251,6 +251,21 @@ test('auto-track: HP from a file only for a member in its owner\'s zone; dropped
     reset()
 end)
 
+test('auto-track: MP from a file only while its owner is in their zone; none once no file lists them, or they join you', function ()
+    reset()
+    share.sync({ Box = session('Box', 1, { member(500, 'Box', { mpp = 70, mp = 700 }),
+                                           member(501, 'Mate', { here = false }) }) }, {}, 0)
+    local own, other = tracked.find(500), tracked.find(501)
+    eq({ own.shared_mpp, own.shared_mp, other.shared_mpp, other.shared_mp }, { 70, 700, nil, nil })
+    share.sync({ Box = session('Box', 2, { member(500, 'Box'), member(501, 'Mate') }) }, {}, 1)
+    eq({ other.shared_mpp, other.shared_mp }, { 50, 400 })
+    share.sync({ Box = session('Box', 3, { member(500, 'Box'), member(501, 'Mate') }) }, { [501] = true }, 2)  -- Mate joins you
+    eq({ tracked.find(501), own.shared_mpp }, { nil, 50 })
+    share.sync({}, {}, 3)  -- no file lists them now (Box closed: share.live leaves it out)
+    eq({ own.shared_mpp, own.shared_mp }, { nil, nil })
+    reset()
+end)
+
 test('auto-track: a player two sessions list comes from their own session\'s file, whatever the order', function ()
     reset()
     local live = { A = session('A', 1, { member(500, 'A'), member(600, 'B', { hpp = 10 }) }),
@@ -258,6 +273,19 @@ test('auto-track: a player two sessions list comes from their own session\'s fil
     share.sync(live, {}, 0)
     eq({ tracked.find(500).auto, tracked.find(500).shared_hpp, tracked.find(600).auto, tracked.find(600).shared_hpp },
        { 'A', 80, 'B', 90 })
+    reset()
+end)
+
+test('auto-track: with no file of their own, one from an owner in their zone over the first by name', function ()
+    reset()
+    local live = { A = session('A', 1, { member(500, 'A'), member(700, 'Out', { here = false, mpp = 10 }) }),
+                   B = session('B', 1, { member(600, 'B'), member(700, 'Out', { hpp = 30, mpp = 60 }) }) }
+    share.sync(live, {}, 0)
+    local t = tracked.find(700)
+    eq({ t.auto, t.shared_hpp, t.shared_mpp }, { 'B', 30, 60 })
+    live.A.members[2].here = true  -- both in their zone: the first by name again
+    share.sync(live, {}, 1)
+    eq({ t.auto, t.shared_mpp }, { 'A', 10 })
     reset()
 end)
 
