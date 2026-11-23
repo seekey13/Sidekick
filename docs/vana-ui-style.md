@@ -739,7 +739,10 @@ everything with it:
   out and the TP bar sits under the HP bar), your pet's card under yours and another session's under its card or row
   (each of its bars sized and placed by Pet's settings, its name pale cyan, `#C2FFFF`, while healthy); the alliance and
   the players you track are thin HP rows under the cards, the tracked after the alliance; the TP bar is
-  three parts of 1000 TP, each solid once full and at half alpha while it fills (as Floaties draws it). Its
+  three parts of 1000 TP, each solid once full and at half alpha while it fills (as Floaties draws it). Run and the
+  cog sit at the bottom right of their HP bar; along its top edge each party card has a row of status icons, the
+  client's own, drawn last over the rest of the HUD (`ui.buff_*`), yours with the time left on each in white with
+  the dark halo. Its
   text keeps a dark halo, as it sits on bars and, with the panel see-through, on the game. The panel, its frame, the
   title and the close mark fade out until the mouse is over the window (Tracker's chrome) and fade back in, solid,
   while it is. That fade is only the panel around the bars: each bar's background stays at 70%, gray while hovered
