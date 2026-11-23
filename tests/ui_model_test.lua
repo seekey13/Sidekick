@@ -573,6 +573,25 @@ test('tracked players: tagged T1 on, their jobs once a /check answers, and among
     eq(build(whm, nil, fake.snap({ { name = 'A', tracked = true } })).party[2].tracked, true)  -- joined your party
 end)
 
+test('every line has its main and sub job ids for the HUD\'s colours: nil while unknown, the sub nil with none', function ()
+    local g = fake.snap({
+        { name = 'A', jobs = { 1, 75, 13, 37 } },                        -- WAR/NIN
+        { name = 'Solo', jobs = { 6, 75, 0, 0 } },                       -- THF, no subjob
+        { name = 'Lv0', jobs = { 9, 30, 3, 0 } },                        -- a subjob at level 0 (unlocked, not in use)
+        { kind = 'alliance', name = 'Bea', jobs = { 16, 75, 13, 37 } },  -- in your zone, not /anon
+        { kind = 'alliance', name = 'Anon', jobs = { 0, 0, 0, 0 } },     -- /anon, or out of your zone
+        { kind = 'tracked', name = 'Out', main = 22, main_lv = 75, sub = 16, sub_lv = 37 },  -- a /check answered
+        { kind = 'tracked', name = 'Far' },                              -- none yet
+    })
+    g.units[1].jobs = { WHM, 75, BLM, 37 }
+    local view = build(whm, nil, g)
+    local function ids(p) return { p.main or false, p.sub or false } end
+    eq({ ids(view.party[1]), ids(view.party[2]), ids(view.party[3]), ids(view.party[4]) },
+       { { WHM, BLM }, { 1, 13 }, { 6, false }, { 9, false } })
+    eq({ ids(view.alliance[1]), ids(view.alliance[2]) }, { { 16, 13 }, { false, false } })
+    eq({ ids(view.party[5]), ids(view.party[6]) }, { { 22, 16 }, { false, false } })
+end)
+
 test('buff rows reaching outside the party get a chip per tracked player, its slot their name', function ()
     local view = build(whm, nil, tracked_snap())
     local haste = row(view, 'buff', 'Haste')

@@ -14,7 +14,8 @@
              read (in your zone), seen with MP while /anon there, none elsewhere; a tracked
              player's: a session file's MP over 0, or a job with MP, while a file gives it),
              max_known (max_hp is real: yours, or seen at full HP with no Weakness or Curse, and HP% agrees),
-             jobs = { main, main_lv, sub, sub_lv } (you and your party's players),
+             jobs = { main, main_lv, sub, sub_lv } (you, your party and the alliance: the alliance's 0 out of your
+             zone or while /anon),
              in_zone, dist, pos = { x, y, z },
              status (entity), alive, buffs = { [id] = true },
              stacks = { [id] = how many stand } (you and your party's players: runes
@@ -548,20 +549,18 @@ local function member(party, player, em, i, zone, now)
         in_zone = party:GetMemberZone(i) == zone,
     }
     u.immune = sid >= TRUST and IMMUNE[(u.name:gsub(' ', ''))] or nil
-    if i <= 5 then
-        u.jobs = { party:GetMemberMainJob(i), party:GetMemberMainJobLevel(i),
-                   party:GetMemberSubJob(i), party:GetMemberSubJobLevel(i) }
-    end
+    u.jobs = { party:GetMemberMainJob(i), party:GetMemberMainJobLevel(i),
+               party:GetMemberSubJob(i), party:GetMemberSubJobLevel(i) }
     if i == 0 then
         u.uses_mp = player:GetMPMax() > 0
     else
         -- A job with MP, main or sub: at 0 MP (just loaded, out of zone) a mage still has some. Else once seen with it.
         -- The alliance's jobs come in the same packets as their MP (0x0DD, 0x0DF), only while they're in your zone and
         -- not /anon: a job of 0 in your zone is /anon (MP current: once seen with it), elsewhere their MP isn't current.
-        local main, sub = party:GetMemberMainJob(i), party:GetMemberSubJob(i)
+        local j = u.jobs
+        local main, sub = j[1], j[3]
         local key = ('%d %d/%d'):format(sid, main, sub)
         if u.mp > 0 then has_mp[key] = true end
-        local j = u.jobs or i > 5 and { main, party:GetMemberMainJobLevel(i), sub, party:GetMemberSubJobLevel(i) } or {}
         if i > 5 and (main or 0) == 0 then
             u.uses_mp = u.in_zone and has_mp[key] == true
         else

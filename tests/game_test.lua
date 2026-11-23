@@ -205,6 +205,7 @@ test('the alliance\'s other parties: slots 6-17, statuses from packets, forgotte
     eq({ #g.units, b.kind, b.slot, b.hpp, b.max_hp, b.dist, b.uses_mp, b.buffs, g.tracks[600] },
        { 3, 'alliance', 6, 50, 1000, 7, true, { [PROTECT] = true }, true })
     eq({ c.kind, c.slot, c.max_hp, c.uses_mp, g.tracks[601] }, { 'alliance', 12, 1200, false, true })
+    eq({ b.jobs, c.jobs }, { { 3, 75, 4, 37 }, { 1, 75, 1, 37 } })  -- their jobs, as the party's: WHM/BLM, WAR/WAR
     world.party[7] = nil  -- Bea leaves, and the wear-off packets go with her
     g = read()
     eq({ #g.units, g.tracks[600] }, { 2, nil })
