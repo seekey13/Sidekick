@@ -74,6 +74,10 @@ local DEFAULTS = {
            show_slot = true,  -- the slot on each bar: ME, P1, B0, T1, PET
            gap = 8, locked = false,
            hide_mp = true,  -- leave out the MP bar of a member or pet with no MP (0/0)
+           job_colors = true,  -- each HP bar in its main job's colour (a pet's in its owner's)
+           sub_colors = true,  -- ...blended into its subjob's, a member's: where (`split`) and how wide (`blend`, 0-100)
+           split = 'diagonal', blend = 50,
+           hp_glow = true,  -- TargetBar's lock-on fringe round an HP bar as its name turns yellow, orange and red
            widget = false,  -- the widget, v2's floating one (/sk widget)
            widget_size = 16,  -- its text and icons' height, in pixels
            list_rows = 8,  -- the most choices a drop-down's list shows before it scrolls (kit.LIST_ROWS.default)

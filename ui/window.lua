@@ -100,6 +100,49 @@ local BAR_OFF = '#0c0c0c'                -- the background while the pointer is 
 local PET_WELL = '#C2FFFF'               -- your pet's name over 75% HP, where a member's is white
 local TITLE = 'Sidekick'
 
+-- The HP bars' job colours and glow, together: the file's main chunk is near Lua's 200 locals.
+local hpbar = {}
+
+-- Job colours (ui.job_colors), by job id: WoW's raid frame colour of the class nearest the job where one is, a colour
+-- of its own where none is, no two alike.
+hpbar.COLORS = {
+    [1] = '#C69B6D',   -- WAR  tan        (Warrior)
+    [2] = '#00FF98',   -- MNK  jade       (Monk)
+    [3] = '#FFFFFF',   -- WHM  white      (Priest)
+    [4] = '#3FC7EB',   -- BLM  light blue (Mage)
+    [5] = '#C41E3A',   -- RDM  crimson    (Death Knight)
+    [6] = '#FFF468',   -- THF  yellow     (Rogue)
+    [7] = '#F48CBA',   -- PLD  pink       (Paladin)
+    [8] = '#A330C9',   -- DRK  purple     (Demon Hunter)
+    [9] = '#FF7C0A',   -- BST  orange     (Druid)
+    [10] = '#E040E0',  -- BRD  magenta
+    [11] = '#AAD372',  -- RNG  green      (Hunter)
+    [12] = '#F24B2A',  -- SAM  vermilion
+    [13] = '#7A5C7A',  -- NIN  dusk plum
+    [14] = '#33937F',  -- DRG  teal       (Evoker)
+    [15] = '#8788EE',  -- SMN  lavender   (Warlock)
+    [16] = '#0070DD',  -- BLU  blue       (Shaman)
+    [17] = '#A67C00',  -- COR  old gold
+    [18] = '#FFC8A8',  -- PUP  porcelain
+    [19] = '#FF3399',  -- DNC  hot pink
+    [20] = '#6A2EF0',  -- SCH  violet
+    [21] = '#2EB84A',  -- GEO  leaf green
+    [22] = '#9CF5F5',  -- RUN  ice
+}
+
+-- Where a member's subjob colour goes on its HP bar (ui.split), in the order Sidekick Settings lists them.
+hpbar.SPLITS = { { key = 'diagonal', label = 'Diagonal' }, { key = 'horizontal', label = 'Horizontal' },
+                 { key = 'vertical', label = 'Vertical' } }
+hpbar.SPLIT = {}  -- by key
+for _, s in ipairs(hpbar.SPLITS) do hpbar.SPLIT[s.key] = s end
+
+-- The HP glow (ui.hp_glow): TargetBar's lock-on fringe (addons/ashita/TargetBar: LOCK_GLOW, draw_lock), the bar's rounded
+-- rect grown a pixel at a time in 1px strokes fading out, { pixels out, alpha }, the last on the bar's own edge. Its
+-- colour and strength go with the name's at that HP: yellow at a third from 75%, orange at two thirds from 50%, and
+-- TargetBar's red whole from 25%.
+hpbar.GLOW_RINGS = { { 4, 0.14 }, { 3, 0.22 }, { 2, 0.34 }, { 1, 0.50 }, { 0, 0.72 } }
+hpbar.GLOW_RED = '#FF4A40'
+
 local HUD_FLAGS = ImGuiWindowFlags_NoTitleBar + ImGuiWindowFlags_NoResize + ImGuiWindowFlags_NoScrollbar
     + ImGuiWindowFlags_NoScrollWithMouse + ImGuiWindowFlags_AlwaysAutoResize + ImGuiWindowFlags_NoBackground
     + ImGuiWindowFlags_NoBringToFrontOnFocus
@@ -144,15 +187,61 @@ local function pet_tip(pet)
     return f('%s (pet)\nHP %d%%  MP %d%%  TP %d  %s', game_text(pet.name), pet.hpp, pet.mpp, pet.tp, pet.dist)
 end
 
--- A track at (x, y), w by h, `filled` (0 to 1) of it in `color`. The whole bar has a
--- background at 70% that does not fade with the panel: gray while the pointer is over
+-- One pixel row of a two-colour fill, at (x, y): from `lx` to `rx` across it, `main` up to `a`, `sub` from `b`, and
+-- between them the blend, which ImGui shades from one end's colour to the other's.
+function hpbar.span(dl, x, y, lx, rx, a, b, main, sub, alpha)
+    if rx <= lx then return end
+    if a > lx then dl:AddRectFilled({ x + lx, y }, { x + math.min(rx, a), y + 1 }, kit.u32(main, alpha)) end
+    local u0, u1 = math.max(lx, a), math.min(rx, b)
+    if u1 > u0 then
+        local c0 = kit.u32(kit.mix(main, sub, (u0 - a) / (b - a)), alpha)
+        local c1 = kit.u32(kit.mix(main, sub, (u1 - a) / (b - a)), alpha)
+        dl:AddRectFilledMultiColor({ x + u0, y }, { x + u1, y + 1 }, c0, c1, c1, c0)
+    end
+    if rx > b then dl:AddRectFilled({ x + math.max(lx, b), y }, { x + rx, y + 1 }, kit.u32(sub, alpha)) end
+end
+
+-- A fill fw by h from (x, y) in two colours, `c` = { main, sub, split, blend }: a pixel row at a time, as ImGui's
+-- gradient has no rounded corners. The rows within `r` of the top and the bottom are set in to the corners' arcs (as
+-- auctionhouse-vanacore's aurora is): the left ones always, the right ones only when `full`, as a solid fill's.
+-- Diagonal: main above a 45° line down from the fill's top-right corner, sub below; the blend (0 to 100) fades across
+-- it, up to a bar's height each way. Horizontal: main over sub, the fade centred on the bar's middle, up to its whole
+-- height. Vertical: main then sub, the fade centred on the fill's middle, up to its whole width. A blend of 0 is a hard
+-- edge, softened by half a pixel each way.
+function hpbar.two_fill(dl, x, y, fw, h, r, full, c, alpha)
+    local k = c.blend / 100
+    h = math.floor(h)
+    for dy = 0, h - 1 do
+        local v = dy + 0.5  -- the row's middle
+        local yc = dy < r and r - v or dy >= h - r and v - (h - r) or nil
+        local ins = yc and r - math.sqrt(math.max(0, r * r - yc * yc)) or 0
+        local lx, rx = ins, fw - (full and ins or 0)
+        if c.split == 'horizontal' then
+            local half = math.max(0.5, k * h / 2)
+            local color = kit.mix(c.main, c.sub, (v - (h / 2 - half)) / (2 * half))
+            if rx > lx then dl:AddRectFilled({ x + lx, y + dy }, { x + rx, y + dy + 1 }, kit.u32(color, alpha)) end
+        elseif c.split == 'vertical' then
+            local half = math.max(0.5, k * fw / 2)
+            hpbar.span(dl, x, y + dy, lx, rx, fw / 2 - half, fw / 2 + half, c.main, c.sub, alpha)
+        else
+            local half = math.max(0.5, k * h)
+            hpbar.span(dl, x, y + dy, lx, rx, fw - half - v, fw + half - v, c.main, c.sub, alpha)
+        end
+    end
+end
+
+-- A track at (x, y), w by h, `filled` (0 to 1) of it in `color`: a colour, or a two-colour fill's table
+-- (hpbar.two_fill).
+-- The whole bar has a background at 70% that does not fade with the panel: gray while the pointer is over
 -- it (`chrome` 1), near-black while not. A 1px stroke in that same near-black, at 70%, sits on the edge.
 -- The fill is at 70% too.
 local function track(dl, x, y, w, h, filled, color, alpha, chrome)
     local r = math.min(ROUND, math.floor(h / 2))
     kit.fill(dl, x, y, w, h, kit.mix(BAR_OFF, P.track, chrome), r, BAR_TRACK_A)
     local fw = util.clamp(util.round(w * filled), 0, w)
-    if fw > 0 then
+    if fw > 0 and type(color) == 'table' then
+        hpbar.two_fill(dl, x, y, fw, h, math.min(r, fw / 2), fw >= w, color, alpha * BAR_FILL)
+    elseif fw > 0 then
         kit.fill(dl, x, y, fw, h, color, math.min(r, fw / 2), alpha * BAR_FILL, fw < w and kit.LEFT_CORNERS or nil)
     end
     kit.outline(dl, x, y, w, h, BAR_OFF, r, BAR_EDGE_A, BAR_EDGE)
@@ -266,6 +355,34 @@ end
 -- A slot (ME, P1, B0, T1, PET): white, grey away as the rest of its line.
 local function slot_color(p) return p.away and P.dim or P.white end
 
+-- What line `p`'s HP bar is filled with: the HUD's red, or with Job colors on its main job's colour (a pet's line
+-- carries its owner's), blended into its subjob's with Subjob color on (`ui.split`, `ui.blend`; a pet has none). A
+-- job the palette doesn't know, or none known, keeps the red.
+function hpbar.paint(ui, p)
+    local main = ui.job_colors and hpbar.COLORS[p.main or 0]
+    if not main then return P.hp end
+    local sub = ui.sub_colors and hpbar.COLORS[p.sub or 0]
+    if not sub then return main end
+    return { main = main, sub = sub, split = ui.split, blend = ui.blend }
+end
+
+-- The HP glow round line `p`'s HP bar, w by h at (x, y), with `ui.hp_glow` on: from 75% HP down, as its name changes
+-- colour (hpbar.GLOW_RINGS). None on one away (its HP is stale), dead, or at 0% (a pet). Drawn after the bar, before
+-- what goes under it, and outside it: in the panel's padding (HUD_PAD) or the gap to the next bar, so nothing moves.
+function hpbar.glow(dl, ui, x, y, w, h, p)
+    local hpp = p.hpp or 100
+    if not ui.hp_glow or p.away or p.alive == false or hpp <= 0 or hpp > 75 then return end
+    local color, strength = P.yellow, 0.333
+    if hpp <= 25 then color, strength = hpbar.GLOW_RED, 1
+    elseif hpp <= 50 then color, strength = P.orange, 0.666 end
+    local r0 = math.min(ROUND, math.floor(h / 2), math.floor(w / 2))
+    for _, ring in ipairs(hpbar.GLOW_RINGS) do
+        local e = ring[1]
+        local r = math.min(r0 + e, math.floor((h + e * 2) / 2), math.floor((w + e * 2) / 2))
+        kit.outline(dl, x - e, y - e, w + e * 2, h + e * 2, color, r, ring[2] * strength)
+    end
+end
+
 -- A member's card, line `l`, at (x, y): the HP bar over the MP bar over the TP bar, the MP and TP bars each its
 -- offset in from the HP bar's left, the name on the first and the slot on the last (`ui.show_slot`), the % of each
 -- (TP's number) only in its tooltip. `l.no_mp` leaves the MP bar out, the TP bar up under the HP bar. The name turns
@@ -276,7 +393,8 @@ local function card(dl, ui, l, x, y, chrome)
     local fx, mp_top = x + HUD_PAD, y + ui.hp_height + BAR_GAP
     local tp_top = l.no_mp and mp_top or mp_top + ui.mp_height + BAR_GAP
     local fade = p.away and 0.45 or 1
-    bar(dl, 'hp.' .. id, fx, y, ui.hp_width, ui.hp_height, p.hpp, P.hp, fade, chrome)
+    bar(dl, 'hp.' .. id, fx, y, ui.hp_width, ui.hp_height, p.hpp, hpbar.paint(ui, p), fade, chrome)
+    hpbar.glow(dl, ui, fx, y, ui.hp_width, ui.hp_height, p)
     if not l.no_mp then
         bar(dl, 'mp.' .. id, fx + ui.mp_offset, mp_top, ui.mp_width, ui.mp_height, p.mpp, P.mp, fade, chrome)
     end
@@ -298,7 +416,8 @@ local function pet_card(dl, ui, l, x, y, chrome)
     local hx, tx, hh, th = fx + ui.pet_hp_offset, fx + ui.pet_tp_offset, ui.pet_hp_height, ui.pet_tp_height
     local mp_top = y + hh + BAR_GAP
     local tp_top = l.no_mp and mp_top or mp_top + ui.pet_mp_height + BAR_GAP
-    bar(dl, 'hp.' .. id, hx, y, ui.pet_hp_width, hh, p.hpp, P.hp, 1, chrome)
+    bar(dl, 'hp.' .. id, hx, y, ui.pet_hp_width, hh, p.hpp, hpbar.paint(ui, p), 1, chrome)
+    hpbar.glow(dl, ui, hx, y, ui.pet_hp_width, hh, p)
     if not l.no_mp then
         bar(dl, 'mp.' .. id, fx + ui.pet_mp_offset, mp_top, ui.pet_mp_width, ui.pet_mp_height, p.mpp, P.mp, 1, chrome)
     end
@@ -322,7 +441,8 @@ local function row(dl, ui, l, x, top, chrome)
     local p, ts, h = l.p, ui.ally_text_size, ui.ally_hp_height
     local fx, font, name = x + HUD_PAD, kit.fonts.semi, game_text(p.name)
     local fade = p.away and 0.45 or 1
-    bar(dl, 'hp.' .. l.id, fx, top, ui.ally_hp_width, h, p.hpp, P.hp, fade, chrome)
+    bar(dl, 'hp.' .. l.id, fx, top, ui.ally_hp_width, h, p.hpp, hpbar.paint(ui, p), fade, chrome)
+    hpbar.glow(dl, ui, fx, top, ui.ally_hp_width, h, p)
     if l.mp_strip then
         bar(dl, 'mp.' .. l.id, fx + ui.ally_mp_offset, top + h + STRIP_GAP, ui.ally_mp_width, ui.ally_mp_height, p.mpp,
             P.mp, fade, chrome)
@@ -411,9 +531,12 @@ local function draw_labels(list, ts, right, cy)
 end
 
 -- view.ui's sizes, each held to its slider's range: nothing checks a value edited
--- by hand or set by a custom UI, and ImGui asserts on a zero-size button.
+-- by hand or set by a custom UI, and ImGui asserts on a zero-size button. Its switches and colour settings too, each
+-- its default when missing or not one it takes.
 local function hud_sizes(ui)
-    local out = { show_slot = ui.show_slot ~= false }
+    local out = { show_slot = ui.show_slot ~= false, job_colors = ui.job_colors ~= false, sub_colors = ui.sub_colors ~= false,
+                  hp_glow = ui.hp_glow ~= false, split = hpbar.SPLIT[ui.split] and ui.split or 'diagonal',
+                  blend = util.clamp(math.floor(tonumber(ui.blend) or 50), 0, 100) }
     for _, l in ipairs(UI_SLIDERS) do
         out[l[2]] = util.clamp(math.floor(tonumber(ui[l[2]]) or l[3]), l[3], l[4])
     end
@@ -435,7 +558,7 @@ local function lines_of(view)
                           no_mp = not row_of and hide and not p.uses_mp, mp_strip = row_of ~= nil and p.uses_mp }
         local pet = i == 1 and view.pet or p.pet
         if pet then
-            out[#out + 1] = { p = { name = pet.name, tag = 'PET', hpp = pet.hpp, mpp = pet.mpp, tp = pet.tp },
+            out[#out + 1] = { p = { name = pet.name, tag = 'PET', hpp = pet.hpp, mpp = pet.mpp, tp = pet.tp, main = p.main },
                               id = ('pet.%s.%s'):format(p.name, pet.name), member = i, pet = pet,
                               no_mp = hide and pet.pools and not pet.uses_mp }
         end
@@ -1317,6 +1440,25 @@ local function draw_ui(view, pg)
         'Leave out the MP bar of a member or pet with no MP (0/0): a job without it, a wyvern, a jug pet.')
     switch(pg, 'Lock position', 'ui.locked', view.ui.locked == true,
         'Keep the HUD and the widget where they are: dragging them no longer moves them.')
+    subheader(pg, 'HUD - Colors')
+    switch(pg, 'Job colors', 'ui.job_colors', sizes.job_colors,
+        'Each HP bar in its main job\'s color, a pet\'s in its owner\'s. One whose job can\'t be read (an alliance '
+        .. 'member out of your zone or /anon, a tracked player before a /check) stays red.')
+    switch(pg, 'Subjob color', 'ui.sub_colors', sizes.sub_colors,
+        'Blend each member\'s HP bar into its subjob\'s color, by Split and Blend. A pet keeps its owner\'s main job '
+        .. 'color.')
+    pick(pg, 'Split', 'Split##sk_ui_split', t(hpbar.SPLIT[sizes.split].label), function ()
+        for _, s in ipairs(hpbar.SPLITS) do
+            if kit.selectable(t(s.label) .. '##sk_ui_split_' .. s.key, s.key == sizes.split) then act.set('ui.split', s.key) end
+        end
+    end, 'Where the subjob\'s color goes. Diagonal: the bottom-right corner, under a 45° line down from the fill\'s '
+        .. 'top-right. Horizontal: the bottom half. Vertical: the right half.')
+    slider(pg, 'Blend', 'ui.blend', sizes.blend,
+        'How gradually the main job\'s color turns into the subjob\'s: 0% is a hard edge, 100% the widest fade.', '%',
+        { 0, 100 }, not (sizes.job_colors and sizes.sub_colors) and 'Needs Job colors and Subjob color on.' or nil)
+    switch(pg, 'HP glow', 'ui.hp_glow', sizes.hp_glow,
+        'A glow round the HP bar as the name changes color: yellow from 75% HP, orange from 50%, red from 25%. None on '
+        .. 'someone dead or away.')
     subheader(pg, 'HUD - Party')
     for _, key in ipairs({ 'name_size', 'text_size', 'hp_width', 'hp_height', 'mp_width', 'mp_height', 'mp_offset',
                            'tp_width', 'tp_height', 'tp_offset' }) do

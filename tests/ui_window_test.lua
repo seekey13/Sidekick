@@ -436,7 +436,7 @@ end
 test('the panel and bars follow the UI settings', function ()
     close_settings()
     local cfg = settings.defaults()
-    cfg.ui.hp_width = 300
+    cfg.ui.hp_width, cfg.ui.hp_glow = 300, false  -- A, at 62%, would glow yellow: the HP glow's own tests are below
     render(cfg, status())
     local panel = calls('AddRectFilled')[1].args
     eq({ panel[1], panel[2][1], panel[3] }, { { 100, 50 }, 100 + 2 * 8 + 300, u32(P.bg) })  -- hovered: solid
@@ -520,6 +520,152 @@ test('a name turns yellow at 75% HP, orange at 50% and red at 25%; away greys it
     eq({ fill('Org'), fill('P3'), fill('Low'), fill('Red') },
         { u32(P.orange), u32(P.white), u32(P.orange), u32(P.red) })  -- Org's MP under the Recover line: still white
     eq({ fill('Gone'), fill('P5'), fill('T2') }, { u32(P.dim), u32(P.dim), u32(P.white) })  -- a row's slot as a card's
+end)
+
+-- Job colours and the HP glow ------------------------------------------------------------
+
+-- The colours of the fills (AddRectFilled) drawn from (x, y): a bar's background, then its fill.
+local function painted(x, y)
+    local out = {}
+    for _, d in ipairs(calls('AddRectFilled')) do
+        if d.args[1][1] == x and d.args[1][2] == y then out[#out + 1] = d.args[3] end
+    end
+    return out
+end
+
+-- A two-colour fill's pieces on the pixel row at y, left to right: { left, right, colour }, the blend's with each end's.
+local function pieces(y)
+    local out = {}
+    for _, d in ipairs(frame.drawn) do
+        local a, b = d.args[1], d.args[2]
+        if d.name == 'AddRectFilled' and a[2] == y and b[2] == y + 1 then
+            out[#out + 1] = { a[1], b[1], d.args[3] }
+        elseif d.name == 'AddRectFilledMultiColor' and a[2] == y and b[2] == y + 1 then
+            out[#out + 1] = { a[1], b[1], d.args[3], d.args[4] }
+        end
+    end
+    table.sort(out, function (p, q) return p[1] < q[1] end)
+    return out
+end
+
+local WAR, NIN, DRG, BLU = '#C69B6D', '#7A5C7A', '#33937F', '#0070DD'
+
+test('Job colors: each HP bar its main job\'s colour, a pet\'s its owner\'s; one with none known, or the switch off, red', function ()
+    close_settings()
+    local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
+    cfg.ui.sub_colors = false
+    local g = fake.snap({ { name = 'A', jobs = { 1, 75, 13, 37 } }, { name = 'B' },
+                          { kind = 'alliance', uses_mp = false, name = 'Bea', jobs = { 16, 75, 0, 0 } } },
+        { pet = { name = 'Wyvern', hpp = 100, mpp = 0, tp = 0, dist = 2, uses_mp = false } })
+    g.units[1].jobs = { 14, 75, 0, 0 }  -- you: DRG, your wyvern under you
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    -- Your card from y 75, your wyvern's from 155 (39 high: no MP bar), A's from 202, B's from 282, Bea's row from 362.
+    eq({ has(painted(108, 75), u32(DRG, BAR_FILL)), has(painted(108, 155), u32(DRG, BAR_FILL)),
+         has(painted(108, 202), u32(WAR, BAR_FILL)), hp_fill(108, 282) ~= nil, has(painted(108, 362), u32(BLU, BAR_FILL)) },
+       { true, true, true, true, true })
+    cfg.ui.sub_colors = true  -- A's subjob blends in; your wyvern stays your main job's colour, whole
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq({ #pieces(202) > 0, #pieces(155), has(painted(108, 155), u32(DRG, BAR_FILL)) }, { true, 0, true })
+    cfg.ui.job_colors = false
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq({ hp_fill(108, 75) ~= nil, hp_fill(108, 155) ~= nil, hp_fill(108, 202) ~= nil, hp_fill(108, 362) ~= nil },
+       { true, true, true, true })
+end)
+
+test('Subjob color: main then sub by Split and Blend, a pixel row at a time, set in to the corners', function ()
+    close_settings()
+    local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
+    local main, sub = u32(WAR, BAR_FILL), u32(NIN, BAR_FILL)
+    local g = fake.snap({})
+    g.units[1].jobs = { 1, 75, 13, 37 }  -- you: WAR/NIN, your HP bar 220 by 40 from (108, 75)
+    local function draw_with(split, blend, hpp)
+        cfg.ui.split, cfg.ui.blend = split, blend
+        g.units[1].hpp = hpp or 100
+        render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    end
+    local ins = 4 - math.sqrt(16 - 3.5 * 3.5)  -- the top row, set in to the corners' arcs
+    -- Diagonal, a hard edge: the top row main to the top-right corner, a 45° line down from it: the bottom row main to
+    -- 180 across, sub from 181, the pixel between blended.
+    draw_with('diagonal', 0)
+    eq(pieces(75), { { 108 + ins, 108 + 220 - ins, main } })
+    local bottom = pieces(75 + 39)
+    eq({ #bottom, bottom[1][2], bottom[1][3], bottom[3][1], bottom[3][3] }, { 3, 108 + 180, main, 108 + 181, sub })
+    -- At 50%, the default, it fades half a bar's height each way of that line.
+    draw_with('diagonal', 50)
+    eq(pieces(75), { { 108 + ins, 108 + 199.5, main },
+                     { 108 + 199.5, 108 + 220 - ins, main, u32(kit.mix(WAR, NIN, (220 - ins - 199.5) / 40), BAR_FILL) } })
+    -- Horizontal, a hard edge: main over sub, the line across the middle; at 100% a fade from the top row to the bottom.
+    draw_with('horizontal', 0)
+    eq({ pieces(75 + 19)[1][3], pieces(75 + 20)[1][3] }, { main, sub })
+    draw_with('horizontal', 100)
+    eq({ pieces(75)[1][3], pieces(75 + 39)[1][3] },
+       { u32(kit.mix(WAR, NIN, 0.5 / 40), BAR_FILL), u32(kit.mix(WAR, NIN, 39.5 / 40), BAR_FILL) })
+    -- Vertical, a hard edge, at 50% HP: main then sub down the fill's middle; a part-filled bar's right end square.
+    draw_with('vertical', 0, 50)
+    local mid, top = pieces(75 + 20), pieces(75)
+    eq({ mid[1][1], mid[1][2], mid[1][3], mid[3][1], mid[3][2], mid[3][3] }, { 108, 108 + 54.5, main, 108 + 55.5, 108 + 110, sub })
+    eq({ top[1][1], top[#top][2] }, { 108 + ins, 108 + 110 })
+    -- A split or a blend it doesn't take draws as the defaults: Diagonal, 50%.
+    draw_with('sideways', 'lots')
+    eq(pieces(75)[1], { 108 + ins, 108 + 199.5, main })
+    cfg.ui.sub_colors = false  -- one colour, rounded as before
+    draw_with('diagonal', 50)
+    eq({ #pieces(75), has(painted(108, 75), main) }, { 0, true })
+end)
+
+-- The HP glow's rings round a bar w by h at (x, y), outermost first: each one's colour.
+local function rings(x, y, w, h)
+    local out = {}
+    for e = 4, 0, -1 do
+        for _, d in ipairs(calls('AddRect')) do
+            local a, b = d.args[1], d.args[2]
+            if a[1] == x - e and a[2] == y - e and b[1] == x + w + e and b[2] == y + h + e
+                and d.args[3] ~= u32(BAR_OFF, BAR_EDGE_A) then
+                out[#out + 1] = d.args[3]
+            end
+        end
+    end
+    return out
+end
+
+-- TargetBar's lock-on rings in `color` at `strength`, outermost first.
+local function ring_colors(color, strength)
+    local out = {}
+    for _, a in ipairs({ 0.14, 0.22, 0.34, 0.50, 0.72 }) do out[#out + 1] = u32(color, a * strength) end
+    return out
+end
+
+test('HP glow: TargetBar\'s fringe round the HP bar as the name changes colour; none dead or away; nothing grows', function ()
+    close_settings()
+    local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
+    local g = fake.snap({
+        { name = 'High', hpp = 76 }, { name = 'Yel', hpp = 75 }, { name = 'Org', hpp = 50 }, { name = 'Red', hpp = 25 },
+        { name = 'Dead', hpp = 20, alive = false },
+        { kind = 'alliance', uses_mp = false, name = 'Low', hpp = 10 },
+        { kind = 'alliance', uses_mp = false, name = 'Gone', hpp = 10, in_zone = false },
+    })
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    -- The cards 80 apart from y 75 (yours, then High's from 155), their HP bars 220 by 40; then the rows, 220 by 18, 3
+    -- apart, from 555.
+    eq({ rings(108, 155, 220, 40), rings(108, 235, 220, 40), rings(108, 315, 220, 40), rings(108, 395, 220, 40),
+         rings(108, 475, 220, 40) },
+       { {}, ring_colors(P.yellow, 0.333), ring_colors(P.orange, 0.666), ring_colors('#FF4A40', 1), {} })
+    eq({ rings(108, 555, 220, 18), rings(108, 576, 220, 18) }, { ring_colors('#FF4A40', 1), {} })
+    -- Out past the bar, into the padding and the gaps: the panel and the bars stay as they were.
+    local extent, panel = frame.extent.Sidekick, calls('AddRectFilled')[1].args[2]
+    eq({ bar_edge(108, 235, 220, 40), bar_edge(108, 555, 220, 18) }, { true, true })
+    cfg.ui.hp_glow = false
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq({ rings(108, 235, 220, 40), rings(108, 555, 220, 18), frame.extent.Sidekick, calls('AddRectFilled')[1].args[2] },
+       { {}, {}, extent, panel })
+    eq({ bar_edge(108, 235, 220, 40), bar_edge(108, 555, 220, 18) }, { true, true })
+    cfg.ui.hp_glow = true  -- your pet's too, but none at 0%
+    local p = fake.snap({}, { pet = { name = 'Ifrit', hpp = 20, mpp = 40, tp = 0, dist = 3, uses_mp = true } })
+    render(cfg, st, nil, model.build(p, cat, cfg, st, NAMES))
+    eq(rings(108, 155, 220, 18), ring_colors('#FF4A40', 1))
+    p.pet.hpp = 0
+    render(cfg, st, nil, model.build(p, cat, cfg, st, NAMES))
+    eq(rings(108, 155, 220, 18), {})
 end)
 
 -- The TP fills drawn: each one's corners and colour, in the order drawn.
@@ -1672,6 +1818,20 @@ test('UI / Log: the sliders size the HUD and Sidekick Settings, Lock position ke
     render(cfg, st)
 end)
 
+test('UI / Log: HUD - Colors switches Job colors, Subjob color and HP glow, picks the Split and slides the Blend', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    eq({ cfg.ui.job_colors, cfg.ui.sub_colors, cfg.ui.hp_glow, cfg.ui.split, cfg.ui.blend }, { true, true, true, 'diagonal', 50 })
+    eq(render(cfg, st, on('UI / Log', { ['Job colors##sk_ui_job_colors'] = true, ['Subjob color##sk_ui_sub_colors'] = true,
+        ['HP glow##sk_ui_hp_glow'] = true })), 3)
+    eq({ cfg.ui.job_colors, cfg.ui.sub_colors, cfg.ui.hp_glow }, { false, false, false })
+    eq(render(cfg, st, on('UI / Log', { ['Blend##sk_ui_blend'] = 80, over = true })), 0)  -- greyed: nothing to blend
+    eq({ cfg.ui.blend, tipped('Needs Job colors and Subjob color on.') }, { 50, true })
+    cfg.ui.job_colors, cfg.ui.sub_colors = true, true
+    eq(render(cfg, st, on('UI / Log', { ['Blend##sk_ui_blend'] = 80, ['Horizontal##sk_ui_split_horizontal'] = true })), 2)
+    eq({ cfg.ui.blend, cfg.ui.split }, { 80, 'horizontal' })
+end)
+
 test('UI / Log lists the last actions sent, and has no action log switch', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
@@ -2490,6 +2650,16 @@ test('on a Japanese client every page, tooltip and list is in Japanese, every jo
     eq({ drew('回復ライン'), drew('Heal under'), drew('回復'), drew('白75/黒37'), drew('追跡に追加'), drew('Add Tracked') },
        { true, false, true, true, true, false })
     cfg.ui.japanese, cfg.ui.widget = false, false
+end)
+
+test('on a Japanese client UI / Log\'s HUD - Colors is in Japanese, its greyed Blend\'s note too', function ()
+    open_settings()
+    lang.misses = {}
+    local cfg = settings.defaults()
+    cfg.ui.sub_colors = false
+    render_ja(cfg, status(), on('UI / Log'))
+    eq({ lang.misses, drew('ジョブの色'), drew('斜め'), drew('Job colors') }, { {}, true, true, false })
+    cfg.ui.japanese = false
 end)
 
 test('in Japanese each control keeps its English id: a click still sets its setting', function ()

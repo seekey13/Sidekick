@@ -371,6 +371,30 @@ ja.words = {
     ['Hide unused MP bars'] = '使わないMPバーを隠す',
     ['Leave out the MP bar of a member or pet with no MP (0/0): a job without it, a wyvern, a jug pet.'] =
         'MPのない（0/0）メンバーやペットのMPバーを表示しません（MPのないジョブ、飛竜、呼び出したペットなど）。',
+    ['HUD - Colors'] = 'HUD - 色',
+    ['Job colors'] = 'ジョブの色',
+    ['Each HP bar in its main job\'s color, a pet\'s in its owner\'s. One whose job can\'t be read (an alliance '
+        .. 'member out of your zone or /anon, a tracked player before a /check) stays red.'] =
+        'HPバーをメインジョブの色で表示します（ペットは主人のメインジョブの色）。ジョブを読み取れない人（別エリアや/anonの'
+        .. 'アライアンスメンバー、/check前の追跡中のプレイヤー）は赤のままです。',
+    ['Subjob color'] = 'サポートジョブの色',
+    ['Blend each member\'s HP bar into its subjob\'s color, by Split and Blend. A pet keeps its owner\'s main job '
+        .. 'color.'] =
+        'メンバーのHPバーにサポートジョブの色を混ぜます。混ぜ方は「分け方」と「ぼかし」で決まります。ペットは主人の'
+        .. 'メインジョブの色のままです。',
+    ['Split'] = '分け方', ['Diagonal'] = '斜め', ['Horizontal'] = '上下', ['Vertical'] = '左右',
+    ['Where the subjob\'s color goes. Diagonal: the bottom-right corner, under a 45° line down from the fill\'s '
+        .. 'top-right. Horizontal: the bottom half. Vertical: the right half.'] =
+        'サポートジョブの色を置く場所。斜め: バーの右上の角から45°で下がる線より右下の角。上下: 下半分。左右: 右半分。',
+    ['Blend'] = 'ぼかし',
+    ['How gradually the main job\'s color turns into the subjob\'s: 0% is a hard edge, 100% the widest fade.'] =
+        'メインジョブの色からサポートジョブの色へ変わる幅。0%でくっきり分かれ、100%でいちばん広くぼけます。',
+    ['Needs Job colors and Subjob color on.'] = '「ジョブの色」と「サポートジョブの色」がオンのときに使えます。',
+    ['HP glow'] = 'HPの光彩',
+    ['A glow round the HP bar as the name changes color: yellow from 75% HP, orange from 50%, red from 25%. None on '
+        .. 'someone dead or away.'] =
+        '名前の色が変わるのに合わせて、HPバーのまわりが光ります。HP75%から黄、50%からオレンジ、25%から赤。戦闘不能や'
+        .. '別エリアの人は光りません。',
     ['Show the HUD'] = 'HUDを表示',
     ['The party\'s HP, MP and TP, apart from this window: closing either leaves the other. Also /sk hud.'] =
         'パーティのHP・MP・TP。このウィンドウとは別で、どちらを閉じてももう一方は残ります。/sk hud でも切り替えられます。',
