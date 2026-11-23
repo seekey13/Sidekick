@@ -337,6 +337,27 @@ ja.words = {
         'ここで選んだテーマは、このPCのすべてのキャラクターで使われます。テーマを追加するには、その .lua ファイルを'
         .. 'Sidekickの ui フォルダーに置きます（ui/README.md に説明があります）。',
     ['HUD - General'] = 'HUD - 全般', ['HUD - Party'] = 'HUD - パーティ', ['HUD - Pet'] = 'HUD - ペット',
+    ['HUD - Buffs'] = 'HUD - 強化', ['Buff icons'] = '強化アイコン',
+    ['A row of icons along the top of each party card\'s HP bar: the statuses on you, your party and your trusts, '
+        .. 'left to right. Point at one for its name; those past the bar\'s end are counted in the last place (+N).'] =
+        'パーティの各カードのHPバーの上端に沿って、自分・パーティメンバー・フェイスのステータスのアイコンを左から並べます。'
+        .. 'アイコンにポインターを合わせると名前が出ます。バーに収まらない分は最後の枠に数で表示されます（+N）。',
+    ['Needs Buff icons on.'] = '「強化アイコン」がオンのときに使えます。',
+    ['Buff icon size'] = '強化アイコンのサイズ',
+    ['Pixels: each buff icon along the top of a party card\'s HP bar.'] =
+        'ピクセル: パーティのカードのHPバー上端に並ぶ強化アイコン1つの大きさ。',
+    ['Buff icon height'] = '強化アイコンの高さ',
+    ['Pixels: 0 centres the icons on the HP bar\'s top edge, half over the bar. Above 0 raises them, up past the bar; '
+        .. 'below 0 lowers them into it.'] =
+        'ピクセル: 0でアイコンの中心がHPバーの上端に来て、半分がバーに重なります。0より大きいと上がってバーの上へ出て、'
+        .. '0より小さいとバーの中へ下がります。',
+    ['Buff timers'] = '強化の残り時間',
+    ['The time left on each of your own buffs, on its icon: 3h, 25m, 47s. Yours only: the game gives no one else\'s.'] =
+        '自分の強化の残り時間をアイコンの上に表示します（3h、25m、47s）。自分の分だけです。ほかの人の残り時間はゲームから'
+        .. '得られません。',
+    ['Needs Buff timers on.'] = '「強化の残り時間」がオンのときに使えます。',
+    ['Timer text size'] = '残り時間の文字サイズ',
+    ['Pixels: the time left on each of your own buffs.'] = 'ピクセル: 自分の強化の残り時間の文字。',
     ['HUD - Alliance / Tracked'] = 'HUD - アライアンス/追跡',
     ['LOG'] = 'ログ', ['CLIENT'] = 'クライアント', ['AUTOMATION'] = '自動操作', ['Nothing sent yet.'] = 'まだ何も送っていません。',
     ['%ds'] = '%d秒',

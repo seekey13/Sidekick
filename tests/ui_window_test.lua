@@ -49,7 +49,8 @@ end
 
 -- The arguments of each draw-list call that are points.
 local POINTS = { AddRectFilled = { 1, 2 }, AddRect = { 1, 2 }, AddRectFilledMultiColor = { 1, 2 }, AddLine = { 1, 2 },
-                 AddCircleFilled = { 1 }, AddCircle = { 1 }, AddTriangleFilled = { 1, 2, 3 }, AddTriangle = { 1, 2, 3 } }
+                 AddCircleFilled = { 1 }, AddCircle = { 1 }, AddTriangleFilled = { 1, 2, 3 }, AddTriangle = { 1, 2, 3 },
+                 AddImage = { 2, 3, 4, 5 } }
 
 -- A draw list records each call as { list, name, args }. Its text is drawn as is,
 -- AddText(pos, col, s) or AddText(font, size, pos, col, s).
@@ -1124,13 +1125,14 @@ local function close_x()
     return { (a[1] + b[1]) / 2, (a[2] + b[2]) / 2 }
 end
 
-test('run and the cog sit at the top right of your own HP bar, the title row keeps close; lit while on', function ()
+test('run and the cog sit at the bottom right of your own HP bar, the title row keeps close; lit while on', function ()
     close_settings()
     render(settings.defaults(), status())
-    -- Text 14: buttons 17px. Your card's HP bar runs x 108-328 from y 75. Close is an X in the title row, no disc.
+    -- Text 14: buttons 17px. Your card's HP bar runs x 108-328 from y 75 to 115: they end 2 above its bottom. Close is an
+    -- X in the title row, no disc.
     local c = discs()
     eq(close_x(), { 100 + 236 - 8 - 8.5, 50 + 12.5 })
-    eq({ c[1][1], c[1][2], c[2][1], c[2][2] }, { 328 - 2 - 17 - 4 - 17 + 8.5, 77 + 8.5, 328 - 2 - 17 + 8.5, 77 + 8.5 })
+    eq({ c[1][1], c[1][2], c[2][1], c[2][2] }, { 328 - 2 - 17 - 4 - 17 + 8.5, 115 - 2 - 8.5, 328 - 2 - 17 + 8.5, 115 - 2 - 8.5 })
     eq(#frame.args.InvisibleButton, 3)
     -- The fake hovers everything: run unlit is the accent's low shade, lit its light one; the cog lit while Sidekick Settings shows.
     eq({ c[1][3], c[2][3] }, { u32(P.accent_lo), u32(P.accent_lo) })
@@ -1148,7 +1150,7 @@ test('the buttons are the icon size whatever the bar\'s height: on a thinner bar
     local cfg = settings.defaults()
     cfg.ui.icon_size = 24
     render(cfg, status())
-    eq(discs()[1][2], 75 + 2 + 12)  -- 24px, 2px from the 40px bar's top
+    eq(discs()[1][2], 75 + 40 - 2 - 12)  -- 24px, 2px up from the 40px bar's bottom
     cfg.ui.hp_height = 12
     render(cfg, status())
     -- Centred on your 12px bar, 6 over it above and below: your card comes down 6 so they clear the title row.
@@ -1200,6 +1202,125 @@ test('a button\'s tooltip replaces the card\'s', function ()
     render(settings.defaults(), status())  -- the fake hovers everything: the buttons win
     eq({ tipped('Start automation'), tipped('Settings'), tipped('Me\nHP') }, { true, true, false })
     eq(tipped('A\nHP 62%'), true)
+end)
+
+-- Buff icons ------------------------------------------------------------------------
+
+local icons = require('core.icons')
+local util = require('core.util')
+
+-- The HUD drawn from `g` (a fake snapshot) with each status icon a texture, 5000 + its id (offline there are none), and
+-- the icons drawn: { id, top-left, bottom-right } each, in the order drawn.
+local function buff_hud(cfg, g, clicks)
+    local st = status({ intent = false, sent = {} })
+    local real = icons.status
+    icons.status = function (id) return 5000 + id end
+    local ok, err = pcall(render, cfg, st, clicks, model.build(g, cat, cfg, st, NAMES))
+    icons.status = real
+    assert(ok, err)
+    local out = {}
+    for _, d in ipairs(calls('AddImage')) do out[#out + 1] = { d.args[1] - 5000, d.args[2], d.args[3] } end
+    return out
+end
+
+-- Where `s` was last drawn: its own text, after its halo.
+local function text_at(s)
+    local pos
+    for _, d in ipairs(calls('AddText')) do if d.args[5] == s then pos = d.args[3] end end
+    return pos
+end
+
+test('buff icons straddle each party card\'s HP bar top from its left, in order; none on a pet\'s card or a row', function ()
+    close_settings()
+    local g = fake.snap({ { name = 'A', icons = { { id = 40 }, { id = 41 } } },
+                          { name = 'B', kind = 'trust', buffs = { [43] = true, [33] = true } },
+                          { kind = 'alliance', name = 'C', buffs = { [44] = true } },
+                          { kind = 'tracked', name = 'T', buffs = { [45] = true } } },
+                        { pet = { name = 'Carbuncle', hpp = 100, dist = 2, uses_mp = true, buffs = { [46] = true } } })
+    g.units[1].icons = { { id = 34 }, { id = 33 } }
+    -- 16px, 2 apart, their middles on the HP bar's top edge (x 108): yours from y 75; your pet's card 4 under yours
+    -- (60 high), A's 8 under it, B's 8 under A's (each card 72 high). B's by id: a trust's statuses come in no order.
+    local a, b = 75 + 72 + 4 + 60 + 8, 75 + 72 + 4 + 60 + 8 + 72 + 8
+    eq(buff_hud(settings.defaults(), g), {
+        { 34, { 108, 67 }, { 124, 83 } }, { 33, { 126, 67 }, { 142, 83 } },
+        { 40, { 108, a - 8 }, { 124, a + 8 } }, { 41, { 126, a - 8 }, { 142, a + 8 } },
+        { 33, { 108, b - 8 }, { 124, b + 8 } }, { 43, { 126, b - 8 }, { 142, b + 8 } } })
+    eq({ hp_fill(108, a) ~= nil, hp_fill(108, b) ~= nil }, { true, true })  -- A's and B's HP bars, where they're said to be
+    local cfg = settings.defaults()
+    cfg.ui.buff_icons = false
+    eq(buff_hud(cfg, g), {})
+end)
+
+test('buff icons: Buff icon height moves them up past the bar or down into it, never past the window', function ()
+    close_settings()
+    local cfg, g = settings.defaults(), fake.snap({})
+    g.units[1].icons = { { id = 40 } }
+    cfg.ui.buff_offset = 10
+    eq(buff_hud(cfg, g)[1][2], { 108, 75 - 10 - 8 })
+    cfg.ui.buff_offset = -10
+    eq(buff_hud(cfg, g)[1][2], { 108, 75 + 10 - 8 })
+    cfg.ui.buff_size, cfg.ui.buff_offset = 30, 40  -- 55 over the bar's top: your card comes down from the title row's 25
+    eq({ buff_hud(cfg, g)[1][2], hp_fill(108, 50 + 55) ~= nil }, { { 108, 50 }, true })
+    cfg.ui.buff_size, cfg.ui.buff_offset = 64, -64  -- 96 under its top, past your card's 72: the panel reaches past them
+    eq(buff_hud(cfg, g)[1][3], { 172, 75 + 96 })
+    eq({ frame.extent.Sidekick, calls('AddRectFilled')[1].args[2][2] }, { { 336, 75 + 96 + 8 }, 75 + 96 + 8 })
+    cfg.ui.buff_offset = nil  -- none set: 0, not the slider's least (-64 would put them 32 into your bar, from y 107)
+    eq({ buff_hud(cfg, g)[1][2], hp_fill(108, 50 + 32) ~= nil }, { { 108, 50 }, true })
+end)
+
+test('buff icons: your own show the time left, its largest unit alone; no one else\'s has one', function ()
+    close_settings()
+    local cfg = settings.defaults()
+    local g = fake.snap({ { name = 'A', icons = { { id = 40, left = 100 } } } })
+    g.units[1].icons = { { id = 33, left = 3 * 3600 + 59 * 60 }, { id = 34, left = 25 * 60 + 59 }, { id = 35, left = 47 },
+                         { id = 36, left = 0 }, { id = 37 } }
+    eq(#buff_hud(cfg, g), 6)
+    eq({ drew('3h'), drew('25m'), drew('47s'), drew('0s'), drew('1m') }, { true, true, true, true, false })
+    -- 10px over the bottom of the third icon (x 144 to 160, y 67 to 83), across its middle.
+    local w, h = kit.measure('47s', kit.fonts.semi, 10)
+    eq(text_at('47s'), { util.round(144 + (16 - w) / 2), util.round(83 - h) })
+    cfg.ui.buff_timer_size = 14
+    buff_hud(cfg, g)
+    h = select(2, kit.measure('47s', kit.fonts.semi, 14))
+    eq(text_at('47s')[2], util.round(83 - h))
+    cfg.ui.buff_timers = false
+    eq(#buff_hud(cfg, g), 6)
+    eq({ drew('3h'), drew('47s') }, { false, false })
+end)
+
+test('buff icons: those past the bar\'s end are counted in its last place, their names in its tooltip', function ()
+    close_settings()
+    local cfg, g = settings.defaults(), fake.snap({})
+    g.units[1].icons = {}
+    for id = 40, 59 do g.units[1].icons[#g.units[1].icons + 1] = { id = id } end
+    -- 220 across holds 12 of 16 (and 2 between): 11 icons, then +9.
+    local drawn = buff_hud(cfg, g, { over = true })
+    eq({ #drawn, drawn[11][1], drawn[11][2], drew('+9') }, { 11, 50, { 108 + 10 * 18, 67 }, true })
+    local names = {}
+    for id = 51, 59 do names[#names + 1] = fake.res.statuses[id] and fake.res.statuses[id].en or tostring(id) end
+    eq(frame.tips[#frame.tips], table.concat(names, '\n'))
+end)
+
+test('buff icons: one under the pointer has its name, and on yours its time, in place of the card\'s tooltip', function ()
+    close_settings()
+    local g = fake.snap({})
+    g.units[1].icons = { { id = 40, left = 1500 } }
+    buff_hud(settings.defaults(), g, { over = true })
+    eq({ tipped('Protect  25m'), tipped('Me\nHP') }, { true, false })
+end)
+
+test('buff icons: a dark square in place of an icon the client can\'t give', function ()
+    close_settings()
+    local g, st, cfg = fake.snap({}), status({ intent = false, sent = {} }), settings.defaults()
+    g.units[1].icons = { { id = 40 } }
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))  -- offline: no textures
+    eq(#calls('AddImage'), 0)
+    local square = false
+    for _, d in ipairs(calls('AddRectFilled')) do
+        if d.args[1][1] == 108 and d.args[1][2] == 67 and d.args[2][1] == 124 and d.args[2][2] == 83
+            and d.args[3] == u32(P.well, 0.85) then square = true end
+    end
+    eq(square, true)
 end)
 
 -- A row's help covers its label's half, where a ward's switch, a rune or a Risk segment can sit with a tooltip of its
@@ -1820,8 +1941,8 @@ test('UI / Log: the sliders size the HUD and Sidekick Settings, Lock position ke
     letters = table.concat(letters)
     local function place(s) return letters:find(s, 1, true) or false end
     -- In order, Alliance / Tracked last, as their rows are in the HUD; then the widget's.
-    local order = { place('HUD - GENERAL'), place('HUD - PARTY'), place('HUD - PET'), place('HUD - ALLIANCE / TRACKED'),
-                    place('WIDGET') }
+    local order = { place('HUD - GENERAL'), place('HUD - PARTY'), place('HUD - BUFFS'), place('HUD - PET'),
+                    place('HUD - ALLIANCE / TRACKED'), place('WIDGET') }
     for i = 2, #order do eq(order[i - 1] and order[i] and order[i - 1] < order[i], true, 'heading ' .. i) end
     eq(button('Background opacity##sk_ui_opacity'), false)  -- the panel is solid while hovered: nothing to set
     local free = frame.flags.Sidekick
@@ -1833,6 +1954,25 @@ test('UI / Log: the sliders size the HUD and Sidekick Settings, Lock position ke
     eq(cfg.ui.hide_mp, false)
     cfg.ui.scale = nil
     render(cfg, st)
+end)
+
+test('UI / Log: HUD - Buffs switches the icons and their timers and sizes and lifts them; greyed while off', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    eq({ cfg.ui.buff_icons, cfg.ui.buff_size, cfg.ui.buff_offset, cfg.ui.buff_timers, cfg.ui.buff_timer_size },
+       { true, 16, 0, true, 10 })
+    eq(render(cfg, st, on('UI / Log', { ['Buff icon size##sk_ui_buff_size'] = 30,
+        ['Buff icon height##sk_ui_buff_offset'] = -12, ['Timer text size##sk_ui_buff_timer_size'] = 14 })), 3)
+    eq({ cfg.ui.buff_size, cfg.ui.buff_offset, cfg.ui.buff_timer_size }, { 30, -12, 14 })
+    eq(render(cfg, st, on('UI / Log', { ['Buff timers##sk_ui_buff_timers'] = true })), 1)
+    eq(cfg.ui.buff_timers, false)
+    eq(render(cfg, st, on('UI / Log', { ['Timer text size##sk_ui_buff_timer_size'] = 20, over = true })), 0)
+    eq({ cfg.ui.buff_timer_size, tipped('Needs Buff timers on.') }, { 14, true })
+    eq(render(cfg, st, on('UI / Log', { ['Buff icons##sk_ui_buff_icons'] = true })), 1)
+    eq(cfg.ui.buff_icons, false)
+    eq(render(cfg, st, on('UI / Log', { ['Buff icon size##sk_ui_buff_size'] = 40,
+        ['Buff icon height##sk_ui_buff_offset'] = 5, over = true })), 0)
+    eq({ cfg.ui.buff_size, cfg.ui.buff_offset, tipped('Needs Buff icons on.') }, { 30, -12, true })
 end)
 
 test('UI / Log: HUD - Colors switches Job colors, Subjob color and HP glow, picks the Split and slides the Blend', function ()

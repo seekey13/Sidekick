@@ -76,6 +76,11 @@ local UI_SLIDERS = {
         .. 'tracked player with MP (a tracked player\'s while another Sidekick session gives it).' },
     { 'MP bar height', 'ally_mp_height', 2, 80, 'Pixels.' },
     { 'MP bar offset', 'ally_mp_offset', 0, 300, OFFSET_HELP },
+    -- The buff icons' (ui.buff_icons); a sixth field is the value when there is none, where the least isn't.
+    { 'Buff icon size', 'buff_size', 8, 64, 'Pixels: each buff icon along the top of a party card\'s HP bar.' },
+    { 'Buff icon height', 'buff_offset', -64, 64, 'Pixels: 0 centres the icons on the HP bar\'s top edge, half over '
+        .. 'the bar. Above 0 raises them, up past the bar; below 0 lowers them into it.', 0 },
+    { 'Timer text size', 'buff_timer_size', 8, 32, 'Pixels: the time left on each of your own buffs.' },
 }
 local UI_SLIDER = {}  -- by key
 for _, l in ipairs(UI_SLIDERS) do UI_SLIDER[l[2]] = l end
@@ -324,14 +329,15 @@ local function title_row(dl, view, ts, x0, y0, pw, th, s, chrome)
 end
 
 -- Run and the cog on an HP bar `w` wide and `h` high: `ui.icon_size` across, at most half the bar's width each.
--- Returns their size and their top's offset from the bar's: 2 down, or once they're taller than the bar less that
--- margin, centred on it, spilling past it above and below.
+-- Returns their size and their top's offset from the bar's: their bottom 2 up from the bar's (out of the way of the
+-- buff icons along its top), or once they're taller than the bar less that margin, centred on it, spilling past it
+-- above and below.
 local function icon_box(ui, w, h)
     local s = math.min(ui.icon_size, math.floor((w - 8) / 2))
-    return s, math.min(2, math.floor((h - s) / 2))
+    return s, math.max(math.floor((h - s) / 2), h - s - 2)
 end
 
--- Run and the cog at the top right of the HP bar of your card, or of another session's card or row: line `l`, its
+-- Run and the cog at the bottom right of the HP bar of your card, or of another session's card or row: line `l`, its
 -- bar's left at `x`, its top at `y`. Returns whether one is hovered, so the line's own tooltip gives way.
 local function line_icons(view, l, x, y)
     local p, r = l.p, l.p.session
@@ -383,6 +389,84 @@ function hpbar.glow(dl, ui, x, y, w, h, p)
         local r = math.min(r0 + e, math.floor((h + e * 2) / 2), math.floor((w + e * 2) / 2))
         kit.outline(dl, x - e, y - e, w + e * 2, h + e * 2, color, r, ring[2] * strength)
     end
+end
+
+-- The buff icons (ui.buff_icons): a row of each party card's statuses (view.party[i].statuses) along its HP bar's top
+-- edge, from its left, in the order given, `ui.buff_size` across and `GAP` apart, their middles `ui.buff_offset`
+-- above that edge (into the bar below 0); on yours, the time each has left on it (ui.buff_timers). Drawn last of the
+-- HUD, over the bars, the names, run and the cog; a tooltip, a window of its own, still goes over them. One table, as
+-- hpbar is.
+local buffrow = { icons = require('core.icons'), GAP = 2, KINDS = { self = true, party = true, trust = true } }
+
+-- Seconds as the largest whole unit, the rest dropped: 3h, 25m, 47s (never 0m 32s).
+function buffrow.left(sec)
+    sec = math.max(0, math.floor(sec))
+    if sec >= 3600 then return math.floor(sec / 3600) .. 'h' end
+    if sec >= 60 then return math.floor(sec / 60) .. 'm' end
+    return sec .. 's'
+end
+
+-- Whether line `l` has a row: a party card (yours, a party member's, a trust's), with Buff icons on. Not a pet's
+-- card, nor an alliance member's or tracked player's row.
+function buffrow.on(ui, l)
+    return ui.buff_icons and not l.row and not l.pet and buffrow.KINDS[l.p.kind] == true
+end
+
+-- How far a row reaches above its bar's top, and below it (0 when it doesn't): from the settings alone, so a card
+-- stays put as statuses come and go.
+function buffrow.reach(ui)
+    local half = ui.buff_size / 2
+    return math.max(0, math.ceil(ui.buff_offset + half)), math.max(0, math.ceil(half - ui.buff_offset))
+end
+
+-- A status's tooltip: its name, and on yours the time it has left.
+function buffrow.tip(it)
+    return it.left and ('%s  %s'):format(it.name, buffrow.left(it.left)) or it.name
+end
+
+-- Status `it`'s icon, s across at (x, y); a dark square in its place while its texture can't be had.
+function buffrow.icon(dl, it, x, y, s)
+    local tex = buffrow.icons.status(it.id)
+    if tex and pcall(function () dl:AddImage(tex, { x, y }, { x + s, y + s }, { 0, 0 }, { 1, 1 }, 0xFFFFFFFF) end) then
+        return
+    end
+    local r = math.min(ROUND, math.floor(s / 4))
+    kit.fill(dl, x, y, s, s, P.well, r, 0.85)
+    kit.outline(dl, x, y, s, s, BAR_OFF, r, BAR_EDGE_A)
+end
+
+-- Line `l`'s row, its HP bar's left at x and its top at y. As many as fit across the bar; past that, the last place
+-- says how many more (+N), and its tooltip names them. Hovered by the mouse alone (no item: dragging the HUD by an
+-- icon still moves it).
+function buffrow.draw(dl, ui, l, x, y)
+    local list = l.p.statuses
+    if not (list and list[1]) then return end
+    local s, gap = ui.buff_size, buffrow.GAP
+    local fit = math.max(1, math.floor((l.bar_w + gap) / (s + gap)))
+    local shown = #list > fit and fit - 1 or #list
+    local top = math.floor(y - ui.buff_offset - s / 2)
+    local font, px = kit.fonts.semi, ui.buff_timer_size
+    for i = 1, shown do
+        local it, ix = list[i], x + (i - 1) * (s + gap)
+        buffrow.icon(dl, it, ix, top, s)
+        if ui.buff_timers and it.left then
+            local text = buffrow.left(it.left)
+            local tw, th = kit.measure(text, font, px)
+            kit.halo(dl, ix + (s - tw) / 2, top + s - th, text, P.white, font, px)
+        end
+        if kit.over(ix, top, s, s) then kit.tooltip(buffrow.tip(it)) end
+    end
+    if shown == #list then return end
+    local ix, rest = x + shown * (s + gap), {}
+    for i = shown + 1, #list do rest[#rest + 1] = buffrow.tip(list[i]) end
+    local r = math.min(ROUND, math.floor(s / 4))
+    kit.fill(dl, ix, top, s, s, BAR_OFF, r, 0.75)
+    kit.outline(dl, ix, top, s, s, BAR_OFF, r, BAR_EDGE_A)
+    local more = '+' .. #rest
+    local mpx = math.max(8, math.floor(s * 0.5))
+    local mw, mh = kit.measure(more, font, mpx)
+    kit.halo(dl, ix + (s - mw) / 2, top + (s - mh) / 2, more, P.white, font, mpx)
+    if kit.over(ix, top, s, s) then kit.tooltip(table.concat(rest, '\n')) end
 end
 
 -- A member's card, line `l`, at (x, y): the HP bar over the MP bar over the TP bar, the MP and TP bars each its
@@ -538,9 +622,10 @@ end
 local function hud_sizes(ui)
     local out = { show_slot = ui.show_slot ~= false, job_colors = ui.job_colors ~= false, sub_colors = ui.sub_colors ~= false,
                   hp_glow = ui.hp_glow ~= false, split = hpbar.SPLIT[ui.split] and ui.split or 'diagonal',
-                  blend = util.clamp(math.floor(tonumber(ui.blend) or 50), 0, 100) }
+                  blend = util.clamp(math.floor(tonumber(ui.blend) or 50), 0, 100),
+                  buff_icons = ui.buff_icons ~= false, buff_timers = ui.buff_timers ~= false }
     for _, l in ipairs(UI_SLIDERS) do
-        out[l[2]] = util.clamp(math.floor(tonumber(ui[l[2]]) or l[3]), l[3], l[4])
+        out[l[2]] = util.clamp(math.floor(tonumber(ui[l[2]]) or l[6] or l[3]), l[3], l[4])
     end
     return out
 end
@@ -648,18 +733,24 @@ local function draw_hud(view)
     -- Each line's `top` (from y0), its HP bar's `bar_w` and its height `h`; on your card and on another session's card
     -- or row, run and the cog `icon` across, their top `icon_dy` from the bar's. They may spill past a thin bar: a line
     -- with them comes down for them to clear the title row and, by BAR_GAP, the icons above (`clear`), and the panel
-    -- reaches past the lowest.
-    local below, clear = th, th
+    -- reaches past the lowest. A party card's buff icons (buffrow) go over what's above and below them, the HUD's top
+    -- layer, but never past the window, which would cut them off: a card comes down from its top for them, and the
+    -- panel reaches past the lowest.
+    local below, clear, low = th, th, -math.huge
+    local over, under = buffrow.reach(ui)
     for i, l in ipairs(lines) do
         local bar_h
         l.bar_w, bar_h, l.h = line_size(ui, l)
         if not l.pet and (l.p.kind == 'self' or l.p.session) then l.icon, l.icon_dy = icon_box(ui, l.bar_w, bar_h) end
         if i > 1 then below = below + gap_between(ui, lines[i - 1], l) end
         if l.icon then below = math.max(below, clear - l.icon_dy) end
+        l.buffs = buffrow.on(ui, l)
+        if l.buffs then below = math.max(below, over) end
         l.top, below = below, below + l.h
         if l.icon then clear = l.top + l.icon_dy + l.icon + BAR_GAP end
+        if l.buffs then low = math.max(low, l.top + under) end
     end
-    local ph = math.max(below, clear - BAR_GAP) + HUD_PAD
+    local ph = math.max(below, clear - BAR_GAP, low) + HUD_PAD
     -- The panel is solid while the mouse is over the window (last frame's rect, as IsWindowHovered reads it) and gone
     -- off it. The bars stay.
     local chrome = kit.ease('chrome', imgui.IsWindowHovered() and 1 or 0)
@@ -678,6 +769,9 @@ local function draw_hud(view)
         imgui.Dummy({ pw - 2 * HUD_PAD, l.h })
         if y >= icon_low then kit.tip(l.pet and pet_tip(l.pet) or member_tip(l.p)) end
         draw_labels(labels_at(view, l), ui.text_size, x0 + pw, y + l.h / 2)
+    end
+    for _, l in ipairs(lines) do  -- the buff icons last, over everything: their tooltips replace a line's or a button's
+        if l.buffs then buffrow.draw(dl, ui, l, x0 + HUD_PAD, y0 + l.top) end
     end
     imgui.SetCursorScreenPos({ x0, y0 + ph - HUD_PAD })
     imgui.Dummy({ pw, HUD_PAD })  -- the bottom padding, and the panel's full width, for the auto-size
@@ -1432,9 +1526,9 @@ local function draw_ui(view, pg)
     if view.session then return draw_recent(view, pg) end
     draw_themes(view, pg)
     local sizes = hud_sizes(view.ui)
-    local function size(key)
+    local function size(key, off)
         local l = UI_SLIDER[key]
-        slider(pg, l[1], 'ui.' .. key, sizes[key], l[5], 'px', { l[3], l[4] })
+        slider(pg, l[1], 'ui.' .. key, sizes[key], l[5], 'px', { l[3], l[4] }, off)
     end
     subheader(pg, 'HUD - General')
     switch(pg, 'Show the HUD', 'ui.open', view.ui.open == true,
@@ -1474,6 +1568,16 @@ local function draw_ui(view, pg)
                            'tp_width', 'tp_height', 'tp_offset' }) do
         size(key)
     end
+    subheader(pg, 'HUD - Buffs')
+    switch(pg, 'Buff icons', 'ui.buff_icons', sizes.buff_icons,
+        'A row of icons along the top of each party card\'s HP bar: the statuses on you, your party and your trusts, '
+        .. 'left to right. Point at one for its name; those past the bar\'s end are counted in the last place (+N).')
+    local no_icons = not sizes.buff_icons and 'Needs Buff icons on.' or nil
+    size('buff_size', no_icons)
+    size('buff_offset', no_icons)
+    switch(pg, 'Buff timers', 'ui.buff_timers', sizes.buff_timers,
+        'The time left on each of your own buffs, on its icon: 3h, 25m, 47s. Yours only: the game gives no one else\'s.')
+    size('buff_timer_size', no_icons or not sizes.buff_timers and 'Needs Buff timers on.' or nil)
     subheader(pg, 'HUD - Pet')
     for _, key in ipairs({ 'pet_hp_width', 'pet_hp_height', 'pet_hp_offset', 'pet_mp_width', 'pet_mp_height',
                            'pet_mp_offset', 'pet_tp_width', 'pet_tp_height', 'pet_tp_offset' }) do

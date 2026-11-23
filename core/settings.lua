@@ -78,6 +78,9 @@ local DEFAULTS = {
            sub_colors = true,  -- ...blended into its subjob's, a member's: where (`split`) and how wide (`blend`, 0-100)
            split = 'diagonal', blend = 50,
            hp_glow = true,  -- TargetBar's lock-on fringe round an HP bar as its name turns yellow, orange and red
+           -- A row of status icons along each party card's HP bar's top edge, `buff_size` across, their middles
+           -- `buff_offset` above it (below it when negative); on yours, the time each has left at `buff_timer_size`.
+           buff_icons = true, buff_size = 16, buff_offset = 0, buff_timers = true, buff_timer_size = 10,
            widget = false,  -- the widget, v2's floating one (/sk widget)
            widget_size = 16,  -- its text and icons' height, in pixels
            list_rows = 8,  -- the most choices a drop-down's list shows before it scrolls (kit.LIST_ROWS.default)
