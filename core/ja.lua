@@ -374,9 +374,9 @@ ja.words = {
     ['HUD - Colors'] = 'HUD - 色',
     ['Job colors'] = 'ジョブの色',
     ['Each HP bar in its main job\'s color, a pet\'s in its owner\'s. One whose job can\'t be read (an alliance '
-        .. 'member out of your zone or /anon, a tracked player before a /check) stays red.'] =
+        .. 'member out of your zone or /anon, a tracked player before a /check) is grey.'] =
         'HPバーをメインジョブの色で表示します（ペットは主人のメインジョブの色）。ジョブを読み取れない人（別エリアや/anonの'
-        .. 'アライアンスメンバー、/check前の追跡中のプレイヤー）は赤のままです。',
+        .. 'アライアンスメンバー、/check前の追跡中のプレイヤー）はグレーになります。',
     ['Subjob color'] = 'サポートジョブの色',
     ['Blend each member\'s HP bar into its subjob\'s color, by Split and Blend. A pet keeps its owner\'s main job '
         .. 'color.'] =

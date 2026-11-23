@@ -416,10 +416,16 @@ local BAR_TRACK_A = 0.7     -- each bar's gray background; it does not fade with
 local BAR_OFF = '#0c0c0c'   -- the empty track while the pointer is off the panel, and the stroke
 local BAR_EDGE_A = 0.7      -- that 1px stroke, at the same 70%
 
--- The HP fill drawn from (x, y): its rectangle's far corner and its colour.
+local UNKNOWN = '#8E929A'  -- an HP bar whose job isn't known, with Job colors on (the fixtures' members but yours)
+
+-- The HP fill drawn from (x, y), red or (its job not known) grey: its rectangle's far corner. Its colour by job is
+-- Job colors' test's.
 local function hp_fill(x, y)
     for _, d in ipairs(calls('AddRectFilled')) do
-        if d.args[1][1] == x and d.args[1][2] == y and d.args[3] == u32(P.hp, BAR_FILL) then return d.args[2] end
+        if d.args[1][1] == x and d.args[1][2] == y
+            and (d.args[3] == u32(P.hp, BAR_FILL) or d.args[3] == u32(UNKNOWN, BAR_FILL)) then
+            return d.args[2]
+        end
     end
 end
 
@@ -440,19 +446,19 @@ test('the panel and bars follow the UI settings', function ()
     render(cfg, status())
     local panel = calls('AddRectFilled')[1].args
     eq({ panel[1], panel[2][1], panel[3] }, { { 100, 50 }, 100 + 2 * 8 + 300, u32(P.bg) })  -- hovered: solid
-    -- Title 25, then cards 40 + 3 + 18 + 3 + 8 high (your pet's 18 + 3 + 18 + 3 + 18, right under yours) and 8 apart:
-    -- A's, the third (under yours and your pet's), from y 215; 62% of 300.
-    eq(hp_fill(108, 215), { 108 + 186, 215 + 40 })
+    -- Title 25, then cards 40 + 3 + 18 + 3 + 8 high (your pet's 18 + 3 + 18 + 3 + 18, 4 under yours) and 8 apart:
+    -- A's, the third (under yours and your pet's), from y 219; 62% of 300.
+    eq(hp_fill(108, 219), { 108 + 186, 219 + 40 })
     local rest, glow = false, false  -- the whole bar has a 70% gray background and a 1px near-black stroke, no bloom
     for _, d in ipairs(calls('AddRectFilled')) do
-        rest = rest or (d.args[1][1] == 108 and d.args[1][2] == 215 and d.args[2][1] == 108 + 300
-            and d.args[2][2] == 215 + 40 and d.args[3] == u32(P.track, BAR_TRACK_A))
+        rest = rest or (d.args[1][1] == 108 and d.args[1][2] == 219 and d.args[2][1] == 108 + 300
+            and d.args[2][2] == 219 + 40 and d.args[3] == u32(P.track, BAR_TRACK_A))
     end
     for _, d in ipairs(calls('AddRect')) do
         local x, y = d.args[1][1], d.args[1][2]
-        glow = glow or (x >= 105 and x < 108 and y >= 212 and y < 215)
+        glow = glow or (x >= 105 and x < 108 and y >= 216 and y < 219)
     end
-    eq({ rest, glow, bar_edge(108, 215, 300, 40) }, { true, false, true })
+    eq({ rest, glow, bar_edge(108, 219, 300, 40) }, { true, false, true })
     cfg.ui.tp_width = 400  -- the widest bar sets the panel's width
     render(cfg, status())
     eq(calls('AddRectFilled')[1].args[2][1], 100 + 2 * 8 + 400)
@@ -483,7 +489,7 @@ test('the HUD\'s items reach exactly the panel\'s far corner, so its auto-size f
     close_settings()
     render(settings.defaults(), status())
     eq(frame.extent.Sidekick, calls('AddRectFilled')[1].args[2])
-    eq(frame.extent.Sidekick, { 100 + 236, 50 + 25 + 3 * 72 + 60 + 2 * 8 + 8 })  -- yours, your pet's right under it, A's, B's
+    eq(frame.extent.Sidekick, { 100 + 236, 50 + 25 + 3 * 72 + 60 + 4 + 2 * 8 + 8 })  -- yours, your pet's 4 under it, A's, B's
 end)
 
 test('sizes out of their sliders\' range, set by hand or by a custom UI, are held to it', function ()
@@ -550,27 +556,33 @@ end
 
 local WAR, NIN, DRG, BLU = '#C69B6D', '#7A5C7A', '#33937F', '#0070DD'
 
-test('Job colors: each HP bar its main job\'s colour, a pet\'s its owner\'s; one with none known, or the switch off, red', function ()
+test('Job colors: each HP bar its main job\'s colour, a pet\'s its owner\'s; one with none known grey; the switch off, '
+    .. 'red', function ()
     close_settings()
     local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
     cfg.ui.sub_colors = false
     local g = fake.snap({ { name = 'A', jobs = { 1, 75, 13, 37 } }, { name = 'B' },
-                          { kind = 'alliance', uses_mp = false, name = 'Bea', jobs = { 16, 75, 0, 0 } } },
+                          { kind = 'alliance', uses_mp = false, name = 'Bea', jobs = { 16, 75, 0, 0 } },
+                          { kind = 'alliance', uses_mp = false, name = 'Anon', jobs = { 0, 0, 0, 0 } } },
         { pet = { name = 'Wyvern', hpp = 100, mpp = 0, tp = 0, dist = 2, uses_mp = false } })
     g.units[1].jobs = { 14, 75, 0, 0 }  -- you: DRG, your wyvern under you
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    -- Your card from y 75, your wyvern's right under it from 147 (39 high: no MP bar), A's from 194, B's from 274,
-    -- Bea's row from 354.
-    eq({ has(painted(108, 75), u32(DRG, BAR_FILL)), has(painted(108, 147), u32(DRG, BAR_FILL)),
-         has(painted(108, 194), u32(WAR, BAR_FILL)), hp_fill(108, 274) ~= nil, has(painted(108, 354), u32(BLU, BAR_FILL)) },
-       { true, true, true, true, true })
+    -- Your card from y 75, your wyvern's 4 under it from 151 (39 high: no MP bar), A's from 198, B's from 278,
+    -- Bea's row from 358, Anon's (/anon) 21 under it.
+    local grey = u32(UNKNOWN, BAR_FILL)
+    eq({ has(painted(108, 75), u32(DRG, BAR_FILL)), has(painted(108, 151), u32(DRG, BAR_FILL)),
+         has(painted(108, 198), u32(WAR, BAR_FILL)), has(painted(108, 278), grey), has(painted(108, 358), u32(BLU, BAR_FILL)),
+         has(painted(108, 379), grey) },
+       { true, true, true, true, true, true })
     cfg.ui.sub_colors = true  -- A's subjob blends in; your wyvern stays your main job's colour, whole
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    eq({ #pieces(194) > 0, #pieces(147), has(painted(108, 147), u32(DRG, BAR_FILL)) }, { true, 0, true })
-    cfg.ui.job_colors = false
+    eq({ #pieces(198) > 0, #pieces(151), has(painted(108, 151), u32(DRG, BAR_FILL)) }, { true, 0, true })
+    cfg.ui.job_colors = false  -- every one the HUD's red, known or not
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    eq({ hp_fill(108, 75) ~= nil, hp_fill(108, 147) ~= nil, hp_fill(108, 194) ~= nil, hp_fill(108, 354) ~= nil },
-       { true, true, true, true })
+    local red = u32(P.hp, BAR_FILL)
+    eq({ has(painted(108, 75), red), has(painted(108, 151), red), has(painted(108, 198), red), has(painted(108, 278), red),
+         has(painted(108, 358), red), has(painted(108, 379), red) },
+       { true, true, true, true, true, true })
 end)
 
 test('Subjob color: main then sub by Split and Blend, a pixel row at a time, set in to the corners', function ()
@@ -663,10 +675,11 @@ test('HP glow: TargetBar\'s fringe round the HP bar as the name changes colour; 
     cfg.ui.hp_glow = true  -- your pet's too, but none at 0%
     local p = fake.snap({}, { pet = { name = 'Ifrit', hpp = 20, mpp = 40, tp = 0, dist = 3, uses_mp = true } })
     render(cfg, st, nil, model.build(p, cat, cfg, st, NAMES))
-    eq(rings(108, 147, 220, 18), ring_colors('#FF4A40', 1))  -- its card right under yours
+    -- Its card 4 under yours, from y 151: its outermost ring from 147, where your TP bar (139 to 147) ends.
+    eq(rings(108, 151, 220, 18), ring_colors('#FF4A40', 1))
     p.pet.hpp = 0
     render(cfg, st, nil, model.build(p, cat, cfg, st, NAMES))
-    eq(rings(108, 147, 220, 18), {})
+    eq(rings(108, 151, 220, 18), {})
 end)
 
 -- The TP fills drawn: each one's corners and colour, in the order drawn.
@@ -703,12 +716,12 @@ test('your pet\'s card sits under yours, before P1: its HP, MP and TP, and its o
     local cfg, st = settings.defaults(), status()
     local g = fake.snap({ { name = 'A' } }, { pet = { name = 'Ifrit', hpp = 50, mpp = 40, tp = 1000, dist = 3, uses_mp = true } })
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    -- Its three bars an alliance row's size, 220 by 18, 3 apart, right under your card, from y 147; A's card 8 under
+    -- Its three bars an alliance row's size, 220 by 18, 3 apart, 4 under your card, from y 151; A's card 8 under
     -- them.
-    eq({ hp_fill(108, 75), hp_fill(108, 147), hp_fill(108, 215) }, { { 328, 115 }, { 108 + 110, 165 }, { 328, 255 } })
-    eq({ bar_edge(108, 147, 220, 18), bar_edge(108, 168, 220, 18) }, { true, true })
+    eq({ hp_fill(108, 75), hp_fill(108, 151), hp_fill(108, 219) }, { { 328, 115 }, { 108 + 110, 169 }, { 328, 259 } })
+    eq({ bar_edge(108, 151, 220, 18), bar_edge(108, 172, 220, 18) }, { true, true })
     eq({ fill('Ifrit'), fill('PET') }, { u32(P.orange), u32(P.white) })  -- 50% HP: the name is orange
-    eq(tp_fills(), { { { 108, 189 }, { 179, 207 }, u32(P.tp, BAR_FILL) } })  -- 1000 TP: one part, full
+    eq(tp_fills(), { { { 108, 193 }, { 179, 211 }, u32(P.tp, BAR_FILL) } })  -- 1000 TP: one part, full
     eq(tipped('Ifrit (pet)\nHP 50%  MP 40%  TP 1000  3.0y'), true)
     g.pet.hpp = 76
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
@@ -757,18 +770,18 @@ test('a pet with no MP, as a wyvern, has no MP bar; another session\'s once its 
     local g = fake.snap({ { name = 'A' } },
         { pet = { name = 'Wyvern', hpp = 100, mpp = 0, tp = 1000, dist = 2, uses_mp = false } })
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    -- Its HP bar right under your card, from y 147, its TP bar 3 under it with the tag on it; A's card 8 under that.
-    eq({ hp_fill(108, 147), bar_edge(108, 168, 220, 18) or false, at('PET') }, { { 328, 165 }, false, { 114, tag_top('PET', 168, 18) } })
-    eq({ tp_fills()[1], hp_fill(108, 194) }, { { { 108, 168 }, { 179, 186 }, u32(P.tp, BAR_FILL) }, { 328, 234 } })
+    -- Its HP bar 4 under your card, from y 151, its TP bar 3 under it with the tag on it; A's card 8 under that.
+    eq({ hp_fill(108, 151), bar_edge(108, 172, 220, 18) or false, at('PET') }, { { 328, 169 }, false, { 114, tag_top('PET', 172, 18) } })
+    eq({ tp_fills()[1], hp_fill(108, 198) }, { { { 108, 172 }, { 179, 190 }, u32(P.tp, BAR_FILL) }, { 328, 238 } })
     eq(tipped('Wyvern (pet)\nHP 100%  TP 1000  2.0y'), true)
     g.pet = nil
     st.sessions = { A = { running = false, members = { { sid = 101, name = 'A' } } } }
     g.units[2].pet = { sid = 0x1000701, tidx = 0x701, name = 'Wyvern', hpp = 100, dist = 6 }
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    eq(bar_edge(108, 248, 220, 18), true)  -- A's (its card from 155, its pet's from 227), its file not naming it yet: unknown, so it stays
+    eq(bar_edge(108, 252, 220, 18), true)  -- A's (its card from 155, its pet's from 231), its file not naming it yet: unknown, so it stays
     st.sessions.A.pet = { sid = 0x1000701, name = 'Wyvern', mpp = 0, tp = 0, uses_mp = false }
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    eq({ bar_edge(108, 248, 220, 18) or false, frame.extent.Sidekick }, { false, { 100 + 236, 50 + 25 + 2 * 72 + 39 + 8 + 8 } })
+    eq({ bar_edge(108, 252, 220, 18) or false, frame.extent.Sidekick }, { false, { 100 + 236, 50 + 25 + 2 * 72 + 39 + 8 + 4 + 8 } })
 end)
 
 test('the arrow points at your pet\'s card for its care and sending it in', function ()
@@ -778,7 +791,7 @@ test('the arrow points at your pet\'s card for its care and sending it in', func
         local st = status({ intent = { at = 990, action = 'Healing Ruby', behavior = b, why = 'Carbuncle at 40%' } })
         render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
         local arrow = calls('AddTriangleFilled', 'background')
-        eq({ #arrow, arrow[1].args[1][2] }, { 1, b == 'heal' and 75 + 36 or 147 + 30 }, b)  -- yours for a heal of no one
+        eq({ #arrow, arrow[1].args[1][2] }, { 1, b == 'heal' and 75 + 36 or 151 + 30 }, b)  -- yours for a heal of no one
     end
 end)
 
@@ -897,14 +910,14 @@ test('Alliance / Tracked\'s sizes size the rows and their text, a pet\'s text to
     local g = fake.snap({ { kind = 'alliance', uses_mp = false, name = 'Bea', hpp = 50 } },
         { pet = { name = 'Ifrit', hpp = 50, mpp = 40, tp = 1000, dist = 3, uses_mp = true } })
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    -- Your card 40 + 3 + 30 + 3 + 8 from y 75; your pet's bars 220 by 18, 3 apart, right under it from 159; Bea's row
-    -- from 227.
-    eq({ bar_edge(108, 159, 220, 18), bar_edge(108, 180, 220, 18), bar_edge(108, 227, 150, 10) }, { true, true, true })
-    eq(hp_fill(108, 227), { 108 + 75, 237 })
+    -- Your card 40 + 3 + 30 + 3 + 8 from y 75; your pet's bars 220 by 18, 3 apart, 4 under it from 163; Bea's row
+    -- from 231.
+    eq({ bar_edge(108, 163, 220, 18), bar_edge(108, 184, 220, 18), bar_edge(108, 231, 150, 10) }, { true, true, true })
+    eq(hp_fill(108, 231), { 108 + 75, 241 })
     local _, h = kit.measure('Bea', kit.fonts.semi, 11)
     eq({ at('B0'), at('Bea')[2], at('Ifrit')[2] },
-       { { 114, math.floor(227 + (10 - h) / 2 + 0.5) }, math.floor(227 + (10 - h) / 2 + 0.5), math.floor(159 + (18 - h) / 2 + 0.5) })
-    eq(frame.extent.Sidekick, { 100 + 236, 227 + 10 + 8 })
+       { { 114, math.floor(231 + (10 - h) / 2 + 0.5) }, math.floor(231 + (10 - h) / 2 + 0.5), math.floor(163 + (18 - h) / 2 + 0.5) })
+    eq(frame.extent.Sidekick, { 100 + 236, 231 + 10 + 8 })
 end)
 
 test('Pet\'s settings size each of a pet\'s bars and set each its offset in from the cards\' left; the panel fits them', function ()
@@ -916,12 +929,12 @@ test('Pet\'s settings size each of a pet\'s bars and set each its offset in from
     ui.pet_tp_width, ui.pet_tp_height, ui.pet_tp_offset = 120, 5, 40
     local g = fake.snap({}, { pet = { name = 'Ifrit', hpp = 100, mpp = 40, tp = 1000, dist = 3, uses_mp = true } })
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    -- Your pet's card right under yours, from y 147: HP from x 128, MP from 138 at y 162, TP from 148 at y 171 (its
+    -- Your pet's card 4 under yours, from y 151: HP from x 128, MP from 138 at y 166, TP from 148 at y 175 (its
     -- first part 38 wide).
-    eq({ bar_edge(128, 147, 250, 12), bar_edge(138, 162, 150, 6), bar_edge(148, 171, 38, 5) }, { true, true, true })
+    eq({ bar_edge(128, 151, 250, 12), bar_edge(138, 166, 150, 6), bar_edge(148, 175, 38, 5) }, { true, true, true })
     eq({ bar_edge(108, 75, 220, 40), bar_edge(108, 118, 220, 18) }, { true, true })  -- your card as it was
-    eq({ at('Ifrit')[1], at('PET') }, { 134, { 154, tag_top('PET', 171, 5) } })
-    eq(frame.extent.Sidekick, { 100 + 2 * 8 + 20 + 250, 147 + 12 + 3 + 6 + 3 + 5 + 8 })
+    eq({ at('Ifrit')[1], at('PET') }, { 134, { 154, tag_top('PET', 175, 5) } })
+    eq(frame.extent.Sidekick, { 100 + 2 * 8 + 20 + 250, 151 + 12 + 3 + 6 + 3 + 5 + 8 })
 end)
 
 test('the panel is as wide as a pet\'s or a row\'s bars only while one is drawn', function ()
@@ -941,7 +954,7 @@ test('the arrow\'s label points at the card the next action is for: amber runnin
     close_settings()
     render(settings.defaults(), status())
     local arrow = calls('AddTriangleFilled', 'background')[1].args
-    eq({ arrow[1], arrow[4] }, { { 100 + 236 + 2, 50 + 25 + 72 + 68 + 36 }, u32(P.seg) })  -- A's card, under your pet's: its middle
+    eq({ arrow[1], arrow[4] }, { { 100 + 236 + 2, 50 + 25 + 72 + 4 + 68 + 36 }, u32(P.seg) })  -- A's card, under your pet's: its middle
     eq(fill('Heal:Cure IV', 'background'), u32(P.text2))
     render(settings.defaults(), status({ running = true }))
     eq(calls('AddTriangleFilled', 'background')[1].args[4], u32(P.amber))
@@ -1049,19 +1062,19 @@ test('another session\'s pet has a card under that session\'s: its MP and TP onc
         end
     end
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    -- Yours from y 75, A's from 155 and its pet's three bars right under it from 227, each 220 by 18, 3 apart.
-    eq({ hp_fill(108, 155), hp_fill(108, 227), fill('Garuda'), fill('PET') },
-       { { 328, 195 }, { 108 + 110, 245 }, u32(P.orange), u32(P.white) })
-    eq({ mp_fill(248), tp_fills(), tipped('Garuda (pet)\nHP 50%  6.0y') }, { nil, {}, true })  -- not known yet: empty
-    eq(frame.extent.Sidekick, { 100 + 236, 50 + 25 + 2 * 72 + 60 + 8 + 8 })  -- yours, A's and its pet's
+    -- Yours from y 75, A's from 155 and its pet's three bars 4 under it from 231, each 220 by 18, 3 apart.
+    eq({ hp_fill(108, 155), hp_fill(108, 231), fill('Garuda'), fill('PET') },
+       { { 328, 195 }, { 108 + 110, 249 }, u32(P.orange), u32(P.white) })
+    eq({ mp_fill(252), tp_fills(), tipped('Garuda (pet)\nHP 50%  6.0y') }, { nil, {}, true })  -- not known yet: empty
+    eq(frame.extent.Sidekick, { 100 + 236, 50 + 25 + 2 * 72 + 60 + 8 + 4 + 8 })  -- yours, A's and its pet's
     st.sessions.A.pet = { sid = 0x1000701, name = 'Garuda', mpp = 40, tp = 1000, uses_mp = true }
     st.sessions.A.act = { behavior = 'pet', action = 'Healing Ruby' }
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    eq({ mp_fill(248), tp_fills(), tipped('Garuda (pet)\nHP 50%  MP 40%  TP 1000  6.0y') },
-       { { 108 + 88, 266 }, { { { 108, 269 }, { 179, 287 }, u32(P.tp, BAR_FILL) } }, true })
+    eq({ mp_fill(252), tp_fills(), tipped('Garuda (pet)\nHP 50%  MP 40%  TP 1000  6.0y') },
+       { { 108 + 88, 270 }, { { { 108, 273 }, { 179, 291 }, u32(P.tp, BAR_FILL) } }, true })
     local theirs = pills(P.accent)
-    eq({ #theirs, (theirs[1][1][2] + theirs[1][2][2]) / 2 }, { 1, 227 + 30 })  -- the pet card's middle
-    eq(calls('AddTriangleFilled', 'background')[1].args[1][2], 227 + 30)
+    eq({ #theirs, (theirs[1][1][2] + theirs[1][2][2]) / 2 }, { 1, 231 + 30 })  -- the pet card's middle
+    eq(calls('AddTriangleFilled', 'background')[1].args[1][2], 231 + 30)
 end)
 
 test('your pet\'s care points at your pet\'s card alone, not at another session\'s pet', function ()
@@ -1072,9 +1085,9 @@ test('your pet\'s care points at your pet\'s card alone, not at another session\
     local g = snap()
     g.units[2].pet = { sid = 0x1000701, tidx = 0x701, name = 'Garuda', hpp = 50, dist = 6 }
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    -- Yours from y 75, your pet's from 147, A's from 215 and its pet's from 287: one arrow, at your pet's middle.
+    -- Yours from y 75, your pet's from 151, A's from 219 and its pet's from 295: one arrow, at your pet's middle.
     local arrow = calls('AddTriangleFilled', 'background')
-    eq({ #arrow, arrow[1].args[1][2] }, { 1, 147 + 30 })
+    eq({ #arrow, arrow[1].args[1][2] }, { 1, 151 + 30 })
 end)
 
 test('two sessions\' pets of one name keep their own bars', function ()
@@ -1089,8 +1102,8 @@ test('two sessions\' pets of one name keep their own bars', function ()
     kit.clock = function () return tick end  -- time stands: a fill the two shared would show the first's at both
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
     kit.clock = step
-    -- A's pet's HP bar from y 227, B's card from 295 and its pet's HP bar from 367, each 220 wide.
-    eq({ hp_fill(108, 227), hp_fill(108, 367) }, { { 108 + 66, 245 }, { 108 + 198, 385 } })
+    -- A's pet's HP bar from y 231, B's card from 299 and its pet's HP bar from 375, each 220 wide.
+    eq({ hp_fill(108, 231), hp_fill(108, 375) }, { { 108 + 66, 249 }, { 108 + 198, 393 } })
 end)
 
 -- The round buttons and glyphs drawn: their discs' centres and colours, in the order drawn.
@@ -1140,7 +1153,7 @@ test('the buttons are the icon size whatever the bar\'s height: on a thinner bar
     render(cfg, status())
     -- Centred on your 12px bar, 6 over it above and below: your card comes down 6 so they clear the title row.
     eq({ hp_fill(108, 81) ~= nil, discs()[1][2] }, { true, 81 + 6 })
-    eq(hp_fill(108, 81 + 12 + 3 + 18 + 3 + 8) ~= nil, true)  -- your pet's card right under yours
+    eq(hp_fill(108, 81 + 12 + 3 + 18 + 3 + 8 + 4) ~= nil, true)  -- your pet's card 4 under yours
     cfg.ui.hp_height, cfg.ui.hp_width, cfg.ui.icon_size = 120, 80, 64  -- big icons on a narrow bar: both still fit across it
     render(cfg, status())
     local c = discs()

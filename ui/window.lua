@@ -129,6 +129,7 @@ hpbar.COLORS = {
     [21] = '#2EB84A',  -- GEO  leaf green
     [22] = '#9CF5F5',  -- RUN  ice
 }
+hpbar.UNKNOWN = '#8E929A'  -- a job not known, with Job colors on: a grey no job has, so it can't pass for one
 
 -- Where a member's subjob colour goes on its HP bar (ui.split), in the order Sidekick Settings lists them.
 hpbar.SPLITS = { { key = 'diagonal', label = 'Diagonal' }, { key = 'horizontal', label = 'Horizontal' },
@@ -357,10 +358,11 @@ local function slot_color(p) return p.away and P.dim or P.white end
 
 -- What line `p`'s HP bar is filled with: the HUD's red, or with Job colors on its main job's colour (a pet's line
 -- carries its owner's), blended into its subjob's with Subjob color on (`ui.split`, `ui.blend`; a pet has none). A
--- job the palette doesn't know, or none known, keeps the red.
+-- job the palette doesn't know, or none known, is grey (hpbar.UNKNOWN).
 function hpbar.paint(ui, p)
-    local main = ui.job_colors and hpbar.COLORS[p.main or 0]
-    if not main then return P.hp end
+    if not ui.job_colors then return P.hp end
+    local main = hpbar.COLORS[p.main or 0]
+    if not main then return hpbar.UNKNOWN end
     local sub = ui.sub_colors and hpbar.COLORS[p.sub or 0]
     if not sub then return main end
     return { main = main, sub = sub, split = ui.split, blend = ui.blend }
@@ -588,10 +590,11 @@ local function line_size(ui, l)
     return w, hp, hp + BAR_GAP + (l.no_mp and 0 or mp + BAR_GAP) + tp
 end
 
--- Between lines `a` and `b`: none above a pet's card (it sits right under its owner's line), a party's rows close
--- together, a gap before and after them, `ui.gap` between cards.
+-- Between lines `a` and `b`: above a pet's card, the HP glow's reach (it sits close under its owner's line, the glow
+-- clear of the line above, glow on or off), a party's rows close together, a gap before and after them, `ui.gap`
+-- between cards.
 local function gap_between(ui, a, b)
-    if b.pet then return 0 end
+    if b.pet then return hpbar.GLOW_RINGS[1][1] end
     if a.row and b.row and a.group == b.group then return BAR_GAP end
     if a.row or b.row then return math.max(ui.gap, BAR_GAP) end
     return ui.gap
@@ -1449,7 +1452,7 @@ local function draw_ui(view, pg)
     subheader(pg, 'HUD - Colors')
     switch(pg, 'Job colors', 'ui.job_colors', sizes.job_colors,
         'Each HP bar in its main job\'s color, a pet\'s in its owner\'s. One whose job can\'t be read (an alliance '
-        .. 'member out of your zone or /anon, a tracked player before a /check) stays red.')
+        .. 'member out of your zone or /anon, a tracked player before a /check) is grey.')
     switch(pg, 'Subjob color', 'ui.sub_colors', sizes.sub_colors,
         'Blend each member\'s HP bar into its subjob\'s color, by Split and Blend. A pet keeps its owner\'s main job '
         .. 'color.')
