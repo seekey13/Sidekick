@@ -340,10 +340,10 @@ ja.words = {
     ['HUD - Buffs'] = 'HUD - 強化', ['Buff icons'] = '強化アイコン',
     ['A row of icons along the top of each party card\'s HP bar: the statuses on you, your party and your trusts, '
         .. 'the closest to wearing off first. Point at one for its name; those past the bar\'s end are counted in the '
-        .. 'last place (+N): point at it to see them all.'] =
+        .. 'last place (+N): point at it to list them.'] =
         'パーティの各カードのHPバーの上端に沿って、自分・パーティメンバー・フェイスのステータスのアイコンを、切れるのが'
         .. '早いものから左に並べます。アイコンにポインターを合わせると名前が出ます。バーに収まらない分は最後の枠に数で'
-        .. '表示されます（+N）。そこにポインターを合わせると全部が見られます。',
+        .. '表示されます（+N）。そこにポインターを合わせると、その一覧が出ます。',
     ['Needs Buff icons on.'] = '「強化アイコン」がオンのときに使えます。',
     ['Buff icon size'] = '強化アイコンのサイズ',
     ['Pixels: each buff icon along the top of a party card\'s HP bar.'] =

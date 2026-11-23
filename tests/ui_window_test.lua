@@ -1349,21 +1349,31 @@ test('buff icons: Party buff timers draws a party member\'s known times too, and
     eq({ tipped('Haste  ~2m'), tipped('Haste') }, { false, true })
 end)
 
-test('buff icons: past the bar\'s end the last place counts the rest; its tooltip shows them all, each with its time', function ()
+test('buff icons: past the bar\'s end the last place counts the rest on a dark square; its tooltip lists those', function ()
     close_settings()
     local cfg, g = settings.defaults(), fake.snap({})
     g.units[1].icons = {}
-    for id = 40, 59 do g.units[1].icons[#g.units[1].icons + 1] = { id = id, left = id == 59 and 47 or nil } end
-    -- 220 across holds 12 of 16 (and 2 between): 11 icons, the one with a time first, then +9.
+    for id = 40, 59 do g.units[1].icons[#g.units[1].icons + 1] = { id = id, left = id <= 52 and (id - 39) * 60 or nil } end
+    -- 220 across holds 12 of 16 (and 2 between): 11 icons, the closest to wearing off first (40 to 50, 1m to 11m),
+    -- then +9 on a dark square in the twelfth place, at the timers' size.
     local drawn = buff_hud(cfg, g)
-    eq({ #drawn, drawn[1][1], drawn[11][1], drawn[11][2], drew('+9') }, { 11, 59, 49, { 108 + 10 * 18, 77 }, true })
-    -- The pointer on it: its tooltip, drawn, in place of the card's: all 20, 12 to a line as the row has them, from the
-    -- tooltip's inside (the fake's cursor, 100, 50), each with its time.
+    eq({ #drawn, drawn[1][1], drawn[11][1], drawn[11][2] }, { 11, 40, 50, { 108 + 10 * 18, 77 } })
+    local mw, mh = kit.measure('+9', kit.fonts.semi, 10)
+    eq({ backed(306, 77, 16, 16), text_at('+9') }, { true, { util.round(306 + (16 - mw) / 2), util.round(77 + (16 - mh) / 2) } })
+    cfg.ui.buff_timer_size = 14
+    buff_hud(cfg, g)
+    mw, mh = kit.measure('+9', kit.fonts.semi, 14)
+    eq(text_at('+9'), { util.round(306 + (16 - mw) / 2), util.round(77 + (16 - mh) / 2) })
+    cfg.ui.buff_timer_size = 10
+    -- The pointer on it: its tooltip, drawn, in place of the card's, lists the nine the row had no room for, one to a
+    -- line 4 apart from its inside (the fake's cursor, 100, 50): each icon with its time on it, its name 6 after it.
     drawn = buff_hud(cfg, g, { over = true })
-    eq({ #drawn, drawn[11 + 1], drawn[11 + 13], tipped('Me\nHP') },
-       { 11 + 20, { 59, { 100, 50 }, { 116, 66 } }, { 51, { 100, 68 }, { 116, 84 } }, false })
-    local w, h = kit.measure('47s', kit.fonts.semi, 10)
-    eq(text_at('47s'), { util.round(100 + (16 - w) / 2), util.round(66 - h) })
+    eq({ #drawn, drawn[11 + 1], drawn[11 + 2], drawn[11 + 9][1], tipped('Me\nHP') },
+       { 11 + 9, { 51, { 100, 50 }, { 116, 66 } }, { 52, { 100, 70 }, { 116, 86 } }, 59, false })
+    local w, h = kit.measure('12m', kit.fonts.semi, 10)
+    eq(text_at('12m'), { util.round(100 + (16 - w) / 2), util.round(66 - h) })
+    local name = fake.res.statuses[51] and fake.res.statuses[51].en or '51'
+    eq({ text_at(name)[1], drew(fake.res.statuses[40] and fake.res.statuses[40].en or '40') }, { 122, false })
 end)
 
 test('buff icons: one under the pointer has its name, and on yours its time, in place of the card\'s tooltip', function ()

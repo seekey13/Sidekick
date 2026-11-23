@@ -395,9 +395,10 @@ end
 -- edge, from its left, the closest to wearing off first, `ui.buff_size` across and `GAP` apart, their middles
 -- `ui.buff_offset` above that edge (into the bar below 0); on each the time it has left: yours (ui.buff_timers), and
 -- with ui.buff_party_timers others' where known, an estimate. Drawn last of the HUD, over the bars, the names, run and
--- the cog; a tooltip, a window of its own, still goes over them. Once they're past the bar's end the last place says how
--- many more there are (+N), and its tooltip shows them all, each icon with its time. `PAD` is kept clear round the
--- row: your card comes down for it to clear the title row by that much. One table, as hpbar is.
+-- the cog; a tooltip, a window of its own, still goes over them. Once they're past the bar's end the last place, on a
+-- dark square, says how many more there are (+N), and its tooltip lists those, each icon with its time and its name.
+-- `PAD` is kept clear round the row: your card comes down for it to clear the title row by that much. One table, as
+-- hpbar is.
 local buffrow = { icons = require('core.icons'), GAP = 2, PAD = 2, KINDS = { self = true, party = true, trust = true } }
 
 -- Seconds as the largest whole unit, the rest dropped: 3h, 25m, 47s (never 0m 32s).
@@ -477,21 +478,26 @@ function buffrow.paint(dl, ui, it, x, top, s)
     end
 end
 
--- The +N's tooltip: every status in `list`, each icon with its time on it, `cols` to a line as the row has them.
-function buffrow.all(ui, list, cols)
-    local s, gap = ui.buff_size, buffrow.GAP
-    cols = math.min(cols, #list)
-    local rows = math.ceil(#list / cols)
+-- The +N's tooltip: the statuses the row had no room for (`rest`), one to a line, each icon with its time on it and its
+-- name after it, in the tooltip's text.
+buffrow.LINE_GAP, buffrow.NAME_GAP = 4, 6
+
+function buffrow.rest(ui, rest)
+    local s, font, px = ui.buff_size, kit.fonts.text, S(SMALL + 0.5)
+    local w = 0
+    for _, it in ipairs(rest) do w = math.max(w, (kit.measure(it.name, font, px))) end
     kit.tooltip_draw(function (dl, x, y)
-        for i, it in ipairs(list) do
-            buffrow.paint(dl, ui, it, x + (i - 1) % cols * (s + gap), y + math.floor((i - 1) / cols) * (s + gap), s)
+        for i, it in ipairs(rest) do
+            local top = y + (i - 1) * (s + buffrow.LINE_GAP)
+            buffrow.paint(dl, ui, it, x, top, s)
+            kit.text_mid(dl, x + s + buffrow.NAME_GAP, top + s / 2, it.name, P.text, font, px)
         end
-    end, cols * (s + gap) - gap, rows * (s + gap) - gap)
+    end, s + buffrow.NAME_GAP + math.ceil(w), #rest * (s + buffrow.LINE_GAP) - buffrow.LINE_GAP)
 end
 
 -- Line `l`'s row, its HP bar's left at x and its top at y. As many as fit across the bar; past that, the last place
--- says how many more (+N), and its tooltip shows them all. Hovered by the mouse alone (no item: dragging the HUD by an
--- icon still moves it): each icon's tooltip its name and time.
+-- says how many more (+N) on a dark square, at the timers' size, and its tooltip lists them. Hovered by the mouse alone
+-- (no item: dragging the HUD by an icon still moves it): each icon's tooltip its name and time.
 function buffrow.draw(dl, ui, l, x, y)
     local list = l.p.statuses
     if not (list and list[1]) then return end
@@ -506,11 +512,15 @@ function buffrow.draw(dl, ui, l, x, y)
         if kit.over(ix, top, s, s) then kit.tooltip(buffrow.tip(ui, list[i])) end
     end
     if shown == #list then return end
-    local ix, more = x + shown * (s + gap), '+' .. (#list - shown)
-    local font, px = kit.fonts.semi, math.max(8, math.floor(s * 0.5))
+    local ix, rest = x + shown * (s + gap), {}
+    for i = shown + 1, #list do rest[#rest + 1] = list[i] end
+    local r = math.min(ROUND, math.floor(s / 4))
+    kit.fill(dl, ix, top, s, s, BAR_OFF, r, 0.75)
+    kit.outline(dl, ix, top, s, s, BAR_OFF, r, BAR_EDGE_A)
+    local more, font, px = '+' .. #rest, kit.fonts.semi, ui.buff_timer_size
     local mw, mh = kit.measure(more, font, px)
     kit.halo(dl, ix + (s - mw) / 2, top + (s - mh) / 2, more, P.white, font, px)
-    if kit.over(ix, top, s, s) then buffrow.all(ui, list, fit) end
+    if kit.over(ix, top, s, s) then buffrow.rest(ui, rest) end
 end
 
 -- A member's card, line `l`, at (x, y): the HP bar over the MP bar over the TP bar, the MP and TP bars each its
@@ -1617,7 +1627,7 @@ local function draw_ui(view, pg)
     switch(pg, 'Buff icons', 'ui.buff_icons', sizes.buff_icons,
         'A row of icons along the top of each party card\'s HP bar: the statuses on you, your party and your trusts, '
         .. 'the closest to wearing off first. Point at one for its name; those past the bar\'s end are counted in the '
-        .. 'last place (+N): point at it to see them all.')
+        .. 'last place (+N): point at it to list them.')
     local no_icons = not sizes.buff_icons and 'Needs Buff icons on.' or nil
     size('buff_size', no_icons)
     size('buff_offset', no_icons)

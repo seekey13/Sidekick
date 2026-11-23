@@ -741,8 +741,8 @@ everything with it:
   the players you track are thin HP rows under the cards, the tracked after the alliance; the TP bar is
   three parts of 1000 TP, each solid once full and at half alpha while it fills (as Floaties draws it). Run and the
   cog sit at the bottom right of their HP bar; along its top edge each party card has a row of status icons, the
-  client's own, the closest to wearing off first, the last place counting those past the bar's end (+N), its
-  tooltip drawn with them all, drawn last over the rest of the HUD (`ui.buff_*`; your card comes down for its row to
+  client's own, the closest to wearing off first, the last place counting those past the bar's end (+N, on a dark
+  square), its tooltip listing them with their names, drawn last over the rest of the HUD (`ui.buff_*`; your card comes down for its row to
   clear the title row), with the time
   left on each in white with the dark halo (yours; others' estimates with Party buff timers on). Its
   text keeps a dark halo, as it sits on bars and, with the panel see-through, on the game. The panel, its frame, the
