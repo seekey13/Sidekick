@@ -648,6 +648,43 @@ test('a party player\'s statuses from the status-icon block, and their stacks: t
     eq(u.icons, { { id = 214 }, { id = 214 }, { id = 198 }, { id = 300 } })  -- in the client's order, for the HUD
 end)
 
+test('a party player\'s icons and a trust\'s take the time a known duration leaves them, an estimate; one gone, none', function ()
+    reset()
+    world.ents[0x450] = { sid = OUT, name = 'Out', hpp = 90, dist = 5 }
+    world.party[2] = { sid = OUT, tidx = 0x450, name = 'Out', hpp = 90, hp = 900, mpp = 50, mp = 100 }
+    world.party[3] = { sid = TRUST, tidx = 0x451, name = 'Kupipi', hpp = 100, hp = 900, mpp = 100, mp = 100 }
+    world.ents[0x451] = { sid = TRUST, name = 'Kupipi', dist = 3 }
+    local POINTER, BASE = 0x10, 0x1000
+    local bytes = {}
+    local function shows(list)  -- Out's entry in the status-icon block, the first
+        for k = 0, 31 do bytes[BASE + 16 + k] = list[k + 1] or 255 end
+    end
+    local function read_out()
+        local core, ash = rawget(_G, 'AshitaCore'), rawget(_G, 'ashita')
+        rawset(_G, 'AshitaCore', { GetMemoryManager = const(mm), GetPointerManager = const({ Get = const(POINTER) }) })
+        rawset(_G, 'ashita', { memory = { find = const(0),
+            read_uint32 = function (addr) return addr == POINTER and BASE or addr == BASE and OUT or 0 end,
+            read_uint8 = function (addr) return bytes[addr] or 0 end } })
+        local ok, g = pcall(read)
+        rawset(_G, 'AshitaCore', core)
+        rawset(_G, 'ashita', ash)
+        assert(ok, g)
+        return g
+    end
+    shows({ 40, 33 })
+    buffs.timed(OUT, 40, now, 1800)
+    buffs.gain(TRUST, 43, now, 150)
+    buffs.timed(TRUST, 43, now, 150)
+    local g = read_out()
+    eq({ g.timed, unit(g, OUT).icons, unit(g, TRUST).icons },
+       { { [OUT] = true }, { { id = 40, left = 1800, estimated = true }, { id = 33 } },
+         { { id = 43, left = 150, estimated = true } } })
+    shows({ 33 })  -- Protect wore off: its time goes with it, though it comes back
+    read_out()
+    shows({ 40, 33 })
+    eq(unit(read_out(), OUT).icons, { { id = 40 }, { id = 33 } })
+end)
+
 test('BST: Ready charges from the pool timer; a Ready move waits only for the charges it costs', function ()
     reset()
     world.main, world.timers = 9, { { 102, 45 } }  -- one charge back in 15s: 1 banked

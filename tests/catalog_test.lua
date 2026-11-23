@@ -33,6 +33,11 @@ test('split parses roman and ninjutsu tiers, leaves other names alone', function
     eq({ catalog.split('Geo-INT') }, { 'Geo-INT', 1 })
 end)
 
+test('durations: every spell\'s base duration the knowledge gives, by tier, whoever casts it; none for the rest', function ()
+    local d = catalog.durations(res, K)
+    eq({ d[43], d[129], d[57], d[108], d[110], d[115], d[397], d[4] }, { 1800, 1800, 180, 75, 60, 180, 120, nil })
+end)
+
 test('WHM 75 Cure IV: heal from main, DAT level/cost, tier potency', function ()
     local a = find(build(WHM, 75), 'Cure IV')
     eq({ a.role, a.from, a.level, a.mp, a.potency, a.wakes }, { 'heal', 'main', 41, 88, 400, true })

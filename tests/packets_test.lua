@@ -279,6 +279,25 @@ test('only a spell\'s id names a duration', function ()
     eq(buffs.of(TRUST, 50), { [POISON] = true })
 end)
 
+test('a spell landing with a known duration times it for the HUD, on a party player too; automation\'s stays its own', function ()
+    local PARTY = 0x2000
+    buffs.clear()
+    local c = ctx({ [43] = 1800 })  -- Protect: a spell of yours
+    c.timed = { [PARTY] = true }
+    c.known = function (spell) return ({ [43] = 1800, [57] = 180 })[spell] end  -- Haste: anyone's
+    packets.action(action(STRANGER, SPELL, 43, { { PARTY, 230, PROTECT }, { TRUST, 230, PROTECT } }), c, 10)
+    packets.action(action(STRANGER, SPELL, 57, { { PARTY, 230, 33 }, { TRUST, 230, 33 }, { MOB, 230, 33 } }), c, 10)
+    eq({ buffs.left(PARTY, PROTECT, 20), buffs.left(TRUST, PROTECT, 20), buffs.left(PARTY, 33, 20),
+         buffs.left(TRUST, 33, 20), buffs.left(MOB, 33, 20) }, { 1790, 1790, 170, 170, nil })
+    -- The party player's statuses come from the client, not here. The trust's Haste, not a spell of yours, goes by the
+    -- default duration for automation, as before; its Protect, yours, by its own.
+    eq({ buffs.of(PARTY, 20), buffs.of(TRUST, 10 + buffs.DEFAULT_SECONDS) }, { {}, { [PROTECT] = true } })
+    -- A TP move's, or a spell with no known duration: none.
+    packets.action(action(MOB, MOB_SKILL, 57, { { PARTY, 242, 34 } }), c, 10)
+    packets.action(action(STRANGER, SPELL, 99, { { PARTY, 230, 35 } }), c, 10)
+    eq({ buffs.left(PARTY, 34, 20), buffs.left(PARTY, 35, 20) }, { nil, nil })
+end)
+
 test('your song is stamped on who its finish says it landed on, doubled under Troubadour', function ()
     local brd = require('jobs.brd')
     brd.clear()

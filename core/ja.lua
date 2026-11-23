@@ -352,10 +352,21 @@ ja.words = {
         'ピクセル: 0でアイコンの中心がHPバーの上端に来て、半分がバーに重なります。0より大きいと上がってバーの上へ出て、'
         .. '0より小さいとバーの中へ下がります。',
     ['Buff timers'] = '強化の残り時間',
-    ['The time left on each of your own buffs, on its icon: 3h, 25m, 47s. Yours only: the game gives no one else\'s.'] =
-        '自分の強化の残り時間をアイコンの上に表示します（3h、25m、47s）。自分の分だけです。ほかの人の残り時間はゲームから'
-        .. '得られません。',
-    ['Needs Buff timers on.'] = '「強化の残り時間」がオンのときに使えます。',
+    ['The time left on each of your own buffs, on its icon: 3h, 25m, 47s, the closest to wearing off first. Exact: '
+        .. 'the game times your own.'] =
+        '自分の強化の残り時間をアイコンの上に表示します（3h、25m、47s）。切れるのが早いものから左に並びます。'
+        .. '自分の分はゲームが計っているので正確です。',
+    ['Party buff timers'] = 'パーティの強化の残り時間',
+    ['The time left on a party member\'s or trust\'s buff too, where known: Sidekick saw it land, from a spell whose '
+        .. 'duration it knows (Protect, Shell, Haste, Refresh, Regen, songs, storms...). An estimate, by that spell\'s '
+        .. 'base duration: gear or merits that lengthen it aren\'t counted, and once it runs out with the buff still on, '
+        .. 'its time goes.'] =
+        'パーティメンバーやフェイスの強化の残り時間も、わかるものは表示します。Sidekickがかかるのを見ていて、効果時間を'
+        .. '知っている魔法（プロテス、シェル、ヘイスト、リフレシュ、リジェネ、歌、陣など）のものです。その魔法の基本の'
+        .. '効果時間からの目安で、効果時間を延ばす装備やメリットポイントは数えません。時間が切れても強化が残っているときは、'
+        .. '残り時間は消えます。',
+    ['Needs Buff timers or Party buff timers on.'] =
+        '「強化の残り時間」か「パーティの強化の残り時間」がオンのときに使えます。',
     ['Timer text size'] = '残り時間の文字サイズ',
     ['Pixels: the time left on each of your own buffs.'] = 'ピクセル: 自分の強化の残り時間の文字。',
     ['HUD - Alliance / Tracked'] = 'HUD - アライアンス/追跡',

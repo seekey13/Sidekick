@@ -392,10 +392,10 @@ function hpbar.glow(dl, ui, x, y, w, h, p)
 end
 
 -- The buff icons (ui.buff_icons): a row of each party card's statuses (view.party[i].statuses) along its HP bar's top
--- edge, from its left, in the order given, `ui.buff_size` across and `GAP` apart, their middles `ui.buff_offset`
--- above that edge (into the bar below 0); on yours, the time each has left on it (ui.buff_timers). Drawn last of the
--- HUD, over the bars, the names, run and the cog; a tooltip, a window of its own, still goes over them. One table, as
--- hpbar is.
+-- edge, from its left, the closest to wearing off first, `ui.buff_size` across and `GAP` apart, their middles
+-- `ui.buff_offset` above that edge (into the bar below 0); on each the time it has left: yours (ui.buff_timers), and
+-- with ui.buff_party_timers others' where known, an estimate. Drawn last of the HUD, over the bars, the names, run and
+-- the cog; a tooltip, a window of its own, still goes over them. One table, as hpbar is.
 local buffrow = { icons = require('core.icons'), GAP = 2, KINDS = { self = true, party = true, trust = true } }
 
 -- Seconds as the largest whole unit, the rest dropped: 3h, 25m, 47s (never 0m 32s).
@@ -419,9 +419,38 @@ function buffrow.reach(ui)
     return math.max(0, math.ceil(ui.buff_offset + half)), math.max(0, math.ceil(half - ui.buff_offset))
 end
 
--- A status's tooltip: its name, and on yours the time it has left.
-function buffrow.tip(it)
-    return it.left and ('%s  %s'):format(it.name, buffrow.left(it.left)) or it.name
+-- The seconds status `it` has left, as the row goes by them: yours always (the client's own timers), another's estimate
+-- only with Party buff timers on. nil for one with none.
+function buffrow.ends(ui, it)
+    if it.left and (not it.estimated or ui.buff_party_timers) then return it.left end
+end
+
+-- `list` with the closest to wearing off first, those with no time after them, each kind in the order given.
+function buffrow.sorted(ui, list)
+    local keyed = {}
+    for i, it in ipairs(list) do keyed[i] = { it = it, i = i, ends = buffrow.ends(ui, it) } end
+    table.sort(keyed, function (a, b)
+        if (a.ends == nil) ~= (b.ends == nil) then return a.ends ~= nil end
+        if a.ends and a.ends ~= b.ends then return a.ends < b.ends end
+        return a.i < b.i
+    end)
+    local out = {}
+    for i, k in ipairs(keyed) do out[i] = k.it end
+    return out
+end
+
+-- The time drawn on status `it`'s icon, or nil: yours with Buff timers on, another's estimate with Party buff timers.
+function buffrow.shown(ui, it)
+    if not it.left then return nil end
+    if it.estimated then return ui.buff_party_timers and buffrow.left(it.left) or nil end
+    return ui.buff_timers and buffrow.left(it.left) or nil
+end
+
+-- A status's tooltip: its name, and the time it has left as the row goes by it (buffrow.ends), an estimate after a ~.
+function buffrow.tip(ui, it)
+    local left = buffrow.ends(ui, it)
+    if not left then return it.name end
+    return ('%s  %s%s'):format(it.name, it.estimated and '~' or '', buffrow.left(left))
 end
 
 -- Status `it`'s icon, s across at (x, y); a dark square in its place while its texture can't be had.
@@ -441,6 +470,7 @@ end
 function buffrow.draw(dl, ui, l, x, y)
     local list = l.p.statuses
     if not (list and list[1]) then return end
+    list = buffrow.sorted(ui, list)
     local s, gap = ui.buff_size, buffrow.GAP
     local fit = math.max(1, math.floor((l.bar_w + gap) / (s + gap)))
     local shown = #list > fit and fit - 1 or #list
@@ -449,16 +479,16 @@ function buffrow.draw(dl, ui, l, x, y)
     for i = 1, shown do
         local it, ix = list[i], x + (i - 1) * (s + gap)
         buffrow.icon(dl, it, ix, top, s)
-        if ui.buff_timers and it.left then
-            local text = buffrow.left(it.left)
+        local text = buffrow.shown(ui, it)
+        if text then
             local tw, th = kit.measure(text, font, px)
             kit.halo(dl, ix + (s - tw) / 2, top + s - th, text, P.white, font, px)
         end
-        if kit.over(ix, top, s, s) then kit.tooltip(buffrow.tip(it)) end
+        if kit.over(ix, top, s, s) then kit.tooltip(buffrow.tip(ui, it)) end
     end
     if shown == #list then return end
     local ix, rest = x + shown * (s + gap), {}
-    for i = shown + 1, #list do rest[#rest + 1] = buffrow.tip(list[i]) end
+    for i = shown + 1, #list do rest[#rest + 1] = buffrow.tip(ui, list[i]) end
     local r = math.min(ROUND, math.floor(s / 4))
     kit.fill(dl, ix, top, s, s, BAR_OFF, r, 0.75)
     kit.outline(dl, ix, top, s, s, BAR_OFF, r, BAR_EDGE_A)
@@ -623,7 +653,8 @@ local function hud_sizes(ui)
     local out = { show_slot = ui.show_slot ~= false, job_colors = ui.job_colors ~= false, sub_colors = ui.sub_colors ~= false,
                   hp_glow = ui.hp_glow ~= false, split = hpbar.SPLIT[ui.split] and ui.split or 'diagonal',
                   blend = util.clamp(math.floor(tonumber(ui.blend) or 50), 0, 100),
-                  buff_icons = ui.buff_icons ~= false, buff_timers = ui.buff_timers ~= false }
+                  buff_icons = ui.buff_icons ~= false, buff_timers = ui.buff_timers ~= false,
+                  buff_party_timers = ui.buff_party_timers == true }
     for _, l in ipairs(UI_SLIDERS) do
         out[l[2]] = util.clamp(math.floor(tonumber(ui[l[2]]) or l[6] or l[3]), l[3], l[4])
     end
@@ -1576,8 +1607,15 @@ local function draw_ui(view, pg)
     size('buff_size', no_icons)
     size('buff_offset', no_icons)
     switch(pg, 'Buff timers', 'ui.buff_timers', sizes.buff_timers,
-        'The time left on each of your own buffs, on its icon: 3h, 25m, 47s. Yours only: the game gives no one else\'s.')
-    size('buff_timer_size', no_icons or not sizes.buff_timers and 'Needs Buff timers on.' or nil)
+        'The time left on each of your own buffs, on its icon: 3h, 25m, 47s, the closest to wearing off first. Exact: '
+        .. 'the game times your own.')
+    switch(pg, 'Party buff timers', 'ui.buff_party_timers', sizes.buff_party_timers,
+        'The time left on a party member\'s or trust\'s buff too, where known: Sidekick saw it land, from a spell whose '
+        .. 'duration it knows (Protect, Shell, Haste, Refresh, Regen, songs, storms...). An estimate, by that spell\'s '
+        .. 'base duration: gear or merits that lengthen it aren\'t counted, and once it runs out with the buff still on, '
+        .. 'its time goes.')
+    size('buff_timer_size', no_icons or not (sizes.buff_timers or sizes.buff_party_timers)
+        and 'Needs Buff timers or Party buff timers on.' or nil)
     subheader(pg, 'HUD - Pet')
     for _, key in ipairs({ 'pet_hp_width', 'pet_hp_height', 'pet_hp_offset', 'pet_mp_width', 'pet_mp_height',
                            'pet_mp_offset', 'pet_tp_width', 'pet_tp_height', 'pet_tp_offset' }) do

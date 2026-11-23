@@ -1268,24 +1268,54 @@ test('buff icons: Buff icon height moves them up past the bar or down into it, n
     eq({ buff_hud(cfg, g)[1][2], hp_fill(108, 50 + 32) ~= nil }, { { 108, 50 }, true })
 end)
 
-test('buff icons: your own show the time left, its largest unit alone; no one else\'s has one', function ()
+-- The ids of the icons drawn, in order.
+local function ids_of(drawn)
+    local out = {}
+    for i, d in ipairs(drawn) do out[i] = d[1] end
+    return out
+end
+
+test('buff icons: the closest to wearing off first, each with its time, its largest unit alone; then those with none', function ()
     close_settings()
     local cfg = settings.defaults()
     local g = fake.snap({ { name = 'A', icons = { { id = 40, left = 100 } } } })
-    g.units[1].icons = { { id = 33, left = 3 * 3600 + 59 * 60 }, { id = 34, left = 25 * 60 + 59 }, { id = 35, left = 47 },
-                         { id = 36, left = 0 }, { id = 37 } }
-    eq(#buff_hud(cfg, g), 6)
+    g.units[1].icons = { { id = 33, left = 3 * 3600 + 59 * 60 }, { id = 37 }, { id = 34, left = 25 * 60 + 59 },
+                         { id = 35, left = 47 }, { id = 36, left = 0 } }
+    eq(ids_of(buff_hud(cfg, g)), { 36, 35, 34, 33, 37, 40 })
+    -- A's 100s is an estimate: not drawn till Party buff timers is on.
     eq({ drew('3h'), drew('25m'), drew('47s'), drew('0s'), drew('1m') }, { true, true, true, true, false })
-    -- 10px over the bottom of the third icon (x 144 to 160, y 67 to 83), across its middle.
+    -- 10px over the bottom of the second icon (x 126 to 142, y 67 to 83), across its middle.
     local w, h = kit.measure('47s', kit.fonts.semi, 10)
-    eq(text_at('47s'), { util.round(144 + (16 - w) / 2), util.round(83 - h) })
+    eq(text_at('47s'), { util.round(126 + (16 - w) / 2), util.round(83 - h) })
     cfg.ui.buff_timer_size = 14
     buff_hud(cfg, g)
     h = select(2, kit.measure('47s', kit.fonts.semi, 14))
     eq(text_at('47s')[2], util.round(83 - h))
-    cfg.ui.buff_timers = false
-    eq(#buff_hud(cfg, g), 6)
+    cfg.ui.buff_timers = false  -- still in order: yours are the client's own times
+    eq(ids_of(buff_hud(cfg, g)), { 36, 35, 34, 33, 37, 40 })
     eq({ drew('3h'), drew('47s') }, { false, false })
+end)
+
+test('buff icons: Party buff timers draws a party member\'s known times too, and sorts by them; estimates in tooltips', function ()
+    close_settings()
+    local cfg = settings.defaults()
+    local g = fake.snap({ { name = 'A', icons = { { id = 41 }, { id = 40, left = 1500 }, { id = 43, left = 60 } } },
+                          { name = 'B', kind = 'trust', icons = { { id = 33, left = 170 } } } })
+    eq(cfg.ui.buff_party_timers, false)
+    eq(ids_of(buff_hud(cfg, g)), { 41, 40, 43, 33 })  -- off: as the client lists them, no times
+    eq({ drew('25m'), drew('1m'), drew('2m') }, { false, false, false })
+    cfg.ui.buff_party_timers = true
+    eq(ids_of(buff_hud(cfg, g)), { 43, 40, 41, 33 })
+    eq({ drew('25m'), drew('1m'), drew('2m') }, { true, true, true })
+    cfg.ui.buff_timers = false  -- your own aren't these
+    buff_hud(cfg, g)
+    eq(drew('25m'), true)
+    -- Under the pointer: the last asked for shows (B's), its time an estimate.
+    buff_hud(cfg, g, { over = true })
+    eq(tipped('Haste  ~2m'), true)
+    cfg.ui.buff_party_timers = false
+    buff_hud(cfg, g, { over = true })
+    eq({ tipped('Haste  ~2m'), tipped('Haste') }, { false, true })
 end)
 
 test('buff icons: those past the bar\'s end are counted in its last place, their names in its tooltip', function ()
@@ -1959,15 +1989,19 @@ end)
 test('UI / Log: HUD - Buffs switches the icons and their timers and sizes and lifts them; greyed while off', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
-    eq({ cfg.ui.buff_icons, cfg.ui.buff_size, cfg.ui.buff_offset, cfg.ui.buff_timers, cfg.ui.buff_timer_size },
-       { true, 16, 0, true, 10 })
+    eq({ cfg.ui.buff_icons, cfg.ui.buff_size, cfg.ui.buff_offset, cfg.ui.buff_timers, cfg.ui.buff_timer_size,
+         cfg.ui.buff_party_timers }, { true, 16, 0, true, 10, false })
     eq(render(cfg, st, on('UI / Log', { ['Buff icon size##sk_ui_buff_size'] = 30,
         ['Buff icon height##sk_ui_buff_offset'] = -12, ['Timer text size##sk_ui_buff_timer_size'] = 14 })), 3)
     eq({ cfg.ui.buff_size, cfg.ui.buff_offset, cfg.ui.buff_timer_size }, { 30, -12, 14 })
     eq(render(cfg, st, on('UI / Log', { ['Buff timers##sk_ui_buff_timers'] = true })), 1)
     eq(cfg.ui.buff_timers, false)
     eq(render(cfg, st, on('UI / Log', { ['Timer text size##sk_ui_buff_timer_size'] = 20, over = true })), 0)
-    eq({ cfg.ui.buff_timer_size, tipped('Needs Buff timers on.') }, { 14, true })
+    eq({ cfg.ui.buff_timer_size, tipped('Needs Buff timers or Party buff timers on.') }, { 14, true })
+    eq(render(cfg, st, on('UI / Log', { ['Party buff timers##sk_ui_buff_party_timers'] = true })), 1)
+    eq(cfg.ui.buff_party_timers, true)
+    eq(render(cfg, st, on('UI / Log', { ['Timer text size##sk_ui_buff_timer_size'] = 20 })), 1)  -- either one will do
+    eq(cfg.ui.buff_timer_size, 20)
     eq(render(cfg, st, on('UI / Log', { ['Buff icons##sk_ui_buff_icons'] = true })), 1)
     eq(cfg.ui.buff_icons, false)
     eq(render(cfg, st, on('UI / Log', { ['Buff icon size##sk_ui_buff_size'] = 40,

@@ -18,8 +18,10 @@
              zone or while /anon),
              in_zone, dist, pos = { x, y, z },
              status (entity), alive, buffs = { [id] = true },
-             icons = { { id, left }, ... } (you and your party's players: their statuses in the client's order, for
-             the HUD's icons; `left`, the seconds yours have left, nil with no end: the client times only yours),
+             icons = { { id, left, estimated }, ... } (their statuses for the HUD's icons: yours and your party's
+             players' in the client's order, anyone else's by id; `left`, the whole seconds yours have left, by the
+             client's timers, nil with no end; another's only when it was seen landing from a spell whose duration is
+             known, `estimated` then: by that base duration, core/buffs.lua),
              stacks = { [id] = how many stand } (you and your party's players: runes
              and songs of one kind stack; nil for a player the client's list has no entry for yet),
              moving (others: moved in the last half second),
@@ -209,6 +211,24 @@ local function icon_list(list)
         if id > 0 and id ~= 255 then out[#out + 1] = { id = id } end
     end
     return out
+end
+
+-- Statuses pieced together from packets, as icons: by id, as they come in no order.
+local function set_icons(set)
+    local out = {}
+    for id in pairs(set) do out[#out + 1] = { id = id } end
+    table.sort(out, function (a, b) return a.id < b.id end)
+    return out
+end
+
+-- Another's `icons`, each with the whole seconds it has left where a duration was known as it landed (core/buffs.lua),
+-- `estimated`: the client times only yours.
+local function time_icons(sid, icons, now)
+    for _, it in ipairs(icons) do
+        local left = buffs.left(sid, it.id, now)
+        if left then it.left, it.estimated = math.ceil(left), true end
+    end
+    return icons
 end
 
 local INFINITE = 0x7FFFFFFF  -- a status timer's "no end"
@@ -439,6 +459,8 @@ local function tracked_unit(em, t, me, now)
     u.alive = u.hpp > 0 and u.status ~= DEAD
     if u.in_zone and not u.alive then buffs.forget(t.sid) end  -- a death clears statuses silently
     u.buffs = buffs.of(t.sid, now)
+    buffs.keep(t.sid, u.buffs)
+    u.icons = time_icons(t.sid, set_icons(u.buffs), now)
     u.hot = observed.hot(t.sid, now, u.buffs[REGEN])
     return u
 end
@@ -641,10 +663,13 @@ local function member(party, player, em, i, zone, now)
     elseif u.kind == 'party' then
         local list
         u.buffs, u.stacks, list = party_buffs(sid)
-        u.icons = icon_list(list)
-    else  -- a trust or the alliance: the client keeps no list (ui/model.lua lists their icons by id)
+        if u.stacks then buffs.keep(sid, u.buffs) end  -- in the client's list: what's left it wore off
+        u.icons = time_icons(sid, icon_list(list), now)
+    else  -- a trust or the alliance: the client keeps no list
         if not u.alive then buffs.forget(sid) end  -- a death clears statuses silently
         u.buffs = buffs.of(sid, now)
+        buffs.keep(sid, u.buffs)
+        u.icons = time_icons(sid, set_icons(u.buffs), now)
     end
     -- Under Weakness or a Curse their max is for now: none is kept, it's estimated from HP%
     -- until they're seen at full again without it. Yours the client gives whole.
@@ -673,7 +698,10 @@ local function read_pet(em, player, me, jobs, units, tracks, now)
         end
         if gone then
             for _, u in ipairs(units) do  -- already read this time round
-                if tracks[u.sid] then u.buffs = buffs.of(u.sid, now) end
+                if tracks[u.sid] then
+                    u.buffs = buffs.of(u.sid, now)
+                    u.icons = time_icons(u.sid, set_icons(u.buffs), now)
+                end
             end
         end
     end
@@ -699,7 +727,7 @@ function game.read(now, idle)
     if player:GetMainJobLevel() == 0 or zone == 0 or packets.zoning(now) then return { loading = true, now = now } end
     local jobs = jobs_of(player)
 
-    local units, allied, tracks, listed = {}, {}, {}, {}
+    local units, allied, tracks, listed, timed = {}, {}, {}, {}, {}
     local trust_allied = false  -- a trust in slots 6-17, or one there whose id isn't read yet (battle_target)
     for i = 0, 17 do
         if party:GetMemberIsActive(i) == 1 then
@@ -707,6 +735,7 @@ function game.read(now, idle)
             listed[u.sid] = true
             if i > 5 and (u.sid >= TRUST or u.sid == 0) then trust_allied = true end
             if u.kind == 'trust' or u.kind == 'alliance' then tracks[u.sid] = true end  -- statuses from packets
+            if u.kind == 'party' then timed[u.sid] = true end  -- statuses from the client, timed from packets
             local list = u.kind == 'alliance' and allied or units
             list[#list + 1] = u
         end
@@ -750,7 +779,8 @@ function game.read(now, idle)
 
     local g = {
         finished = finished, spell_finish = spell_finish,
-        now = now, zone = zone, me = me, units = units, tracks = tracks, bt = bt, target = player_target(mm, em),
+        now = now, zone = zone, me = me, units = units, tracks = tracks, timed = timed, bt = bt,
+        target = player_target(mm, em),
         t = not (idle or safe) and mob_target(mm, em, listed) or nil,
         pet = pet, ammo = ammo(), items = inventory(),
         main = jobs.main, main_lv = jobs.main_lv, sub = jobs.sub, sub_lv = jobs.sub_lv,

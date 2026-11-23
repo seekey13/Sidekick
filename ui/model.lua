@@ -495,9 +495,9 @@ local function buff_names(buffs, statuses)
     return text, table.concat(list, '\n')
 end
 
--- Unit `u`'s statuses for icons: { { id, name, left }, ... }. Yours and your party's players' in the client's order
--- (u.icons); anyone else's, pieced together from packets, by id. `left` (whole seconds) only on yours: the client
--- times no one else's.
+-- Unit `u`'s statuses for icons: { { id, name, left, estimated }, ... }. Yours and your party's players' in the
+-- client's order (u.icons); anyone else's, pieced together from packets, by id. `left` (whole seconds): yours by the
+-- client's timers; another's only where Sidekick saw it land from a spell whose duration it knows, `estimated` then.
 local function status_list(u, statuses)
     local icons = u.icons
     if not icons then
@@ -508,8 +508,9 @@ local function status_list(u, statuses)
     local out = {}
     for i, it in ipairs(icons) do
         local s = statuses[it.id]
-        out[i] = { id = it.id, name = s and lang.name(s.en, s.jp or false) or tostring(it.id),
-                   left = u.kind == 'self' and it.left or nil }
+        local estimated = u.kind ~= 'self' and it.left ~= nil or nil
+        out[i] = { id = it.id, name = s and lang.name(s.en, s.jp or false) or tostring(it.id), left = it.left,
+                   estimated = estimated }
     end
     return out
 end

@@ -91,6 +91,24 @@ local function uses(K, name, family, kind)
     return out
 end
 
+-- Every spell's base duration in seconds, where the knowledge gives one (Protect, Haste, Regen, songs, storms...),
+-- whoever casts it: { [spell id] = seconds }. The HUD's timers for others' buffs go by it (core/packets.lua: `known`);
+-- automation goes by your catalog's alone.
+function catalog.durations(res, K)
+    local out = {}
+    for id, s in pairs(res.spells) do
+        local family, tier = catalog.split(s.en)
+        for _, use in ipairs(uses(K, s.en, family, 'ma')) do
+            local d = per_tier(use.duration, tier)
+            if d then
+                out[id] = d
+                break
+            end
+        end
+    end
+    return out
+end
+
 -- Which job lets the player cast this spell now: 'main', 'sub', or nil.
 -- Also whether it hangs on SCH's Addendum (only castable through SCH).
 local function spell_source(s, p)

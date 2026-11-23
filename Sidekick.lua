@@ -128,11 +128,16 @@ local SENT_KEPT = 10
 
 -- Packets feed the cast lock and the trusts' statuses; they need to know who you
 -- are, who is tracked, and how long a spell's buff lasts.
+local durations  -- every spell's base duration, whoever casts it (core/catalog.lua), made the first time it's asked
 local packet_ctx = {
-    tracks = {},
+    tracks = {}, timed = {},
     duration = function (spell_id)
         local a = cat.by_spell[spell_id]
         return a and a.duration
+    end,
+    known = function (spell_id)  -- for the HUD's timers on others' buffs alone
+        durations = durations or catalog.durations(resources.load(), knowledge)
+        return durations[spell_id]
     end,
     spell = function (spell_id)  -- for the job modules: your songs are stamped on who they land on (jobs/brd.lua)
         return cat.by_spell[spell_id]
@@ -170,6 +175,7 @@ local function refresh(now)
     if not snap.loading then
         current_catalog()
         packet_ctx.me, packet_ctx.pet, packet_ctx.tracks = snap.me.sid, snap.pet and snap.pet.sid, snap.tracks
+        packet_ctx.timed = snap.timed or {}
         packet_ctx.buffs, packet_ctx.slots = snap.me.buffs, brd.slots(snap)
         local pair = abbr(snap.main) .. '_' .. abbr(snap.sub)
         if pair ~= cfg_pair then brd.clear() end  -- your songs go with the job
