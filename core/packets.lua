@@ -92,10 +92,11 @@ local RESULT_BITS = 3 + 2 + 12 + 5 + 2 + 3 + 17 + 10 + 31
 -- main messages 0, 1, 15, 30-32, 67, 70, 352, 353 and 373: none packets.action reads. Enspells,
 -- spikes and status procs come in the additional effect and spikes parts, never read.
 local MELEE = 1
+local NPC = 0x1000000  -- server ids from here up are NPCs (a trust, your pet); below, players
 
 -- 0x028 action packet: header plus each target's results (bit-packed, big endian), or nil
 -- when it's malformed or can't matter to packets.action: an auto-attack, or another's
--- action on no unit in ctx.tracks. Of another's action, only the tracked targets are read:
+-- action on no unit in ctx.tracks or ctx.timed. Of another's action, only those targets are read:
 -- the rest are skipped, not parsed, since packets.action does nothing with them.
 local function parse_action(e, ctx)
     raw, at, limit = e.data_raw, 40, e.size * 8
@@ -104,16 +105,16 @@ local function parse_action(e, ctx)
     skip(4)
     local category = bits(4)
     if category == MELEE then return nil end
-    local tracks = ctx.tracks
+    local tracks, timed = ctx.tracks, ctx.timed or {}
     local all = actor == ctx.me or actor == ctx.pet  -- your own and your pet's: every target
-    if not all and next(tracks) == nil then return nil end
+    if not all and next(tracks) == nil and next(timed) == nil then return nil end
     local p = { actor = actor, category = category, param = bits(16), targets = {} }
     skip(16 + 32)  -- recast
     for _ = 1, count do
         local id = bits(32)
         local n = bits(4)
         if n == 0 then break end
-        local t = (all or tracks[id]) and { id = id, results = {} }
+        local t = (all or tracks[id] or timed[id]) and { id = id, results = {} }
         for _ = 1, n do
             if t then
                 skip(3 + 2 + 12)                     -- resolution, kind, animation
@@ -137,7 +138,10 @@ end
 
 -- A parsed 0x028 (tests hand one in directly).
 -- ctx: { me = your server id, pet = your pet's or nil, tracks = { [server id] = true }
--- for units whose statuses come from packets, duration = function(spell id) -> seconds or nil,
+-- for units whose statuses come from packets, timed = { [server id] = true } for your party's players, whose
+-- statuses the client lists but doesn't time, duration = function(spell id) -> seconds or nil (your spell's, by the
+-- catalog: what automation goes by), known = function(spell id) -> seconds or nil (anyone's: for the HUD's timers),
+-- song = function(spell id) -> whether it's a song, whoever sings it,
 -- spell = function(spell id) -> your spell's catalog record or nil, buffs = yours, slots = your songs per target
 -- (jobs/brd.lua), removes = function(observed.key) -> the status ids your remover clears and whether it's Esuna's
 -- kind (cast on you, clearing on those near only what you have too), or nil, missing = function(server id) -> HP a
@@ -176,10 +180,21 @@ function packets.action(p, ctx, now)
             elseif GAINS_028[r.message] then
                 -- Only a spell's id names a catalog duration; an ability's or TP move's doesn't.
                 local spell = p.category == SPELL_FINISH
-                -- How long yours lasts as it lands, when a job module knows (core/jobs.lua: `lasts`): a song twice
-                -- as long under Troubadour (jobs/brd.lua).
+                -- How long it lasts as it lands: yours as a job module knows it (core/jobs.lua: `lasts`: a song
+                -- twice as long under Troubadour, jobs/brd.lua), else as your catalog has it, else by its base
+                -- duration whoever cast it (a trust's Protectra: core/catalog.lua's durations), else not known
+                -- (buffs.DEFAULT_SECONDS for automation, and no time on the HUD). By that base duration, automation
+                -- holds it on a player no longer than buffs.DEFAULT_SECONDS: their wear-off goes to them alone, so
+                -- one ended out of sight (dead out of range, dispelled) is held no longer than an unknown one.
                 local lasts = mine and jobs.first('lasts', mine, ctx) or spell and ctx.duration(p.param) or nil
-                if tracked then buffs.gain(t.id, r.param, now, lasts, mine and mine.role == 'song') end
+                local base = not lasts and spell and ctx.known and ctx.known(p.param) or nil
+                local held = lasts or base and (t.id >= NPC and base or math.min(base, buffs.DEFAULT_SECONDS))
+                -- A song stacks whoever sings it: two of a kind from two bards both stand, so another's never cuts
+                -- yours short (a Minuet of 120s over yours of 240 under Troubadour).
+                local song = mine and mine.role == 'song' or spell and ctx.song and ctx.song(p.param) or false
+                if tracked then buffs.gain(t.id, r.param, now, held, song) end
+                local timer = lasts or base
+                if timer and (tracked or (ctx.timed or {})[t.id]) then buffs.timed(t.id, r.param, now, timer, song) end
                 if key and spell then observed.landed(key, t.id, now) end
                 if mine then landed[#landed + 1] = t.id end
             elseif LOSES_028[r.message] and tracked then
@@ -279,7 +294,7 @@ function packets.handle(e, ctx, now)
     elseif e.id == 0x00A then  -- zoning: a cast in flight is cancelled with no packet
         zone.out, zone.settle = nil, now + ZONE_SETTLE
         cast.active = false
-        buffs.clear()
+        buffs.zoned()
         observed.clear()
         removal.clear()
         for _, f in jobs.each('zone') do f() end

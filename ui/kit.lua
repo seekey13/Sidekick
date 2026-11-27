@@ -572,23 +572,38 @@ function kit.tooltip(s)
     if s and s ~= '' then tip_pending = tostring(s) end
 end
 
+-- A tooltip drawn in place of text: `draw(dl, x, y)` on its draw list from its inside's top-left, w by h of it. As
+-- kit.tooltip's, only the last asked for in a frame shows, text or drawn.
+function kit.tooltip_draw(draw, w, h)
+    tip_pending = { draw = draw, w = w, h = h }
+end
+
 -- Once a frame, after every window: the tooltip asked for last, in the palette, wrapped, drawn as is
--- (TextUnformatted: no '%' doubling). Its font goes on inside it, as 1.81 sizes a font by the window it's in.
--- (1.92's BeginTooltip says whether to draw; 1.81's says nothing.)
+-- (TextUnformatted: no '%' doubling); or a drawn one's (kit.tooltip_draw). Its font goes on inside it, as 1.81 sizes a
+-- font by the window it's in. (1.92's BeginTooltip says whether to draw; 1.81's says nothing.) A drawn one's error
+-- still closes it, then is raised.
 function kit.tooltips()
     local s = tip_pending
     if not s then return end
     tip_pending = nil
     local vars = kit.push_style(TOOLTIP_COLOURS, ImGuiStyleVar_WindowPadding, { S(9), S(6) }, ImGuiStyleVar_WindowRounding,
         S(4), ImGuiStyleVar_PopupRounding, S(4), ImGuiStyleVar_PopupBorderSize, 1)
+    local ok, err = true, nil
     if imgui.BeginTooltip() ~= false then
-        kit.push_font(kit.fonts.text, S(kit.SMALL + 0.5))
-        if s ~= tip_s or plain ~= tip_plain then tip_s, tip_plain, tip_text = s, plain, spelt(wrap_chars(s, 72)) end
-        imgui.TextUnformatted(tip_text)
-        kit.pop_font()
+        if type(s) == 'table' then
+            local x, y = imgui.GetCursorScreenPos()
+            ok, err = pcall(s.draw, imgui.GetWindowDrawList(), x, y)
+            imgui.Dummy({ s.w, s.h })
+        else
+            kit.push_font(kit.fonts.text, S(kit.SMALL + 0.5))
+            if s ~= tip_s or plain ~= tip_plain then tip_s, tip_plain, tip_text = s, plain, spelt(wrap_chars(s, 72)) end
+            imgui.TextUnformatted(tip_text)
+            kit.pop_font()
+        end
         imgui.EndTooltip()
     end
     kit.pop_style(TOOLTIP_COLOURS, vars)
+    if not ok then error(err, 0) end
 end
 
 -- The last item's tooltip, while it's hovered.

@@ -279,6 +279,26 @@ test('only a spell\'s id names a duration', function ()
     eq(buffs.of(TRUST, 50), { [POISON] = true })
 end)
 
+test('a spell landing with a known duration times it for the HUD, on a party player too, and a trust\'s for automation', function ()
+    local PARTY = 0x2000
+    buffs.clear()
+    local c = ctx({ [43] = 1800 })  -- Protect: a spell of yours
+    c.timed = { [PARTY] = true }
+    c.known = function (spell) return ({ [43] = 1800, [57] = 180 })[spell] end  -- Haste: anyone's
+    packets.action(action(STRANGER, SPELL, 43, { { PARTY, 230, PROTECT }, { TRUST, 230, PROTECT } }), c, 10)
+    packets.action(action(STRANGER, SPELL, 57, { { PARTY, 230, 33 }, { TRUST, 230, 33 }, { MOB, 230, 33 } }), c, 10)
+    eq({ buffs.left(PARTY, PROTECT, 20), buffs.left(TRUST, PROTECT, 20), buffs.left(PARTY, 33, 20),
+         buffs.left(TRUST, 33, 20), buffs.left(MOB, 33, 20) }, { 1790, 1790, 170, 170, nil })
+    -- The party player's statuses come from the client, not here. The trust's Haste, not a spell of yours, lasts its
+    -- base duration for automation too, not buffs.DEFAULT_SECONDS; its Protect, yours, as your catalog has it.
+    eq({ buffs.of(PARTY, 20), buffs.of(TRUST, 10 + 179), buffs.of(TRUST, 10 + 181) },
+       { {}, { [PROTECT] = true, [33] = true }, { [PROTECT] = true } })
+    -- A TP move's, or a spell with no known duration: none.
+    packets.action(action(MOB, MOB_SKILL, 57, { { PARTY, 242, 34 } }), c, 10)
+    packets.action(action(STRANGER, SPELL, 99, { { PARTY, 230, 35 } }), c, 10)
+    eq({ buffs.left(PARTY, 34, 20), buffs.left(PARTY, 35, 20) }, { nil, nil })
+end)
+
 test('your song is stamped on who its finish says it landed on, doubled under Troubadour', function ()
     local brd = require('jobs.brd')
     brd.clear()
@@ -308,6 +328,42 @@ test('your song is stamped on who its finish says it landed on, doubled under Tr
     eq(next(brd.stamps()), nil)
 end)
 
+test('on a player, a spell outside your catalog lasts its base duration for automation up to buffs.DEFAULT_SECONDS', function ()
+    local ALLY = 0x2001  -- an alliance member's or tracked player's: a player, whose wear-off goes to them alone
+    buffs.clear()
+    local c = ctx({ [44] = 1800 })  -- Protect II: a spell of yours
+    c.tracks[ALLY] = true
+    c.known = function (spell) return ({ [43] = 1800, [44] = 1800, [57] = 180 })[spell] end
+    packets.action(action(STRANGER, SPELL, 43, { { ALLY, 230, PROTECT }, { TRUST, 230, PROTECT } }), c, 0)
+    packets.action(action(STRANGER, SPELL, 57, { { ALLY, 230, 33 } }), c, 0)
+    -- Another's Protect: the player's held 300s, the trust's its 1800; their Haste its 180, under the cap.
+    eq({ buffs.of(ALLY, 179), buffs.of(ALLY, 299), buffs.of(ALLY, 301), buffs.of(TRUST, 1799)[PROTECT] },
+       { { [PROTECT] = true, [33] = true }, { [PROTECT] = true }, {}, true })
+    -- Yours lasts as your catalog has it, on a player too.
+    packets.action(action(STRANGER, SPELL, 44, { { ALLY, 230, PROTECT } }), c, 0)
+    eq(buffs.of(ALLY, 1799)[PROTECT], true)
+end)
+
+test('another\'s song doesn\'t cut yours short on a trust: two of a kind from two bards both stand', function ()
+    local brd = require('jobs.brd')
+    brd.clear()
+    local minuet = { name = 'Valor Minuet IV', role = 'song', status = { 198 }, duration = 120 }
+    buffs.clear()
+    local c = ctx()
+    c.spell = function (id) return id == 397 and minuet or nil end
+    c.known = function (spell) return ({ [397] = 120, [398] = 120, [57] = 180 })[spell] end
+    c.song = function (spell) return spell == 397 or spell == 398 end
+    c.buffs, c.slots = { [348] = true }, 2  -- Troubadour: yours lasts 240
+    packets.action(action(ME, SPELL, 397, { { TRUST, 266, 198 } }), c, 0)
+    -- Another bard's Minuet V 10s later, a song not in your catalog (its 120s by the knowledge): yours still stands.
+    packets.action(action(STRANGER, SPELL, 398, { { TRUST, 266, 198 } }), c, 10)
+    eq({ buffs.of(TRUST, 239)[198], buffs.of(TRUST, 241)[198], buffs.left(TRUST, 198, 200) }, { true, nil, 40 })
+    -- Not a song: the later cast's time, as before.
+    packets.action(action(STRANGER, SPELL, 57, { { TRUST, 230, 33 } }), c, 0)
+    packets.action(action(STRANGER, SPELL, 57, { { TRUST, 230, 33 } }), c, 100)
+    eq(buffs.left(TRUST, 33, 200), 80)
+end)
+
 test('zoning: from the zone-out until the zone-in settles, or a minute without it', function ()
     local function at(id, now) packets.handle({ id = id, data = '' }, ctx(), now) end
     at(0x00B, 100)
@@ -316,6 +372,15 @@ test('zoning: from the zone-out until the zone-in settles, or a minute without i
     eq({ packets.zoning(112), packets.zoning(113.5) }, { true, false })
     at(0x00B, 200)
     eq({ packets.zoning(259), packets.zoning(261), packets.zoning(262) }, { true, false, false })
+end)
+
+test('zoning drops the statuses pieced together from packets, but not the HUD\'s known durations', function ()
+    local PARTY = 0x2000
+    buffs.clear()
+    buffs.gain(TRUST, PROTECT, 100, 1800)
+    buffs.timed(PARTY, PROTECT, 100, 1800)
+    packets.handle({ id = 0x00A, data = '' }, ctx(), 110)
+    eq({ buffs.of(TRUST, 120), buffs.left(PARTY, PROTECT, 120) }, { {}, 1780 })
 end)
 
 test('the spell and ability lists are counted, and no other packet', function ()
@@ -374,6 +439,18 @@ test('a raw 0x028: tracked targets read past untracked ones, an auto-attack not 
         eq(packets.casting(11), true)
         packets.handle(raw_action(ME, SPELL, 0, { { MOB, { { 0, 0 } } } }), none, 12)
         eq({ packets.casting(13), packets.last_finish() }, { false, 12, true })
+    end)
+end)
+
+test('a raw 0x028: another\'s spell on a party player is read with nothing tracked, for the HUD\'s timers', function ()
+    local PARTY = 0x2000
+    with_bits(function ()
+        buffs.clear()
+        local c = ctx()
+        c.tracks, c.timed = {}, { [PARTY] = true }
+        c.known = function (spell) return ({ [57] = 180 })[spell] end  -- Haste
+        packets.handle(raw_action(STRANGER, SPELL, 57, { { MOB, { { 230, 33 } } }, { PARTY, { { 230, 33 } } } }), c, 10)
+        eq({ buffs.left(PARTY, 33, 20), buffs.left(MOB, 33, 20), buffs.of(PARTY, 20) }, { 170, nil, {} })
     end)
 end)
 

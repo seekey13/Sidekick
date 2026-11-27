@@ -61,6 +61,9 @@ local party = {
 local player = {
     GetMainJob = function () return world.main end, GetMainJobLevel = const(75), GetSubJob = const(4), GetSubJobLevel = const(37),
     GetMPMax = const(500), GetHPMax = function () return world.hp_max or 0 end, GetBuffs = function () return world.buffs or {} end,
+    -- Your status icons and their timers, side by side, as the client keeps them: `world.icons`, else your statuses.
+    GetStatusIcons = function () return world.icons or world.buffs or {} end,
+    GetStatusTimers = function () return world.icon_timers or {} end,
     GetPetMPPercent = function () return world.pet_mpp or 0 end, GetPetTP = function () return world.pet_tp or 0 end,
 }
 -- While you pick a sub-target, index 0 is the one being picked and 1 your target.
@@ -91,7 +94,12 @@ local seek_bt = ffi.cast('sk_seek_battle_actor', function ()
     return actor
 end)
 local BT_SIG = '66A1????????83EC186685C053565774??0FBFC08B0C85'
-local function find(_, _, sig) return sig == BT_SIG and tonumber(ffi.cast('uintptr_t', seek_bt)) or 0 end
+-- The client's clock (core/game.lua: stamp), found here; read through it only where a test maps it (its pointer reads 0).
+local CLOCK_SIG, CLOCK = 'B0015EC390518B4C24088D4424005068', 0x7000
+local function find(_, _, sig)
+    if sig == CLOCK_SIG then return CLOCK end
+    return sig == BT_SIG and tonumber(ffi.cast('uintptr_t', seek_bt)) or 0
+end
 rawset(_G, 'AshitaCore', { GetMemoryManager = const(mm), GetPointerManager = const({ Get = const(0) }) })
 rawset(_G, 'ashita', { memory = { find = find, read_uint32 = const(0), read_uint8 = const(0) } })
 
@@ -584,6 +592,36 @@ test('your statuses: a set, and how many of each stand (runes stack); empty slot
     eq({ me.buffs, me.stacks }, { { [523] = true, [524] = true }, { [523] = 2, [524] = 1 } })
 end)
 
+test('a status timer is the whole seconds left by the client\'s clock, wrapped in 32 bits; none with no end or no clock', function ()
+    local at = 1800000000  -- the clock: Unix time
+    local zero = (at - 1009810800) * 60  -- a timer reading this ends now
+    local function raw(sec) return (zero + sec * 60) % 4294967296 end  -- as the client keeps it: 32 bits
+    eq({ game.time_left(raw(47), at), game.time_left(raw(25 * 60), at), game.time_left(raw(3 * 3600 + 1), at) },
+       { 47, 1500, 10801 })
+    eq({ game.time_left(raw(0), at), game.time_left(raw(-5), at), game.time_left(raw(47) + 30, at) }, { 0, 0, 48 })
+    eq({ game.time_left(0x7FFFFFFF, at), game.time_left(raw(47), nil), game.time_left(nil, at) }, { nil, nil, nil })
+end)
+
+test('your status icons: in the client\'s order, one that stands twice kept twice, each with the time it has left', function ()
+    reset()
+    local at, PTR = 1800000000, 0x8000
+    local zero = (at - 1009810800) * 60
+    world.buffs = { 33, 214, 214, 40, 255 }
+    world.icons = { 33, 214, 214, 40, 255, 0 }
+    world.icon_timers = { (zero + 47 * 60) % 4294967296, (zero + 1500 * 60) % 4294967296, (zero + 90 * 60) % 4294967296,
+                          0x7FFFFFFF }
+    eq(unit(read(), ME).icons, { { id = 33 }, { id = 214 }, { id = 214 }, { id = 40 } })  -- no clock to read them by
+    local ash = rawget(_G, 'ashita')
+    rawset(_G, 'ashita', { memory = { find = find, read_uint8 = const(0),
+        read_uint32 = function (addr) return addr == CLOCK + 0x34 and PTR or addr == PTR + 0x0C and at or 0 end } })
+    local ok, got = pcall(function () return unit(read(), ME) end)
+    rawset(_G, 'ashita', ash)
+    assert(ok, got)
+    eq(got.icons, { { id = 33, left = 47 }, { id = 214, left = 1500 }, { id = 214, left = 90 }, { id = 40 } })
+    world.icons, world.icon_timers = nil, nil  -- the client's icons alone
+    eq(unit(read(), ME).icons, { { id = 33 }, { id = 214 }, { id = 214 }, { id = 40 } })
+end)
+
 test('a party player\'s statuses from the status-icon block, and their stacks: two songs of one kind stand twice', function ()
     reset()
     world.ents[0x450] = { sid = OUT, name = 'Out', hpp = 90, dist = 5 }
@@ -607,6 +645,54 @@ test('a party player\'s statuses from the status-icon block, and their stacks: t
     rawset(_G, 'AshitaCore', core)
     rawset(_G, 'ashita', ash)
     eq({ u.buffs, u.stacks }, { { [214] = true, [198] = true, [300] = true }, { [214] = 2, [198] = 1, [300] = 1 } })
+    eq(u.icons, { { id = 214 }, { id = 214 }, { id = 198 }, { id = 300 } })  -- in the client's order, for the HUD
+end)
+
+test('a party player\'s icons and a trust\'s take the time a known duration leaves them, an estimate; one gone, none', function ()
+    reset()
+    world.ents[0x450] = { sid = OUT, name = 'Out', hpp = 90, dist = 5 }
+    world.party[2] = { sid = OUT, tidx = 0x450, name = 'Out', hpp = 90, hp = 900, mpp = 50, mp = 100 }
+    world.party[3] = { sid = TRUST, tidx = 0x451, name = 'Kupipi', hpp = 100, hp = 900, mpp = 100, mp = 100 }
+    world.ents[0x451] = { sid = TRUST, name = 'Kupipi', dist = 3 }
+    local POINTER, BASE = 0x10, 0x1000
+    local bytes = {}
+    local function shows(list)  -- Out's entry in the status-icon block, the first
+        for k = 0, 31 do bytes[BASE + 16 + k] = list[k + 1] or 255 end
+    end
+    local function read_out(dt)
+        local core, ash = rawget(_G, 'AshitaCore'), rawget(_G, 'ashita')
+        rawset(_G, 'AshitaCore', { GetMemoryManager = const(mm), GetPointerManager = const({ Get = const(POINTER) }) })
+        rawset(_G, 'ashita', { memory = { find = const(0),
+            read_uint32 = function (addr) return addr == POINTER and BASE or addr == BASE and OUT or 0 end,
+            read_uint8 = function (addr) return bytes[addr] or 0 end } })
+        local ok, g = pcall(read, dt)
+        rawset(_G, 'AshitaCore', core)
+        rawset(_G, 'ashita', ash)
+        assert(ok, g)
+        return g
+    end
+    shows({ 40, 33 })
+    buffs.timed(OUT, 40, now, 1800)
+    buffs.gain(TRUST, 43, now, 150)
+    buffs.timed(TRUST, 43, now, 150)
+    local g = read_out()
+    eq({ g.timed, unit(g, OUT).icons, unit(g, TRUST).icons },
+       { { [OUT] = true }, { { id = 40, left = 1800, estimated = true }, { id = 33 } },
+         { { id = 43, left = 150, estimated = true } } })
+    shows({ 33 })  -- Protect wore off: its time goes with it, though it comes back
+    read_out(buffs.GRACE)
+    shows({ 40, 33 })
+    eq(unit(read_out(), OUT).icons, { { id = 40 }, { id = 33 } })
+    -- Seen landing before their list has it (that comes in a packet of its own): its time waits GRACE for it.
+    buffs.timed(OUT, 40, now, 1800)
+    shows({ 33 })
+    read_out()
+    shows({ 40, 33 })
+    eq(unit(read_out(), OUT).icons[1], { id = 40, left = 1800, estimated = true })
+    -- Out leaves the party: what was known of theirs goes with them.
+    world.party[2], world.party[3] = world.party[3], nil
+    read_out()
+    eq(buffs.left(OUT, 40, now), nil)
 end)
 
 test('BST: Ready charges from the pool timer; a Ready move waits only for the charges it costs', function ()

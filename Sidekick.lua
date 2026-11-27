@@ -128,11 +128,24 @@ local SENT_KEPT = 10
 
 -- Packets feed the cast lock and the trusts' statuses; they need to know who you
 -- are, who is tracked, and how long a spell's buff lasts.
+-- Every spell's base duration, whoever casts it, and which are songs (core/catalog.lua), made the first time asked.
+local durations, songs
+local function base()
+    if not durations then durations, songs = catalog.durations(resources.load(), knowledge) end
+end
 local packet_ctx = {
-    tracks = {},
+    tracks = {}, timed = {},
     duration = function (spell_id)
         local a = cat.by_spell[spell_id]
         return a and a.duration
+    end,
+    known = function (spell_id)  -- any spell's, whoever casts it: where yours (duration) has none
+        base()
+        return durations[spell_id]
+    end,
+    song = function (spell_id)  -- whoever sings it: two of a kind from two bards both stand
+        base()
+        return songs[spell_id] == true
     end,
     spell = function (spell_id)  -- for the job modules: your songs are stamped on who they land on (jobs/brd.lua)
         return cat.by_spell[spell_id]
@@ -170,6 +183,7 @@ local function refresh(now)
     if not snap.loading then
         current_catalog()
         packet_ctx.me, packet_ctx.pet, packet_ctx.tracks = snap.me.sid, snap.pet and snap.pet.sid, snap.tracks
+        packet_ctx.timed = snap.timed or {}
         packet_ctx.buffs, packet_ctx.slots = snap.me.buffs, brd.slots(snap)
         local pair = abbr(snap.main) .. '_' .. abbr(snap.sub)
         if pair ~= cfg_pair then brd.clear() end  -- your songs go with the job

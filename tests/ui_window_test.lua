@@ -49,7 +49,8 @@ end
 
 -- The arguments of each draw-list call that are points.
 local POINTS = { AddRectFilled = { 1, 2 }, AddRect = { 1, 2 }, AddRectFilledMultiColor = { 1, 2 }, AddLine = { 1, 2 },
-                 AddCircleFilled = { 1 }, AddCircle = { 1 }, AddTriangleFilled = { 1, 2, 3 }, AddTriangle = { 1, 2, 3 } }
+                 AddCircleFilled = { 1 }, AddCircle = { 1 }, AddTriangleFilled = { 1, 2, 3 }, AddTriangle = { 1, 2, 3 },
+                 AddImage = { 2, 3, 4, 5 } }
 
 -- A draw list records each call as { list, name, args }. Its text is drawn as is,
 -- AddText(pos, col, s) or AddText(font, size, pos, col, s).
@@ -378,6 +379,14 @@ local u32 = kit.u32
 
 -- The HUD ---------------------------------------------------------------------------
 
+-- The defaults with the buff icons off, for the tests of the bars, rows and buttons: with them on, your card comes down
+-- for its row's box to clear the title row, and every line under it with it (Buff icons, below, tests that).
+local function bars_only()
+    local cfg = settings.defaults()
+    cfg.ui.buff_icons = false
+    return cfg
+end
+
 test('the HUD draws running and stopped; Sidekick Settings only once the cog opens it, until its X', function ()
     close_settings()
     for _, running in ipairs({ true, false }) do  -- stopped last, for its tooltip
@@ -441,7 +450,7 @@ end
 
 test('the panel and bars follow the UI settings', function ()
     close_settings()
-    local cfg = settings.defaults()
+    local cfg = bars_only()
     cfg.ui.hp_width, cfg.ui.hp_glow = 300, false  -- A, at 62%, would glow yellow: the HP glow's own tests are below
     render(cfg, status())
     local panel = calls('AddRectFilled')[1].args
@@ -469,7 +478,7 @@ end)
 
 test('the panel, frame, title and close fade out until the mouse is over the window; the bars stay', function ()
     close_settings()
-    local cfg = settings.defaults()
+    local cfg = bars_only()
     render(cfg, status(), { hover = false })
     eq(calls('AddRectFilled')[1].args[3], u32(P.bg, 0))
     eq(calls('AddRect')[1].args[3], u32(P.border, 0))
@@ -487,7 +496,7 @@ end)
 
 test('the HUD\'s items reach exactly the panel\'s far corner, so its auto-size fits the panel', function ()
     close_settings()
-    render(settings.defaults(), status())
+    render(bars_only(), status())
     eq(frame.extent.Sidekick, calls('AddRectFilled')[1].args[2])
     eq(frame.extent.Sidekick, { 100 + 236, 50 + 25 + 3 * 72 + 60 + 4 + 2 * 8 + 8 })  -- yours, your pet's 4 under it, A's, B's
 end)
@@ -502,7 +511,7 @@ end)
 
 test('a row\'s MP bar sizes out of range, or not numbers, are held to their sliders\' too', function ()
     close_settings()
-    local cfg = settings.defaults()
+    local cfg = bars_only()
     cfg.ui.ally_mp_width, cfg.ui.ally_mp_height, cfg.ui.ally_mp_offset = 5000, 0, 'abc'
     render(cfg, status(), nil, model.build(fake.snap({ { kind = 'alliance', name = 'Bea' } }), cat, cfg, status(), NAMES))
     eq(bar_edge(108, 155 + 18 + 1, 600, 2), true)  -- 600 wide, 2 high, set in by none
@@ -559,7 +568,7 @@ local WAR, NIN, DRG, BLU = '#C69B6D', '#7A5C7A', '#33937F', '#0070DD'
 test('Job colors: each HP bar its main job\'s colour, a pet\'s its owner\'s; one with none known grey; the switch off, '
     .. 'red', function ()
     close_settings()
-    local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
+    local cfg, st = bars_only(), status({ intent = false, sent = {} })
     cfg.ui.sub_colors = false
     local g = fake.snap({ { name = 'A', jobs = { 1, 75, 13, 37 } }, { name = 'B' },
                           { kind = 'alliance', uses_mp = false, name = 'Bea', jobs = { 16, 75, 0, 0 } },
@@ -587,7 +596,7 @@ end)
 
 test('Subjob color: main then sub by Split and Blend, a pixel row at a time, set in to the corners', function ()
     close_settings()
-    local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
+    local cfg, st = bars_only(), status({ intent = false, sent = {} })
     local main, sub = u32(WAR, BAR_FILL), u32(NIN, BAR_FILL)
     local g = fake.snap({})
     g.units[1].jobs = { 1, 75, 13, 37 }  -- you: WAR/NIN, your HP bar 220 by 40 from (108, 75)
@@ -650,7 +659,7 @@ end
 
 test('HP glow: TargetBar\'s fringe round the HP bar as the name changes colour; none dead or away; nothing grows', function ()
     close_settings()
-    local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
+    local cfg, st = bars_only(), status({ intent = false, sent = {} })
     local g = fake.snap({
         { name = 'High', hpp = 76 }, { name = 'Yel', hpp = 75 }, { name = 'Org', hpp = 50 }, { name = 'Red', hpp = 25 },
         { name = 'Dead', hpp = 20, alive = false },
@@ -694,7 +703,7 @@ end
 
 test('the TP bar, under the MP bar: a part per 1000 TP, each filling in turn, the one filling faint', function ()
     close_settings()
-    local cfg, st = settings.defaults(), status()
+    local cfg, st = bars_only(), status()
     local function tp(n)
         render(cfg, st, nil, model.build(fake.snap({ { name = 'A', tp = n } }), cat, cfg, st, NAMES))
         return tp_fills()
@@ -713,7 +722,7 @@ end)
 
 test('your pet\'s card sits under yours, before P1: its HP, MP and TP, and its own tooltip', function ()
     close_settings()
-    local cfg, st = settings.defaults(), status()
+    local cfg, st = bars_only(), status()
     local g = fake.snap({ { name = 'A' } }, { pet = { name = 'Ifrit', hpp = 50, mpp = 40, tp = 1000, dist = 3, uses_mp = true } })
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
     -- Its three bars an alliance row's size, 220 by 18, 3 apart, 4 under your card, from y 151; A's card 8 under
@@ -748,7 +757,7 @@ end
 
 test('a member with no MP (0/0) has no MP bar, its TP bar up under its HP bar; each tag is on its TP bar', function ()
     close_settings()
-    local cfg, st = settings.defaults(), status()
+    local cfg, st = bars_only(), status()
     local g = fake.snap({ { name = 'War', mpp = 0, uses_mp = false, tp = 1500 }, { kind = 'tracked', name = 'Out' } })
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
     -- Yours from y 75, its TP bar from 139; War's from 155, its TP bar from 198, 3 under its HP bar; Out's row from 214.
@@ -766,7 +775,7 @@ end)
 
 test('a pet with no MP, as a wyvern, has no MP bar; another session\'s once its file says so', function ()
     close_settings()
-    local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
+    local cfg, st = bars_only(), status({ intent = false, sent = {} })
     local g = fake.snap({ { name = 'A' } },
         { pet = { name = 'Wyvern', hpp = 100, mpp = 0, tp = 1000, dist = 2, uses_mp = false } })
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
@@ -786,7 +795,7 @@ end)
 
 test('the arrow points at your pet\'s card for its care and sending it in', function ()
     close_settings()
-    local cfg = settings.defaults()
+    local cfg = bars_only()
     for _, b in ipairs({ 'pet', 'pet_send', 'heal' }) do
         local st = status({ intent = { at = 990, action = 'Healing Ruby', behavior = b, why = 'Carbuncle at 40%' } })
         render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
@@ -797,7 +806,7 @@ end)
 
 test('the alliance gets a thin HP row each under the cards, a gap before each party; the arrow points at one', function ()
     close_settings()
-    local cfg = settings.defaults()
+    local cfg = bars_only()
     local g = fake.snap({ { name = 'A' }, { kind = 'alliance', uses_mp = false, name = 'Bea', hpp = 20 },
         { kind = 'alliance', uses_mp = false, name = 'Bo', slot = 7, hpp = 75 }, { kind = 'alliance', uses_mp = false, name = 'Cy', slot = 12, in_zone = false } })
     local st = status({ intent = { at = 990, action = 'Cure IV', target = 'Bo', behavior = 'heal', why = 'Bo' } })
@@ -819,7 +828,7 @@ end)
 
 test('a tracked player gets a row as the alliance\'s, after theirs: HP alone; another session\'s has run and the cog', function ()
     close_settings()
-    local cfg = settings.defaults()
+    local cfg = bars_only()
     local st = status({ intent = { at = 990, action = 'Cure IV', target = 'Far', behavior = 'heal', why = 'Far' }, sent = {} })
     st.sessions = { Out = { running = false, members = { { sid = 202, name = 'Out' } } } }
     local g = fake.snap({ { kind = 'tracked', name = 'Far', hpp = 40 }, { kind = 'tracked', name = 'Out' },
@@ -837,7 +846,7 @@ end)
 
 test('a tracked player a session file gives MP for has a thin MP strip under their row; the rows under come down', function ()
     close_settings()
-    local cfg = settings.defaults()
+    local cfg = bars_only()
     local g = fake.snap({ { kind = 'tracked', name = 'Far', hpp = 40 }, { kind = 'tracked', name = 'Out' },
         { kind = 'alliance', uses_mp = false, name = 'Bea' } })
     g.units[2].mpp, g.units[2].mp, g.units[2].uses_mp = 60, 600, true
@@ -850,7 +859,7 @@ end)
 
 test('an alliance member with MP has an MP bar under their row, sized and set in by its own settings', function ()
     close_settings()
-    local cfg = settings.defaults()
+    local cfg = bars_only()
     local g = fake.snap({ { kind = 'alliance', name = 'Bea', mpp = 50 }, { kind = 'alliance', name = 'Bo', uses_mp = false } })
     render(cfg, status(), nil, model.build(g, cat, cfg, status(), NAMES))
     -- Bea's row from 155 (after your card), her MP bar 1 under it, 220 by 6; Bo's row 3 under that, with none.
@@ -880,7 +889,7 @@ end)
 
 test('the MP and TP bars sit their offsets in from the HP bar\'s left, the slot on the TP bar; the panel fits them', function ()
     close_settings()
-    local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
+    local cfg, st = bars_only(), status({ intent = false, sent = {} })
     cfg.ui.mp_offset, cfg.ui.tp_offset = 20, 40
     render(cfg, st, nil, model.build(fake.snap({}), cat, cfg, st, NAMES))
     -- Your card from y 75: HP from x 108, MP from 128 at y 118, TP from 148 at y 139, ME on it.
@@ -905,7 +914,7 @@ end)
 
 test('Alliance / Tracked\'s sizes size the rows and their text, a pet\'s text too, not its bars; the MP bar\'s no longer', function ()
     close_settings()
-    local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
+    local cfg, st = bars_only(), status({ intent = false, sent = {} })
     cfg.ui.ally_hp_width, cfg.ui.ally_hp_height, cfg.ui.ally_text_size, cfg.ui.mp_height = 150, 10, 11, 30
     local g = fake.snap({ { kind = 'alliance', uses_mp = false, name = 'Bea', hpp = 50 } },
         { pet = { name = 'Ifrit', hpp = 50, mpp = 40, tp = 1000, dist = 3, uses_mp = true } })
@@ -922,7 +931,7 @@ end)
 
 test('Pet\'s settings size each of a pet\'s bars and set each its offset in from the cards\' left; the panel fits them', function ()
     close_settings()
-    local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
+    local cfg, st = bars_only(), status({ intent = false, sent = {} })
     local ui = cfg.ui
     ui.pet_hp_width, ui.pet_hp_height, ui.pet_hp_offset = 250, 12, 20
     ui.pet_mp_width, ui.pet_mp_height, ui.pet_mp_offset = 150, 6, 30
@@ -952,14 +961,14 @@ end)
 
 test('the arrow\'s label points at the card the next action is for: amber running, grey stopped, none idle', function ()
     close_settings()
-    render(settings.defaults(), status())
+    render(bars_only(), status())
     local arrow = calls('AddTriangleFilled', 'background')[1].args
     eq({ arrow[1], arrow[4] }, { { 100 + 236 + 2, 50 + 25 + 72 + 4 + 68 + 36 }, u32(P.seg) })  -- A's card, under your pet's: its middle
     eq(fill('Heal:Cure IV', 'background'), u32(P.text2))
-    render(settings.defaults(), status({ running = true }))
+    render(bars_only(), status({ running = true }))
     eq(calls('AddTriangleFilled', 'background')[1].args[4], u32(P.amber))
     eq(fill('Heal:Cure IV', 'background'), u32(P.ink))
-    render(settings.defaults(), status({ intent = false }))
+    render(bars_only(), status({ intent = false }))
     eq(#calls('AddTriangleFilled', 'background'), 0)
 end)
 
@@ -974,7 +983,7 @@ end
 
 test('another session\'s label is blue, after its name: after yours on the same card, else pointing itself', function ()
     close_settings()
-    local cfg = settings.defaults()
+    local cfg = bars_only()
     local st = status({ running = true })
     st.sessions = { A = { running = true, members = { { sid = 101, name = 'A' } },
                           act = { behavior = 'buff', action = 'Haste', target = 'A' } } }  -- the card yours is at
@@ -1003,7 +1012,7 @@ end
 test('targeting a player you could track, Add Tracked points at your card first, in a window just its size: a click '
     .. 'anywhere on it tracks them', function ()
     close_settings()
-    local cfg = settings.defaults()
+    local cfg = bars_only()
     local st = status({ intent = { at = 990, action = 'Cure IV', target = 'Me', behavior = 'heal', why = 'Me at 50%' } })
     local g = snap()
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
@@ -1052,7 +1061,7 @@ end)
 
 test('another session\'s pet has a card under that session\'s: its MP and TP once its file names it; its care points there', function ()
     close_settings()
-    local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
+    local cfg, st = bars_only(), status({ intent = false, sent = {} })
     st.sessions = { A = { running = false, members = { { sid = 101, name = 'A' } } } }
     local g = fake.snap({ { name = 'A' } })
     g.units[2].pet = { sid = 0x1000701, tidx = 0x701, name = 'Garuda', hpp = 50, dist = 6 }
@@ -1079,7 +1088,7 @@ end)
 
 test('your pet\'s care points at your pet\'s card alone, not at another session\'s pet', function ()
     close_settings()
-    local cfg = settings.defaults()
+    local cfg = bars_only()
     local st = status({ intent = { at = 990, action = 'Healing Ruby', behavior = 'pet', why = 'Carbuncle at 40%' } })
     st.sessions = { A = { running = false, members = { { sid = 101, name = 'A' } } } }
     local g = snap()
@@ -1092,7 +1101,7 @@ end)
 
 test('two sessions\' pets of one name keep their own bars', function ()
     close_settings()
-    local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
+    local cfg, st = bars_only(), status({ intent = false, sent = {} })
     st.sessions = { A = { running = false, members = { { sid = 101, name = 'A' } } },
                     B = { running = false, members = { { sid = 102, name = 'B' } } } }
     local g = fake.snap({ { name = 'A' }, { name = 'B' } })
@@ -1124,20 +1133,21 @@ local function close_x()
     return { (a[1] + b[1]) / 2, (a[2] + b[2]) / 2 }
 end
 
-test('run and the cog sit at the top right of your own HP bar, the title row keeps close; lit while on', function ()
+test('run and the cog sit at the bottom right of your own HP bar, the title row keeps close; lit while on', function ()
     close_settings()
-    render(settings.defaults(), status())
-    -- Text 14: buttons 17px. Your card's HP bar runs x 108-328 from y 75. Close is an X in the title row, no disc.
+    render(bars_only(), status())
+    -- Text 14: buttons 17px. Your card's HP bar runs x 108-328 from y 75 to 115: they end 2 above its bottom. Close is an
+    -- X in the title row, no disc.
     local c = discs()
     eq(close_x(), { 100 + 236 - 8 - 8.5, 50 + 12.5 })
-    eq({ c[1][1], c[1][2], c[2][1], c[2][2] }, { 328 - 2 - 17 - 4 - 17 + 8.5, 77 + 8.5, 328 - 2 - 17 + 8.5, 77 + 8.5 })
+    eq({ c[1][1], c[1][2], c[2][1], c[2][2] }, { 328 - 2 - 17 - 4 - 17 + 8.5, 115 - 2 - 8.5, 328 - 2 - 17 + 8.5, 115 - 2 - 8.5 })
     eq(#frame.args.InvisibleButton, 3)
     -- The fake hovers everything: run unlit is the accent's low shade, lit its light one; the cog lit while Sidekick Settings shows.
     eq({ c[1][3], c[2][3] }, { u32(P.accent_lo), u32(P.accent_lo) })
-    render(settings.defaults(), status({ running = true }))
+    render(bars_only(), status({ running = true }))
     eq(discs()[1][3], u32(P.accent2))
     open_settings()
-    render(settings.defaults(), status())
+    render(bars_only(), status())
     eq(discs()[2][3], u32(P.accent2))
     eq(close_x() ~= nil, true)  -- Sidekick Settings' X, rose under the pointer, and no disc of its own
     close_settings()
@@ -1145,10 +1155,10 @@ end)
 
 test('the buttons are the icon size whatever the bar\'s height: on a thinner bar they spill past it, centred on it', function ()
     close_settings()
-    local cfg = settings.defaults()
+    local cfg = bars_only()
     cfg.ui.icon_size = 24
     render(cfg, status())
-    eq(discs()[1][2], 75 + 2 + 12)  -- 24px, 2px from the 40px bar's top
+    eq(discs()[1][2], 75 + 40 - 2 - 12)  -- 24px, 2px up from the 40px bar's bottom
     cfg.ui.hp_height = 12
     render(cfg, status())
     -- Centred on your 12px bar, 6 over it above and below: your card comes down 6 so they clear the title row.
@@ -1162,7 +1172,7 @@ end)
 
 test('the panel reaches past buttons spilling under the last line, so its auto-size fits them', function ()
     close_settings()
-    local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
+    local cfg, st = bars_only(), status({ intent = false, sent = {} })
     st.sessions = { A = { running = false, members = { { sid = 301, name = 'A' } } } }  -- A's session, in the alliance
     cfg.ui.ally_hp_height, cfg.ui.icon_size = 4, 40
     render(cfg, st, nil, model.build(fake.snap({ { name = 'P' }, { kind = 'alliance', name = 'A' } }), cat, cfg, st, NAMES))
@@ -1175,7 +1185,7 @@ end)
 
 test('two sessions\' rows one after another: the second comes down for its buttons to clear the first\'s', function ()
     close_settings()
-    local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
+    local cfg, st = bars_only(), status({ intent = false, sent = {} })
     st.sessions = { A = { running = false, members = { { sid = 301, name = 'A' } } },
                     B = { running = false, members = { { sid = 302, name = 'B' } } } }
     cfg.ui.ally_hp_height, cfg.ui.icon_size = 10, 24
@@ -1200,6 +1210,256 @@ test('a button\'s tooltip replaces the card\'s', function ()
     render(settings.defaults(), status())  -- the fake hovers everything: the buttons win
     eq({ tipped('Start automation'), tipped('Settings'), tipped('Me\nHP') }, { true, true, false })
     eq(tipped('A\nHP 62%'), true)
+end)
+
+-- Buff icons ------------------------------------------------------------------------
+
+local icons = require('core.icons')
+local util = require('core.util')
+
+-- The HUD drawn from `g` (a fake snapshot) with each status icon a texture, 5000 + its id (offline there are none), and
+-- the icons drawn: { id, top-left, bottom-right } each, in the order drawn.
+local function buff_hud(cfg, g, clicks)
+    local st = status({ intent = false, sent = {} })
+    local real = icons.status
+    icons.status = function (id) return 5000 + id end
+    local ok, err = pcall(render, cfg, st, clicks, model.build(g, cat, cfg, st, NAMES))
+    icons.status = real
+    assert(ok, err)
+    local out = {}
+    for _, d in ipairs(calls('AddImage')) do out[#out + 1] = { d.args[1] - 5000, d.args[2], d.args[3] } end
+    return out
+end
+
+-- Where `s` was last drawn: its own text, after its halo.
+local function text_at(s)
+    local pos
+    for _, d in ipairs(calls('AddText')) do if d.args[5] == s then pos = d.args[3] end end
+    return pos
+end
+
+-- Whether a box was drawn w by h from (x, y) in the bars' near-black at 75%, as a row's once was.
+local function backed(x, y, w, h)
+    for _, d in ipairs(calls('AddRectFilled')) do
+        local a, b = d.args[1], d.args[2]
+        if a[1] == x and a[2] == y and b[1] == x + w and b[2] == y + h and d.args[3] == u32(BAR_OFF, 0.75) then
+            return true
+        end
+    end
+    return false
+end
+
+test('buff icons straddle each party card\'s HP bar top from its left; none on a pet\'s card or a row', function ()
+    close_settings()
+    local g = fake.snap({ { name = 'A', icons = { { id = 40 }, { id = 41 } } },
+                          { name = 'B', kind = 'trust', buffs = { [43] = true, [33] = true } },
+                          { kind = 'alliance', name = 'C', buffs = { [44] = true } },
+                          { kind = 'tracked', name = 'T', buffs = { [45] = true } } },
+                        { pet = { name = 'Carbuncle', hpp = 100, dist = 2, uses_mp = true, buffs = { [46] = true } } })
+    g.units[1].icons = { { id = 34 }, { id = 33 } }
+    -- 16px, 2 apart, their middles on the HP bar's top edge (x 108). Your card comes down 10 from the title row's 25
+    -- for its row to clear it by 2 (8 of its icons over the bar): from y 85. Your pet's card 4 under yours (60 high),
+    -- A's 8 under it, B's 8 under A's (each card 72 high). B's by id: a trust's statuses come in no order.
+    local me = 50 + 25 + 10
+    local a = me + 72 + 4 + 60 + 8
+    local b = a + 72 + 8
+    eq(buff_hud(settings.defaults(), g), {
+        { 34, { 108, me - 8 }, { 124, me + 8 } }, { 33, { 126, me - 8 }, { 142, me + 8 } },
+        { 40, { 108, a - 8 }, { 124, a + 8 } }, { 41, { 126, a - 8 }, { 142, a + 8 } },
+        { 33, { 108, b - 8 }, { 124, b + 8 } }, { 43, { 126, b - 8 }, { 142, b + 8 } } })
+    eq({ hp_fill(108, me) ~= nil, hp_fill(108, a) ~= nil, hp_fill(108, b) ~= nil }, { true, true, true })
+    eq({ backed(106, me - 10, 38, 20), backed(106, a - 10, 38, 20) }, { false, false })  -- no box behind them
+    local cfg = settings.defaults()
+    cfg.ui.buff_icons = false
+    eq({ buff_hud(cfg, g), hp_fill(108, 75) ~= nil }, { {}, true })  -- off: your card up under the title row
+end)
+
+test('buff icons: Buff icon height moves them up past the bar or down into it; yours stay clear of the title row', function ()
+    close_settings()
+    local cfg, g = settings.defaults(), fake.snap({ { name = 'A' } })
+    g.units[1].icons, g.units[2].icons = { { id = 40 } }, { { id = 41 } }
+    local function tops()  -- your icon's top and A's
+        local d = buff_hud(cfg, g)
+        return { d[1][2][2], d[2][2][2] }
+    end
+    -- 10 up: 20 over the bar's top with the box. Your card comes down that far from the title row, from y 95, so your
+    -- row stays where it was; A's card, 80 under yours, has its row 10 further up its bar.
+    cfg.ui.buff_offset = 10
+    eq({ tops(), hp_fill(108, 95) ~= nil }, { { 77, 95 + 80 - 10 - 8 }, true })
+    -- 10 down, into the bar: none over it, so your card is up under the title row, from 75.
+    cfg.ui.buff_offset = -10
+    eq({ tops(), hp_fill(108, 75) ~= nil }, { { 75 + 10 - 8, 155 + 10 - 8 }, true })
+    -- 64 down, 64 across: 98 under your bar's top with the box, past your card's 72: the panel reaches past them.
+    local solo = fake.snap({})
+    solo.units[1].icons = { { id = 40 } }
+    cfg.ui.buff_size, cfg.ui.buff_offset = 64, -64
+    eq(buff_hud(cfg, solo)[1][3], { 172, 75 + 96 })
+    eq({ frame.extent.Sidekick, calls('AddRectFilled')[1].args[2][2] }, { { 336, 75 + 98 + 8 }, 75 + 98 + 8 })
+    cfg.ui.buff_offset = nil  -- none set: 0, not the slider's least (-64 would leave your card at 75, its icon from 107)
+    eq({ buff_hud(cfg, solo)[1][2], hp_fill(108, 75 + 34) ~= nil }, { { 108, 77 }, true })
+end)
+
+-- The ids of the icons drawn, in order.
+local function ids_of(drawn)
+    local out = {}
+    for i, d in ipairs(drawn) do out[i] = d[1] end
+    return out
+end
+
+test('buff icons: the closest to wearing off first, each with its time, its largest unit alone; then those with none', function ()
+    close_settings()
+    local cfg = settings.defaults()
+    local g = fake.snap({ { name = 'A', icons = { { id = 40, left = 100 } } } })
+    g.units[1].icons = { { id = 33, left = 3 * 3600 + 59 * 60 }, { id = 37 }, { id = 34, left = 25 * 60 + 59 },
+                         { id = 35, left = 47 }, { id = 36, left = 0 } }
+    eq(ids_of(buff_hud(cfg, g)), { 36, 35, 34, 33, 37, 40 })
+    -- A's 100s is an estimate: not drawn till Party buff timers is on.
+    eq({ drew('3h'), drew('25m'), drew('47s'), drew('0s'), drew('1m') }, { true, true, true, true, false })
+    -- 10px over the bottom of the second icon (x 126 to 142, y 77 to 93), across its middle.
+    local w, h = kit.measure('47s', kit.fonts.semi, 10)
+    eq(text_at('47s'), { util.round(126 + (16 - w) / 2), util.round(93 - h) })
+    cfg.ui.buff_timer_size = 14
+    buff_hud(cfg, g)
+    h = select(2, kit.measure('47s', kit.fonts.semi, 14))
+    eq(text_at('47s')[2], util.round(93 - h))
+    cfg.ui.buff_timers = false  -- still in order: yours are the client's own times
+    eq(ids_of(buff_hud(cfg, g)), { 36, 35, 34, 33, 37, 40 })
+    eq({ drew('3h'), drew('47s') }, { false, false })
+end)
+
+test('buff icons: Party buff timers draws a party member\'s known times too, and sorts by them; estimates in tooltips', function ()
+    close_settings()
+    local cfg = settings.defaults()
+    local g = fake.snap({ { name = 'A', icons = { { id = 41 }, { id = 40, left = 1500 }, { id = 43, left = 60 } } },
+                          { name = 'B', kind = 'trust', icons = { { id = 33, left = 170 } } } })
+    eq(cfg.ui.buff_party_timers, false)
+    eq(ids_of(buff_hud(cfg, g)), { 41, 40, 43, 33 })  -- off: as the client lists them, no times
+    eq({ drew('25m'), drew('1m'), drew('2m') }, { false, false, false })
+    cfg.ui.buff_party_timers = true
+    eq(ids_of(buff_hud(cfg, g)), { 43, 40, 41, 33 })
+    eq({ drew('25m'), drew('1m'), drew('2m') }, { true, true, true })
+    cfg.ui.buff_timers = false  -- your own aren't these
+    buff_hud(cfg, g)
+    eq(drew('25m'), true)
+    -- Under the pointer: the last asked for shows (B's), its time an estimate.
+    buff_hud(cfg, g, { over = true })
+    eq(tipped('Haste  ~2m'), true)
+    cfg.ui.buff_party_timers = false
+    buff_hud(cfg, g, { over = true })
+    eq({ tipped('Haste  ~2m'), tipped('Haste') }, { false, true })
+end)
+
+test('buff icons: past the bar\'s end the last place counts the rest on a dark square; its tooltip lists those', function ()
+    close_settings()
+    local cfg, g = settings.defaults(), fake.snap({})
+    g.units[1].icons = {}
+    for id = 40, 59 do g.units[1].icons[#g.units[1].icons + 1] = { id = id, left = id <= 52 and (id - 39) * 60 or nil } end
+    -- 220 across holds 12 of 16 (and 2 between): 11 icons, the closest to wearing off first (40 to 50, 1m to 11m),
+    -- then +9 on a dark square in the twelfth place, at the timers' size.
+    local drawn = buff_hud(cfg, g)
+    eq({ #drawn, drawn[1][1], drawn[11][1], drawn[11][2] }, { 11, 40, 50, { 108 + 10 * 18, 77 } })
+    local mw, mh = kit.measure('+9', kit.fonts.semi, 10)
+    eq({ backed(306, 77, 16, 16), text_at('+9') }, { true, { util.round(306 + (16 - mw) / 2), util.round(77 + (16 - mh) / 2) } })
+    cfg.ui.buff_timer_size = 14
+    buff_hud(cfg, g)
+    mw, mh = kit.measure('+9', kit.fonts.semi, 14)
+    eq(text_at('+9'), { util.round(306 + (16 - mw) / 2), util.round(77 + (16 - mh) / 2) })
+    cfg.ui.buff_timer_size = 10
+    -- The pointer on it: its tooltip, drawn, in place of the card's, lists the nine the row had no room for, one to a
+    -- line 4 apart from its inside (the fake's cursor, 100, 50): each icon with its time on it, its name 6 after it.
+    drawn = buff_hud(cfg, g, { over = true })
+    eq({ #drawn, drawn[11 + 1], drawn[11 + 2], drawn[11 + 9][1], tipped('Me\nHP') },
+       { 11 + 9, { 51, { 100, 50 }, { 116, 66 } }, { 52, { 100, 70 }, { 116, 86 } }, 59, false })
+    local w, h = kit.measure('12m', kit.fonts.semi, 10)
+    eq(text_at('12m'), { util.round(100 + (16 - w) / 2), util.round(66 - h) })
+    local name = fake.res.statuses[51] and fake.res.statuses[51].en or '51'
+    eq({ text_at(name)[1], drew(fake.res.statuses[40] and fake.res.statuses[40].en or '40') }, { 122, false })
+end)
+
+test('buff icons: where run and the cog are at the row\'s height, yours stop short of them; a member\'s go on', function ()
+    close_settings()
+    local cfg, g = settings.defaults(), fake.snap({ { name = 'A' } })
+    for u = 1, 2 do
+        g.units[u].icons = {}
+        for id = 40, 59 do g.units[u].icons[#g.units[u].icons + 1] = { id = id } end
+    end
+    -- The icons drawn on your card and A's, and whether yours ends in +11 on a dark square in the tenth place.
+    local function row()
+        local drawn = buff_hud(cfg, g)
+        return { #drawn, text_at('+11') ~= nil, backed(270, drawn[1][2][2], 16, 16) }
+    end
+    -- On a 24px bar run (from 108 + 220 - 6 - 34 = 288) is 5 into it, under the row's lower half: yours stops at 9
+    -- and +11 (to 286). A's card has no buttons: 11 and +9, as on the 40px bar.
+    cfg.ui.hp_height = 24
+    eq({ row(), box('##sk_run')[1] }, { { 9 + 11, true, true }, 288 })
+    -- On the 40px bar run is 21 into it: lowered 14, the row's bottom (22 in) meets it; lowered 13 (21 in), not.
+    cfg.ui.hp_height, cfg.ui.buff_offset = 40, -14
+    eq(row(), { 9 + 11, true, true })
+    cfg.ui.buff_offset = -13
+    eq(row(), { 11 + 11, false, false })
+end)
+
+test('buff icons: raised to another card\'s run and the cog, a member\'s row stops short of them too', function ()
+    close_settings()
+    local cfg, g = settings.defaults(), fake.snap({ { name = 'A' } })
+    g.units[1].icons, g.units[2].icons = {}, {}
+    for id = 40, 59 do g.units[2].icons[#g.units[2].icons + 1] = { id = id } end
+    -- Raised 64, A's row is level with your card's run and the cog (from 288): it stops at 9 and +11, as yours would.
+    cfg.ui.buff_offset = 64
+    eq({ #buff_hud(cfg, g), text_at('+11') ~= nil, box('##sk_run')[1] }, { 9, true, 288 })
+    -- Raised 30, it's under them: 11 and +9.
+    cfg.ui.buff_offset = 30
+    eq({ #buff_hud(cfg, g), text_at('+9') ~= nil }, { 11, true })
+end)
+
+test('a name on a card with run and the cog ends short of them; on another card it runs on', function ()
+    close_settings()
+    local cfg, st = bars_only(), status()
+    local long = 'Abcdefghijklmno'
+    local g = fake.snap({ { name = long } })
+    g.units[1].name = long
+    cfg.ui.hp_width = 160
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    -- Run from 108 + 160 - 6 - 34 = 228: yours, from 114, ends by 224; A's, with no buttons, whole.
+    local yours = kit.fit(long, 160 - 16 - 34, kit.fonts.semi, cfg.ui.name_size)
+    eq({ yours ~= long, drew(yours), drew(long) }, { true, true, true })
+    eq(114 + kit.measure(yours, kit.fonts.semi, cfg.ui.name_size) <= 224, true)
+end)
+
+test('buff icons: a time taller than its icon is kept clear of the title row too', function ()
+    close_settings()
+    local cfg, g = settings.defaults(), fake.snap({})
+    g.units[1].icons = { { id = 40, left = 47 } }
+    cfg.ui.buff_timer_size = 32
+    local _, th = kit.measure('0', kit.fonts.semi, 32)
+    assert(th > 16, 'the time is taller than the icon')
+    -- The time stands on the icon's bottom, 8 under the bar's top: its own top th - 8 over it, and 2 clear of the
+    -- title row (y 75).
+    buff_hud(cfg, g)
+    local top = 75 + math.ceil(th - 8 + 2)
+    eq({ hp_fill(108, top) ~= nil, text_at('47s')[2] >= 75 + 2 }, { true, true })
+end)
+
+test('buff icons: one under the pointer has its name, and on yours its time, in place of the card\'s tooltip', function ()
+    close_settings()
+    local g = fake.snap({})
+    g.units[1].icons = { { id = 40, left = 1500 } }
+    buff_hud(settings.defaults(), g, { over = true })
+    eq({ tipped('Protect  25m'), tipped('Me\nHP') }, { true, false })
+end)
+
+test('buff icons: a dark square in place of an icon the client can\'t give', function ()
+    close_settings()
+    local g, st, cfg = fake.snap({}), status({ intent = false, sent = {} }), settings.defaults()
+    g.units[1].icons = { { id = 40 } }
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))  -- offline: no textures
+    eq(#calls('AddImage'), 0)
+    local square = false
+    for _, d in ipairs(calls('AddRectFilled')) do
+        if d.args[1][1] == 108 and d.args[1][2] == 77 and d.args[2][1] == 124 and d.args[2][2] == 93
+            and d.args[3] == u32(P.well, 0.85) then square = true end
+    end
+    eq(square, true)
 end)
 
 -- A row's help covers its label's half, where a ward's switch, a rune or a Risk segment can sit with a tooltip of its
@@ -1820,8 +2080,8 @@ test('UI / Log: the sliders size the HUD and Sidekick Settings, Lock position ke
     letters = table.concat(letters)
     local function place(s) return letters:find(s, 1, true) or false end
     -- In order, Alliance / Tracked last, as their rows are in the HUD; then the widget's.
-    local order = { place('HUD - GENERAL'), place('HUD - PARTY'), place('HUD - PET'), place('HUD - ALLIANCE / TRACKED'),
-                    place('WIDGET') }
+    local order = { place('HUD - GENERAL'), place('HUD - PARTY'), place('HUD - BUFFS'), place('HUD - PET'),
+                    place('HUD - ALLIANCE / TRACKED'), place('WIDGET') }
     for i = 2, #order do eq(order[i - 1] and order[i] and order[i - 1] < order[i], true, 'heading ' .. i) end
     eq(button('Background opacity##sk_ui_opacity'), false)  -- the panel is solid while hovered: nothing to set
     local free = frame.flags.Sidekick
@@ -1833,6 +2093,28 @@ test('UI / Log: the sliders size the HUD and Sidekick Settings, Lock position ke
     eq(cfg.ui.hide_mp, false)
     cfg.ui.scale = nil
     render(cfg, st)
+end)
+
+test('UI / Log: HUD - Buffs switches the icons and their timers and sizes and lifts them; greyed while off', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    eq({ cfg.ui.buff_icons, cfg.ui.buff_size, cfg.ui.buff_offset, cfg.ui.buff_timers, cfg.ui.buff_timer_size,
+         cfg.ui.buff_party_timers }, { true, 16, 0, true, 10, false })
+    eq(render(cfg, st, on('UI / Log', { ['Buff icon size##sk_ui_buff_size'] = 30,
+        ['Buff icon height##sk_ui_buff_offset'] = -12, ['Timer text size##sk_ui_buff_timer_size'] = 14 })), 3)
+    eq({ cfg.ui.buff_size, cfg.ui.buff_offset, cfg.ui.buff_timer_size }, { 30, -12, 14 })
+    eq(render(cfg, st, on('UI / Log', { ['Buff timers##sk_ui_buff_timers'] = true })), 1)
+    eq(cfg.ui.buff_timers, false)
+    -- Both timers off, it still sizes the +N.
+    eq(render(cfg, st, on('UI / Log', { ['Timer text size##sk_ui_buff_timer_size'] = 20 })), 1)
+    eq(cfg.ui.buff_timer_size, 20)
+    eq(render(cfg, st, on('UI / Log', { ['Party buff timers##sk_ui_buff_party_timers'] = true })), 1)
+    eq(cfg.ui.buff_party_timers, true)
+    eq(render(cfg, st, on('UI / Log', { ['Buff icons##sk_ui_buff_icons'] = true })), 1)
+    eq(cfg.ui.buff_icons, false)
+    eq(render(cfg, st, on('UI / Log', { ['Buff icon size##sk_ui_buff_size'] = 40,
+        ['Buff icon height##sk_ui_buff_offset'] = 5, over = true })), 0)
+    eq({ cfg.ui.buff_size, cfg.ui.buff_offset, tipped('Needs Buff icons on.') }, { 30, -12, true })
 end)
 
 test('UI / Log: HUD - Colors switches Job colors, Subjob color and HP glow, picks the Split and slides the Blend', function ()
@@ -1961,7 +2243,7 @@ end)
 
 test('alliance members are listed under Heal and Buff; Tracked lists one in the alliance', function ()
     local g = fake.snap({ { name = 'A' }, { kind = 'alliance', name = 'Bea', tracked = true } })
-    local cfg, st = settings.defaults(), status()
+    local cfg, st = bars_only(), status()
     open_settings()
     eq(render(cfg, st, on('Heal', { ['B0##sk_heal_6'] = true }), model.build(g, cat, cfg, st, NAMES)), 1)
     eq(cfg.heal.skip, { Bea = true })

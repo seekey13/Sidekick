@@ -495,6 +495,26 @@ local function buff_names(buffs, statuses)
     return text, table.concat(list, '\n')
 end
 
+-- Unit `u`'s statuses for icons: { { id, name, left, estimated }, ... }. Yours and your party's players' in the
+-- client's order (u.icons); anyone else's, pieced together from packets, by id. `left` (whole seconds): yours by the
+-- client's timers; another's only where Sidekick saw it land from a spell whose duration it knows, `estimated` then.
+local function status_list(u, statuses)
+    local icons = u.icons
+    if not icons then
+        icons = {}
+        for id in pairs(u.buffs or {}) do icons[#icons + 1] = { id = id } end
+        table.sort(icons, function (a, b) return a.id < b.id end)
+    end
+    local out = {}
+    for i, it in ipairs(icons) do
+        local s = statuses[it.id]
+        local estimated = u.kind ~= 'self' and it.left ~= nil or nil
+        out[i] = { id = it.id, name = s and lang.name(s.en, s.jp or false) or tostring(it.id), left = it.left,
+                   estimated = estimated }
+    end
+    return out
+end
+
 -- HP 'ok' | 'low' (under the danger line) | 'critical', on the focus member's lines for them.
 local function hp_state(u, h)
     local focus = h.focus ~= '' and u.name:lower() == h.focus:lower()
@@ -560,7 +580,7 @@ local function party(g, cfg, names, sessions, files)
             hpp = u.hpp, hp = hp_state(u, cfg.heal), mpp = u.mpp, uses_mp = u.uses_mp == true, tp = u.tp or 0,
             mp = u.uses_mp and u.mpp < cfg.recover.mp and 'low' or 'ok',
             dist = not u.in_zone and 'away' or u.kind == 'self' and '' or ('%.1fy'):format(u.dist or 0),
-            buffs = buffs, buffs_all = all,
+            buffs = buffs, buffs_all = all, statuses = status_list(u, names.statuses),
             session = session, pet = session and u.pet and their_pet(u.pet, files[u.sid]) or nil,
         }
     end

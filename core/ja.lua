@@ -337,6 +337,39 @@ ja.words = {
         'ここで選んだテーマは、このPCのすべてのキャラクターで使われます。テーマを追加するには、その .lua ファイルを'
         .. 'Sidekickの ui フォルダーに置きます（ui/README.md に説明があります）。',
     ['HUD - General'] = 'HUD - 全般', ['HUD - Party'] = 'HUD - パーティ', ['HUD - Pet'] = 'HUD - ペット',
+    ['HUD - Buffs'] = 'HUD - 強化', ['Buff icons'] = '強化アイコン',
+    ['A row of icons along the top of each party card\'s HP bar: the statuses on you, your party and your trusts, '
+        .. 'the closest to wearing off first. Point at one for its name; those past the bar\'s end are counted in the '
+        .. 'last place (+N): point at it to list them.'] =
+        'パーティの各カードのHPバーの上端に沿って、自分・パーティメンバー・フェイスのステータスのアイコンを、切れるのが'
+        .. '早いものから左に並べます。アイコンにポインターを合わせると名前が出ます。バーに収まらない分は最後の枠に数で'
+        .. '表示されます（+N）。そこにポインターを合わせると、その一覧が出ます。',
+    ['Needs Buff icons on.'] = '「強化アイコン」がオンのときに使えます。',
+    ['Buff icon size'] = '強化アイコンのサイズ',
+    ['Pixels: each buff icon along the top of a party card\'s HP bar.'] =
+        'ピクセル: パーティのカードのHPバー上端に並ぶ強化アイコン1つの大きさ。',
+    ['Buff icon height'] = '強化アイコンの高さ',
+    ['Pixels: 0 centres the icons on the HP bar\'s top edge, half over the bar. Above 0 raises them, up past the bar; '
+        .. 'below 0 lowers them into it.'] =
+        'ピクセル: 0でアイコンの中心がHPバーの上端に来て、半分がバーに重なります。0より大きいと上がってバーの上へ出て、'
+        .. '0より小さいとバーの中へ下がります。',
+    ['Buff timers'] = '強化の残り時間',
+    ['The time left on each of your own buffs, on its icon: 3h, 25m, 47s, the closest to wearing off first. Exact: '
+        .. 'the game times your own.'] =
+        '自分の強化の残り時間をアイコンの上に表示します（3h、25m、47s）。切れるのが早いものから左に並びます。'
+        .. '自分の分はゲームが計っているので正確です。',
+    ['Party buff timers'] = 'パーティの強化の残り時間',
+    ['The time left on a party member\'s or trust\'s buff too, where known: Sidekick saw it land, from a spell whose '
+        .. 'duration it knows (Protect, Shell, Haste, Refresh, Regen, songs, storms...). An estimate, by that spell\'s '
+        .. 'base duration: gear or merits that lengthen it aren\'t counted, and once it runs out with the buff still on, '
+        .. 'its time goes.'] =
+        'パーティメンバーやフェイスの強化の残り時間も、わかるものは表示します。Sidekickがかかるのを見ていて、効果時間を'
+        .. '知っている魔法（プロテス、シェル、ヘイスト、リフレシュ、リジェネ、歌、陣など）のものです。その魔法の基本の'
+        .. '効果時間からの目安で、効果時間を延ばす装備やメリットポイントは数えません。時間が切れても強化が残っているときは、'
+        .. '残り時間は消えます。',
+    ['Timer text size'] = '残り時間の文字サイズ',
+    ['Pixels: the time on each buff\'s icon, and the count of those past the bar\'s end (+N).'] =
+        'ピクセル: 各強化アイコンの残り時間と、バーに収まらない分の数（+N）の文字。',
     ['HUD - Alliance / Tracked'] = 'HUD - アライアンス/追跡',
     ['LOG'] = 'ログ', ['CLIENT'] = 'クライアント', ['AUTOMATION'] = '自動操作', ['Nothing sent yet.'] = 'まだ何も送っていません。',
     ['%ds'] = '%d秒',

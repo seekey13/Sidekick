@@ -91,6 +91,25 @@ local function uses(K, name, family, kind)
     return out
 end
 
+-- Every spell's base duration in seconds, where the knowledge gives one (Protect, Haste, Regen, songs, storms...),
+-- whoever casts it: { [spell id] = seconds }. Where your catalog has none for a spell seen landing (core/packets.lua:
+-- `known`), the statuses read from packets last by it, and the HUD's timers for others' buffs go by it. Also which of
+-- them are songs, { [spell id] = true }: two of a kind from two bards both stand (core/packets.lua: `song`).
+function catalog.durations(res, K)
+    local out, songs = {}, {}
+    for id, s in pairs(res.spells) do
+        local family, tier = catalog.split(s.en)
+        for _, use in ipairs(uses(K, s.en, family, 'ma')) do
+            local d = per_tier(use.duration, tier)
+            if d then
+                out[id], songs[id] = d, use.role == 'song' or nil
+                break
+            end
+        end
+    end
+    return out, songs
+end
+
 -- Which job lets the player cast this spell now: 'main', 'sub', or nil.
 -- Also whether it hangs on SCH's Addendum (only castable through SCH).
 local function spell_source(s, p)

@@ -18,6 +18,10 @@
              zone or while /anon),
              in_zone, dist, pos = { x, y, z },
              status (entity), alive, buffs = { [id] = true },
+             icons = { { id, left, estimated }, ... } (their statuses for the HUD's icons: yours and your party's
+             players' in the client's order, anyone else's by id; `left`, the whole seconds yours have left, by the
+             client's timers, nil with no end; another's only when it was seen landing from a spell whose duration is
+             known, `estimated` then: by that base duration, core/buffs.lua),
              stacks = { [id] = how many stand } (you and your party's players: runes
              and songs of one kind stack; nil for a player the client's list has no entry for yet),
              moving (others: moved in the last half second),
@@ -135,11 +139,17 @@ local function weather()
     return ptr ~= 0 and ashita.memory.read_uint8(ptr) or 0
 end
 
--- The Vana'diel day, 0 Firesday .. 6 Lightsday, 7 Darksday; nil unknown.
-local function day()
+-- The client's clock: Earth seconds, as Unix time (Vana'diel's epoch, 2002-01-01 JST, is 1009810800). nil unknown.
+local function stamp()
     local ptr = clock_ptr ~= 0 and ashita.memory.read_uint32(clock_ptr + 0x34) or 0
     if ptr == 0 then return nil end
-    return math.floor((ashita.memory.read_uint32(ptr + 0x0C) + 92514960) / 3456) % 8
+    return ashita.memory.read_uint32(ptr + 0x0C)
+end
+
+-- The Vana'diel day, 0 Firesday .. 6 Lightsday, 7 Darksday; nil unknown.
+local function day()
+    local s = stamp()
+    return s and math.floor((s + 92514960) / 3456) % 8
 end
 
 local max_hp = {}  -- [sid] = HP seen at 100%: heal sizing needs the deficit
@@ -158,6 +168,7 @@ local rescan_at = -math.huge
 local rest_since  -- when you last sat down to rest (status RESTING), while you still are
 local claim = { at = -math.huge, tidx = nil }  -- the last look for an alliance-claimed mob
 local fed = {}  -- [sid] = true: last read's units whose statuses come from packets
+local timed_was = {}  -- [sid] = true: last read's party players, their statuses timed from packets
 
 local any = can.any
 
@@ -186,10 +197,80 @@ local function party_buffs(sid)
                 local high = bit.band(bit.rshift(ashita.memory.read_uint8(entry + 8 + math.floor(j / 4)), (j % 4) * 2), 3)
                 list[#list + 1] = high * 256 + ashita.memory.read_uint8(entry + 16 + j)
             end
-            return counted(list)
+            local set, stacks = counted(list)
+            return set, stacks, list
         end
     end
-    return {}, nil
+    return {}, nil, nil
+end
+
+-- A list of status ids as the HUD's icons, in the client's order: { { id }, ... }, the empty entries (0, 255, -1) left
+-- out and each one that stands twice (two Marches) kept twice, as the client's own icons are.
+local function icon_list(list)
+    local out = {}
+    for _, id in ipairs(list or {}) do
+        if id > 0 and id ~= 255 then out[#out + 1] = { id = id } end
+    end
+    return out
+end
+
+-- Statuses pieced together from packets, as icons: by id, as they come in no order.
+local function set_icons(set)
+    local out = {}
+    for id in pairs(set) do out[#out + 1] = { id = id } end
+    table.sort(out, function (a, b) return a.id < b.id end)
+    return out
+end
+
+-- Another's `icons`, each with the whole seconds it has left where a duration was known as it landed (core/buffs.lua),
+-- `estimated`: the client times only yours.
+local function time_icons(sid, icons, now)
+    for _, it in ipairs(icons) do
+        local left = buffs.left(sid, it.id, now)
+        if left then it.left, it.estimated = math.ceil(left), true end
+    end
+    return icons
+end
+
+local INFINITE = 0x7FFFFFFF  -- a status timer's "no end"
+local VANA_EPOCH = 1009810800  -- the client's clock (stamp) at the timers' zero
+local hides_timer = {}  -- [status id] = true: the client shows no time for it (its icon's HideTimer)
+
+local function hidden_timer(id)
+    if hides_timer[id] == nil then
+        local ok, icon = pcall(function () return AshitaCore:GetResourceManager():GetStatusIconByIndex(id) end)
+        hides_timer[id] = ok and icon ~= nil and (tonumber(icon.HideTimer) or 0) ~= 0
+    end
+    return hides_timer[id]
+end
+
+-- Whole seconds left on a status timer `raw` (60ths of a second from the clock's VANA_EPOCH, kept in 32 bits, so it
+-- wraps) at the client's clock `now`: as statustimers reads it. nil with no end, or no clock to read it by.
+function game.time_left(raw, now)
+    if raw == nil or raw == INFINITE or now == nil then return nil end
+    local left = (raw - (now - VANA_EPOCH) * 60) % 4294967296  -- the wrap: back into 32 bits, then signed
+    if left >= 2147483648 then left = left - 4294967296 end
+    return left < 1 and 0 or math.ceil(left / 60)
+end
+
+-- Your statuses as the HUD's icons, in the client's order, each with the seconds it has left (`left`; nil with no end,
+-- or one the client shows no time for). From its status icons and their timers, side by side, as statustimers reads
+-- them; with none of those to read, your statuses with no time.
+local function own_icons(player)
+    local ok, ids, timers = pcall(function () return player:GetStatusIcons(), player:GetStatusTimers() end)
+    if not (ok and ids and timers) then
+        local raw, list = player:GetBuffs(), {}
+        for i = 1, 32 do list[i] = raw[i] or 0 end
+        return icon_list(list)
+    end
+    local now, out = stamp(), {}
+    for i = 1, 32 do
+        local id = ids[i] or 0
+        if id > 0 and id ~= 255 then
+            out[#out + 1] = { id = id, left = not hidden_timer(id) and game.time_left(timers[i], now) or nil }
+        end
+    end
+    return out
 end
 
 -- The item id in your ammo slot, 0 for none. The equipment entry's Index packs
@@ -379,6 +460,8 @@ local function tracked_unit(em, t, me, now)
     u.alive = u.hpp > 0 and u.status ~= DEAD
     if u.in_zone and not u.alive then buffs.forget(t.sid) end  -- a death clears statuses silently
     u.buffs = buffs.of(t.sid, now)
+    buffs.keep(t.sid, u.buffs, now)
+    u.icons = time_icons(t.sid, set_icons(u.buffs), now)
     u.hot = observed.hot(t.sid, now, u.buffs[REGEN])
     return u
 end
@@ -575,11 +658,19 @@ local function member(party, player, em, i, zone, now)
         if u.kind == 'party' then u.pet = their_pet(em, tidx) end  -- yours is the snapshot's (read_pet)
     end
     u.alive = u.hpp > 0 and u.status ~= DEAD
-    if u.kind == 'self' then u.buffs, u.stacks = own_buffs(player)
-    elseif u.kind == 'party' then u.buffs, u.stacks = party_buffs(sid)
+    if u.kind == 'self' then
+        u.buffs, u.stacks = own_buffs(player)
+        u.icons = own_icons(player)
+    elseif u.kind == 'party' then
+        local list
+        u.buffs, u.stacks, list = party_buffs(sid)
+        if u.stacks then buffs.keep(sid, u.buffs, now) end  -- in the client's list: what's left it wore off
+        u.icons = time_icons(sid, icon_list(list), now)
     else  -- a trust or the alliance: the client keeps no list
         if not u.alive then buffs.forget(sid) end  -- a death clears statuses silently
         u.buffs = buffs.of(sid, now)
+        buffs.keep(sid, u.buffs, now)
+        u.icons = time_icons(sid, set_icons(u.buffs), now)
     end
     -- Under Weakness or a Curse their max is for now: none is kept, it's estimated from HP%
     -- until they're seen at full again without it. Yours the client gives whole.
@@ -608,7 +699,10 @@ local function read_pet(em, player, me, jobs, units, tracks, now)
         end
         if gone then
             for _, u in ipairs(units) do  -- already read this time round
-                if tracks[u.sid] then u.buffs = buffs.of(u.sid, now) end
+                if tracks[u.sid] then
+                    u.buffs = buffs.of(u.sid, now)
+                    u.icons = time_icons(u.sid, set_icons(u.buffs), now)
+                end
             end
         end
     end
@@ -634,7 +728,7 @@ function game.read(now, idle)
     if player:GetMainJobLevel() == 0 or zone == 0 or packets.zoning(now) then return { loading = true, now = now } end
     local jobs = jobs_of(player)
 
-    local units, allied, tracks, listed = {}, {}, {}, {}
+    local units, allied, tracks, listed, timed = {}, {}, {}, {}, {}
     local trust_allied = false  -- a trust in slots 6-17, or one there whose id isn't read yet (battle_target)
     for i = 0, 17 do
         if party:GetMemberIsActive(i) == 1 then
@@ -642,6 +736,7 @@ function game.read(now, idle)
             listed[u.sid] = true
             if i > 5 and (u.sid >= TRUST or u.sid == 0) then trust_allied = true end
             if u.kind == 'trust' or u.kind == 'alliance' then tracks[u.sid] = true end  -- statuses from packets
+            if u.kind == 'party' then timed[u.sid] = true end  -- statuses from the client, timed from packets
             local list = u.kind == 'alliance' and allied or units
             list[#list + 1] = u
         end
@@ -672,11 +767,14 @@ function game.read(now, idle)
     motion = seen
     local pet = read_pet(em, player, me, jobs, units, tracks, now)
     -- Statuses on one gone since the last read (a trust dismissed, a member who
-    -- left the alliance) went silently: if they come back, they start clean.
+    -- left the party or the alliance) went silently: if they come back, they start clean.
     for sid in pairs(fed) do
         if not tracks[sid] then buffs.forget(sid) end
     end
-    fed = tracks
+    for sid in pairs(timed_was) do
+        if not (timed[sid] or tracks[sid]) then buffs.forget(sid) end
+    end
+    fed, timed_was = tracks, timed
     for _, u in ipairs(units) do u.futile = removal.futile(u.sid, u.buffs, now) end
     local finished, spell_finish = packets.last_finish()
     local casting, cast_at = packets.casting(now)
@@ -685,7 +783,8 @@ function game.read(now, idle)
 
     local g = {
         finished = finished, spell_finish = spell_finish,
-        now = now, zone = zone, me = me, units = units, tracks = tracks, bt = bt, target = player_target(mm, em),
+        now = now, zone = zone, me = me, units = units, tracks = tracks, timed = timed, bt = bt,
+        target = player_target(mm, em),
         t = not (idle or safe) and mob_target(mm, em, listed) or nil,
         pet = pet, ammo = ammo(), items = inventory(),
         main = jobs.main, main_lv = jobs.main_lv, sub = jobs.sub, sub_lv = jobs.sub_lv,

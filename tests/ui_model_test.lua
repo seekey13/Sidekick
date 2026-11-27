@@ -554,6 +554,19 @@ test('a long status list is cut short, the whole list kept for the tooltip', fun
     eq(select(2, p.buffs_all:gsub('\n', '')), 7)
 end)
 
+test('statuses, for icons: yours and a party player\'s in the client\'s order, the rest by id; another\'s time an estimate', function ()
+    local g = fake.snap({ { name = 'A', icons = { { id = 41 }, { id = 40, left = 99 } } },
+                          { name = 'B', kind = 'trust', buffs = { [43] = true, [33] = true } } })
+    g.units[1].icons = { { id = 33, left = 47 }, { id = 214 }, { id = 214, left = 3600 }, { id = 1000 } }
+    local view = build(whm, nil, g)
+    eq(view.party[1].statuses, { { id = 33, name = 'Haste', left = 47 }, { id = 214, name = 'March' },
+                                 { id = 214, name = 'March', left = 3600 }, { id = 1000, name = '1000' } })
+    -- The client times only yours: another's, from a known duration, is an estimate.
+    eq(view.party[2].statuses, { { id = 41, name = 'Shell' }, { id = 40, name = 'Protect', left = 99, estimated = true } })
+    eq(view.party[3].statuses, { { id = 33, name = 'Haste' }, { id = 43, name = 'Refresh' } })
+    eq(build(whm).party[2].statuses, {})
+end)
+
 -- Tracked players ----------------------------------------------------------------------
 
 local function tracked_snap(over)
