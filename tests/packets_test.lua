@@ -328,6 +328,22 @@ test('your song is stamped on who its finish says it landed on, doubled under Tr
     eq(next(brd.stamps()), nil)
 end)
 
+test('on a player, a spell outside your catalog lasts its base duration for automation up to buffs.DEFAULT_SECONDS', function ()
+    local ALLY = 0x2001  -- an alliance member's or tracked player's: a player, whose wear-off goes to them alone
+    buffs.clear()
+    local c = ctx({ [44] = 1800 })  -- Protect II: a spell of yours
+    c.tracks[ALLY] = true
+    c.known = function (spell) return ({ [43] = 1800, [44] = 1800, [57] = 180 })[spell] end
+    packets.action(action(STRANGER, SPELL, 43, { { ALLY, 230, PROTECT }, { TRUST, 230, PROTECT } }), c, 0)
+    packets.action(action(STRANGER, SPELL, 57, { { ALLY, 230, 33 } }), c, 0)
+    -- Another's Protect: the player's held 300s, the trust's its 1800; their Haste its 180, under the cap.
+    eq({ buffs.of(ALLY, 179), buffs.of(ALLY, 299), buffs.of(ALLY, 301), buffs.of(TRUST, 1799)[PROTECT] },
+       { { [PROTECT] = true, [33] = true }, { [PROTECT] = true }, {}, true })
+    -- Yours lasts as your catalog has it, on a player too.
+    packets.action(action(STRANGER, SPELL, 44, { { ALLY, 230, PROTECT } }), c, 0)
+    eq(buffs.of(ALLY, 1799)[PROTECT], true)
+end)
+
 test('another\'s song doesn\'t cut yours short on a trust: two of a kind from two bards both stand', function ()
     local brd = require('jobs.brd')
     brd.clear()

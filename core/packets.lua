@@ -92,6 +92,7 @@ local RESULT_BITS = 3 + 2 + 12 + 5 + 2 + 3 + 17 + 10 + 31
 -- main messages 0, 1, 15, 30-32, 67, 70, 352, 353 and 373: none packets.action reads. Enspells,
 -- spikes and status procs come in the additional effect and spikes parts, never read.
 local MELEE = 1
+local NPC = 0x1000000  -- server ids from here up are NPCs (a trust, your pet); below, players
 
 -- 0x028 action packet: header plus each target's results (bit-packed, big endian), or nil
 -- when it's malformed or can't matter to packets.action: an auto-attack, or another's
@@ -182,14 +183,18 @@ function packets.action(p, ctx, now)
                 -- How long it lasts as it lands: yours as a job module knows it (core/jobs.lua: `lasts`: a song
                 -- twice as long under Troubadour, jobs/brd.lua), else as your catalog has it, else by its base
                 -- duration whoever cast it (a trust's Protectra: core/catalog.lua's durations), else not known
-                -- (buffs.DEFAULT_SECONDS for automation, and no time on the HUD).
-                local lasts = mine and jobs.first('lasts', mine, ctx)
-                    or spell and (ctx.duration(p.param) or ctx.known and ctx.known(p.param)) or nil
+                -- (buffs.DEFAULT_SECONDS for automation, and no time on the HUD). By that base duration, automation
+                -- holds it on a player no longer than buffs.DEFAULT_SECONDS: their wear-off goes to them alone, so
+                -- one ended out of sight (dead out of range, dispelled) is held no longer than an unknown one.
+                local lasts = mine and jobs.first('lasts', mine, ctx) or spell and ctx.duration(p.param) or nil
+                local base = not lasts and spell and ctx.known and ctx.known(p.param) or nil
+                local held = lasts or base and (t.id >= NPC and base or math.min(base, buffs.DEFAULT_SECONDS))
                 -- A song stacks whoever sings it: two of a kind from two bards both stand, so another's never cuts
                 -- yours short (a Minuet of 120s over yours of 240 under Troubadour).
                 local song = mine and mine.role == 'song' or spell and ctx.song and ctx.song(p.param) or false
-                if tracked then buffs.gain(t.id, r.param, now, lasts, song) end
-                if lasts and (tracked or (ctx.timed or {})[t.id]) then buffs.timed(t.id, r.param, now, lasts, song) end
+                if tracked then buffs.gain(t.id, r.param, now, held, song) end
+                local timer = lasts or base
+                if timer and (tracked or (ctx.timed or {})[t.id]) then buffs.timed(t.id, r.param, now, timer, song) end
                 if key and spell then observed.landed(key, t.id, now) end
                 if mine then landed[#landed + 1] = t.id end
             elseif LOSES_028[r.message] and tracked then
