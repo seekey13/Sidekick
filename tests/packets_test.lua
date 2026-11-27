@@ -328,6 +328,26 @@ test('your song is stamped on who its finish says it landed on, doubled under Tr
     eq(next(brd.stamps()), nil)
 end)
 
+test('another\'s song doesn\'t cut yours short on a trust: two of a kind from two bards both stand', function ()
+    local brd = require('jobs.brd')
+    brd.clear()
+    local minuet = { name = 'Valor Minuet IV', role = 'song', status = { 198 }, duration = 120 }
+    buffs.clear()
+    local c = ctx()
+    c.spell = function (id) return id == 397 and minuet or nil end
+    c.known = function (spell) return ({ [397] = 120, [398] = 120, [57] = 180 })[spell] end
+    c.song = function (spell) return spell == 397 or spell == 398 end
+    c.buffs, c.slots = { [348] = true }, 2  -- Troubadour: yours lasts 240
+    packets.action(action(ME, SPELL, 397, { { TRUST, 266, 198 } }), c, 0)
+    -- Another bard's Minuet V 10s later, a song not in your catalog (its 120s by the knowledge): yours still stands.
+    packets.action(action(STRANGER, SPELL, 398, { { TRUST, 266, 198 } }), c, 10)
+    eq({ buffs.of(TRUST, 239)[198], buffs.of(TRUST, 241)[198], buffs.left(TRUST, 198, 200) }, { true, nil, 40 })
+    -- Not a song: the later cast's time, as before.
+    packets.action(action(STRANGER, SPELL, 57, { { TRUST, 230, 33 } }), c, 0)
+    packets.action(action(STRANGER, SPELL, 57, { { TRUST, 230, 33 } }), c, 100)
+    eq(buffs.left(TRUST, 33, 200), 80)
+end)
+
 test('zoning: from the zone-out until the zone-in settles, or a minute without it', function ()
     local function at(id, now) packets.handle({ id = id, data = '' }, ctx(), now) end
     at(0x00B, 100)

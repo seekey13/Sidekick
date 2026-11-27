@@ -140,6 +140,7 @@ end
 -- for units whose statuses come from packets, timed = { [server id] = true } for your party's players, whose
 -- statuses the client lists but doesn't time, duration = function(spell id) -> seconds or nil (your spell's, by the
 -- catalog: what automation goes by), known = function(spell id) -> seconds or nil (anyone's: for the HUD's timers),
+-- song = function(spell id) -> whether it's a song, whoever sings it,
 -- spell = function(spell id) -> your spell's catalog record or nil, buffs = yours, slots = your songs per target
 -- (jobs/brd.lua), removes = function(observed.key) -> the status ids your remover clears and whether it's Esuna's
 -- kind (cast on you, clearing on those near only what you have too), or nil, missing = function(server id) -> HP a
@@ -184,7 +185,9 @@ function packets.action(p, ctx, now)
                 -- (buffs.DEFAULT_SECONDS for automation, and no time on the HUD).
                 local lasts = mine and jobs.first('lasts', mine, ctx)
                     or spell and (ctx.duration(p.param) or ctx.known and ctx.known(p.param)) or nil
-                local song = mine and mine.role == 'song'
+                -- A song stacks whoever sings it: two of a kind from two bards both stand, so another's never cuts
+                -- yours short (a Minuet of 120s over yours of 240 under Troubadour).
+                local song = mine and mine.role == 'song' or spell and ctx.song and ctx.song(p.param) or false
                 if tracked then buffs.gain(t.id, r.param, now, lasts, song) end
                 if lasts and (tracked or (ctx.timed or {})[t.id]) then buffs.timed(t.id, r.param, now, lasts, song) end
                 if key and spell then observed.landed(key, t.id, now) end

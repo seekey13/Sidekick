@@ -1399,6 +1399,19 @@ test('buff icons: where run and the cog are at the row\'s height, yours stop sho
     eq(row(), { 11 + 11, false, false })
 end)
 
+test('buff icons: raised to another card\'s run and the cog, a member\'s row stops short of them too', function ()
+    close_settings()
+    local cfg, g = settings.defaults(), fake.snap({ { name = 'A' } })
+    g.units[1].icons, g.units[2].icons = {}, {}
+    for id = 40, 59 do g.units[2].icons[#g.units[2].icons + 1] = { id = id } end
+    -- Raised 64, A's row is level with your card's run and the cog (from 288): it stops at 9 and +11, as yours would.
+    cfg.ui.buff_offset = 64
+    eq({ #buff_hud(cfg, g), text_at('+11') ~= nil, box('##sk_run')[1] }, { 9, true, 288 })
+    -- Raised 30, it's under them: 11 and +9.
+    cfg.ui.buff_offset = 30
+    eq({ #buff_hud(cfg, g), text_at('+9') ~= nil }, { 11, true })
+end)
+
 test('a name on a card with run and the cog ends short of them; on another card it runs on', function ()
     close_settings()
     local cfg, st = bars_only(), status()

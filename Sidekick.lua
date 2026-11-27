@@ -128,7 +128,11 @@ local SENT_KEPT = 10
 
 -- Packets feed the cast lock and the trusts' statuses; they need to know who you
 -- are, who is tracked, and how long a spell's buff lasts.
-local durations  -- every spell's base duration, whoever casts it (core/catalog.lua), made the first time it's asked
+-- Every spell's base duration, whoever casts it, and which are songs (core/catalog.lua), made the first time asked.
+local durations, songs
+local function base()
+    if not durations then durations, songs = catalog.durations(resources.load(), knowledge) end
+end
 local packet_ctx = {
     tracks = {}, timed = {},
     duration = function (spell_id)
@@ -136,8 +140,12 @@ local packet_ctx = {
         return a and a.duration
     end,
     known = function (spell_id)  -- any spell's, whoever casts it: where yours (duration) has none
-        durations = durations or catalog.durations(resources.load(), knowledge)
+        base()
         return durations[spell_id]
+    end,
+    song = function (spell_id)  -- whoever sings it: two of a kind from two bards both stand
+        base()
+        return songs[spell_id] == true
     end,
     spell = function (spell_id)  -- for the job modules: your songs are stamped on who they land on (jobs/brd.lua)
         return cat.by_spell[spell_id]

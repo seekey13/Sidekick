@@ -501,16 +501,19 @@ function buffrow.rest(ui, rest)
 end
 
 -- Line `l`'s row, its HP bar's left at x and its top at y. As many as fit across the bar, short of run and the cog
--- where they're at the row's height (a click there is theirs: the icons take none); past that, the last place
--- says how many more (+N) on a dark square, at the timers' size, and its tooltip lists them. Hovered by the mouse alone
--- (no item: dragging the HUD by an icon still moves it): each icon's tooltip its name and time.
-function buffrow.draw(dl, ui, l, x, y)
+-- where any line's (`lines`, the HUD's) are at the row's height (a click there is theirs: the icons take none); past
+-- that, the last place says how many more (+N) on a dark square, at the timers' size, and its tooltip lists them.
+-- Hovered by the mouse alone (no item: dragging the HUD by an icon still moves it): each icon's tooltip its name and time.
+function buffrow.draw(dl, ui, l, x, y, lines)
     local list = l.p.statuses
     if not (list and list[1]) then return end
     list = buffrow.sorted(ui, list)
     local s, gap = ui.buff_size, buffrow.GAP
     local top, room = math.floor(y - ui.buff_offset - s / 2), l.bar_w
-    if l.icon and top < y + l.icon_dy + l.icon and top + s > y + l.icon_dy then room = l.bar_w - 6 - 2 * l.icon - gap end
+    for _, o in ipairs(lines) do  -- every line's bar starts at x; `y - l.top` is the HUD's top
+        local by = y - l.top + o.top + (o.icon_dy or 0)
+        if o.icon and top < by + o.icon and top + s > by then room = math.min(room, o.bar_w - 6 - 2 * o.icon - gap) end
+    end
     local fit = math.max(1, math.floor((room + gap) / (s + gap)))
     local shown = #list > fit and fit - 1 or #list
     for i = 1, shown do
@@ -834,7 +837,7 @@ local function draw_hud(view)
         draw_labels(labels_at(view, l), ui.text_size, x0 + pw, y + l.h / 2)
     end
     for _, l in ipairs(lines) do  -- the buff icons last, over everything: their tooltips replace a line's or a button's
-        if l.buffs then buffrow.draw(dl, ui, l, x0 + HUD_PAD, y0 + l.top) end
+        if l.buffs then buffrow.draw(dl, ui, l, x0 + HUD_PAD, y0 + l.top, lines) end
     end
     imgui.SetCursorScreenPos({ x0, y0 + ph - HUD_PAD })
     imgui.Dummy({ pw, HUD_PAD })  -- the bottom padding, and the panel's full width, for the auto-size

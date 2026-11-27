@@ -30,7 +30,7 @@ for _, id in ipairs(require('core.status').CHARM) do CHARM[id] = true end
 local store = {}  -- [server id] = { [status id] = expires at (os.clock seconds) }
 -- When a status seen landing ends by a duration known for it (a spell's base duration: core/catalog.lua's durations),
 -- on anyone it's kept for: a party player too, whose statuses the client lists but never times. For the HUD's timers
--- alone: `store` above is what automation reads, and it stays as it was.
+-- alone: automation reads `store` above, kept apart, which has only the units whose statuses come from packets.
 local known = {}  -- [server id] = { [status id] = { ends = ends at, at = seen landing at } (os.clock seconds) }
 -- A party player's statuses come in a packet of their own (0x076) after the one saying one landed (0x028): one seen
 -- landing this recently is kept though their list doesn't have it yet.
@@ -50,10 +50,12 @@ function buffs.lose(sid, status)
     if known[sid] then known[sid][status] = nil end
 end
 
--- `status` landed on `sid` at `now` for `seconds`, a duration known for it. `stacks` as gain's.
+-- `status` landed on `sid` at `now` for `seconds`, a duration known for it. `stacks` as gain's. Its end is kept in whole
+-- seconds: two ending within one second then show the same time throughout, and the HUD's order of them holds (the
+-- times shown are whole seconds, and it breaks ties by their order given).
 function buffs.timed(sid, status, now, seconds, stacks)
     known[sid] = known[sid] or {}
-    local ends, was = now + seconds, known[sid][status]
+    local ends, was = math.floor(now + seconds), known[sid][status]
     known[sid][status] = { ends = stacks and was and math.max(was.ends, ends) or ends, at = now }
 end
 
